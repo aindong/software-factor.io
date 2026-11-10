@@ -25,13 +25,15 @@ A lane's record is the number of runs in a row, counted back from the newest, th
 ended done with the lane's work left as it was. What ends the row:
 
 - the lane's work was sent back or rejected by a person,
-- the lane failed (its own gates, its agent, its command),
+- the run ended at the lane because the lane's own work failed (its gates, its agent, its command, its rounds
+  used up). A try that failed and was mended inside a run that ended done does not end the row: that is the
+  loop doing its job,
 - a defect that got through the lane was reported (an escape),
 - the lane moved on the ladder, or its checkpoint was changed in the workflow's file by anything else. The
   record then starts again from that moment: what was earned on one step is not carried to another.
 
-A run that is still moving or waiting is not counted yet. A run that ended for another lane's reason says
-nothing about this lane and is skipped. Only runs of the workflow the workspace runs now count, and only visits
+A run that is still moving or waiting is not counted yet. A run that ended for another reason (another lane, a
+person's stop, a crash, a budget) says nothing about this lane and is skipped. Only runs of the workflow the workspace runs now count, and only visits
 to the lane that began after it last moved.
 
 In the loop, a clean run is one a person approved as it was. Near the loop nobody approves: a clean run there

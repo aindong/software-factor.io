@@ -471,17 +471,21 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
             onChange={change}
             onSelect={choose}
             onClose={() => setSheet(false)}
-            ladder={(lane) => (
-              <Ladder
-                lane={lane}
-                dirty={dirty}
-                stamp={version}
-                onMoved={() => {
-                  stay.current = true;
-                  if (name) load(name);
-                }}
-              />
-            )}
+            ladder={
+              name !== workspace?.workflow
+                ? undefined
+                : (lane) => (
+                    <Ladder
+                      lane={lane}
+                      dirty={dirty}
+                      stamp={version}
+                      onMoved={() => {
+                        stay.current = true;
+                        if (name) load(name);
+                      }}
+                    />
+                  )
+            }
           />
         ) : null}
       </div>

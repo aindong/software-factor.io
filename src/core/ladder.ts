@@ -21,6 +21,8 @@ export const STANDS: Record<Mode, string> = {
   out: "out of the loop",
 };
 const DEFAULT_RUNS = 10;
+// how a run ends when the lane it stood at failed by its own work, not by a stop, a crash or a budget
+const ITS_OWN = new Set(["lane_failed", "gate_stop", "out_of_rounds", "no_progress", "rejected"]);
 
 export interface Move {
   /** `seen` is the step a lane stood on when the ladder first met it. `outside` is a step that changed in the file with no move of the ladder's. */
@@ -72,7 +74,7 @@ export function ladderView(ws: Workspace, db: Db): { lanes: LadderLane[] } {
     // to a step the ladder did not give.
     const checkpoint = lane.checkpoint as Mode;
     const known = moves.findLast((m) => m.to_mode !== null)?.to_mode;
-    if (known !== checkpoint) {
+    if (known !== checkpoint && !db.isTransaction) {
       const kind = known === undefined ? "seen" : "outside";
       const at = nowIso();
       db.prepare(
@@ -83,16 +85,21 @@ export function ladderView(ws: Workspace, db: Db): { lanes: LadderLane[] } {
     const latest = moves.findLast((m) => m.kind !== "seen");
     const since = latest?.at ?? "";
     // the runs that went through this lane and have ended, the newest first
-    const runs = all<{ id: string; status: string; failed: number; edited: number }>(
+    const runs = all<{
+      id: string;
+      status: string;
+      stop_code: string | null;
+      last: string | null;
+      edited: number;
+    }>(
       db,
-      `select r.id, r.status,
-         (select count(*) from lane_runs l where l.run_id = r.id and l.lane = ? and l.outcome = 'fail') as failed,
+      `select r.id, r.status, r.stop_code,
+         (select l.lane || ':' || coalesce(l.outcome, '') from lane_runs l where l.run_id = r.id order by l.id desc limit 1) as last,
          (select count(*) from inbox i where i.run_id = r.id and i.lane = ? and i.status in ('sent_back', 'rejected')) as edited
        from runs r
        where r.workflow = ? and r.ended_at is not null
          and (select min(l.started_at) from lane_runs l where l.run_id = r.id and l.lane = ?) > ?
        order by r.ended_at desc, r.rowid desc`,
-      lane.id,
       lane.id,
       workflow,
       lane.id,
@@ -100,8 +107,14 @@ export function ladderView(ws: Workspace, db: Db): { lanes: LadderLane[] } {
     );
     let streak = 0;
     for (const run of runs) {
-      if (run.failed > 0 || run.edited > 0) break; // its work was not left as it was
-      if (run.status !== "done") continue; // the run ended for another lane's reason: it says nothing of this one
+      // The row ends where the lane's work was not left as it was: a person sent it back or
+      // rejected it, or the run ended at this lane because the lane's own work failed. A try
+      // that failed and was mended inside a run that ended done is the loop doing its job.
+      const endedHere =
+        run.status !== "done" && run.last === `${lane.id}:fail` && ITS_OWN.has(run.stop_code ?? "");
+      if (run.edited > 0 || endedHere) break;
+      // a run that ended for another reason (another lane, a person's stop, a crash, a budget) says nothing of this lane
+      if (run.status !== "done") continue;
       streak += 1;
     }
     const why = lane.pin ? "it is pinned" : lane.oneWay ? "it does something that cannot be undone" : null;
@@ -131,7 +144,8 @@ export function ladderView(ws: Workspace, db: Db): { lanes: LadderLane[] } {
 
 /** Set a lane's checkpoint in the workflow's file. The file is checked before it is written, and moved into place whole. */
 function setCheckpoint(ws: Workspace, laneId: string, to: Mode): void {
-  const file = join(ws.factorDir, "workflows", `${ws.workflow.name}.json`);
+  // the file the workspace runs: its name is the workspace's choice, not the workflow's own "name"
+  const file = join(ws.factorDir, "workflows", `${ws.config.workflow}.json`);
   const doc = JSON.parse(readFileSync(file, "utf8")) as { lanes?: { id?: string; checkpoint?: string }[] };
   const lane = doc.lanes?.find((l) => l.id === laneId);
   if (!lane)
@@ -182,8 +196,15 @@ export function acceptStep(ws: Workspace, db: Db, laneId: string): { lane: strin
     );
   }
   const note = `${lane.streak} runs in a row ${lane.checkpoint === "in" ? "approved as they were" : "with nothing found later"}`;
-  setCheckpoint(ws, laneId, lane.suggestion);
-  record(db, ws, laneId, { kind: "promoted", from: lane.checkpoint, to: lane.suggestion, run: null, note });
+  db.exec("begin immediate"); // the file and the record of the move change together, as seen by any other reader
+  try {
+    setCheckpoint(ws, laneId, lane.suggestion);
+    record(db, ws, laneId, { kind: "promoted", from: lane.checkpoint, to: lane.suggestion, run: null, note });
+    db.exec("commit");
+  } catch (error) {
+    db.exec("rollback");
+    throw error;
+  }
   return { lane: laneId, from: lane.checkpoint, to: lane.suggestion };
 }
 
@@ -251,10 +272,22 @@ export function reportEscape(
   const from = lane.checkpoint as Mode;
   // a pinned lane is never moved by the ladder, in either direction: the escape is still recorded
   const to = lane.pin ? null : (DOWN[from] ?? null);
-  record(db, ws, laneId, { kind: "escape", from: null, to: null, run: runId, note: said });
-  if (to) {
-    setCheckpoint(ws, laneId, to);
-    record(db, ws, laneId, { kind: "demoted", from, to, run: runId, note: said });
+  // one piece: if the step back cannot be written, the escape is not recorded either, and can be reported again
+  db.exec("begin immediate");
+  try {
+    record(db, ws, laneId, { kind: "escape", from: null, to: null, run: runId, note: said });
+    if (to) {
+      setCheckpoint(ws, laneId, to);
+      record(db, ws, laneId, { kind: "demoted", from, to, run: runId, note: said });
+    }
+    db.exec("commit");
+  } catch (error) {
+    db.exec("rollback");
+    if (error instanceof UserError) throw error;
+    throw new UserError(
+      `The step back could not be written: ${(error as Error).message}`,
+      "Nothing was recorded. Mend that, and report the escape again.",
+    );
   }
   return { lane: laneId, from, to };
 }

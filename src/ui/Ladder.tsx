@@ -2,6 +2,7 @@
 // and the last move. The factory only suggests a step up. The person takes it here, with a
 // button, and the workflow's file changes. A step back (after a defect got through) is made from
 // the command line, and is shown here when it has happened.
+// The ladder is the active workflow's: the floor draws this only for that workflow.
 import { useEffect, useState } from "react";
 import { op } from "./api.ts";
 
@@ -42,8 +43,11 @@ export function Ladder(props: {
   // biome-ignore lint/correctness/useExhaustiveDependencies: the stamp and the lane stand for "read it again"
   useEffect(() => {
     let left = false;
+    setRefused(undefined); // a refusal was about the lane and the file as they were
     op<{ lanes: LadderLane[] }>("ladder_list").then(({ status, body }) => {
-      if (!left && status === 200) setLanes(body.lanes);
+      if (left) return;
+      if (status === 200) setLanes(body.lanes);
+      setBusy(false); // a move is over once the record has been read again
     });
     return () => {
       left = true;
@@ -55,9 +59,9 @@ export function Ladder(props: {
   const accept = async () => {
     setBusy(true);
     const { status, body } = await op<{ lane: string }>("ladder_accept", { lane: l.lane });
+    if (status === 200) return props.onMoved(); // the file changes, the stamp with it, and the record is read again
     setBusy(false);
-    setRefused(status === 200 ? undefined : `Not moved: ${body.error ?? "the factory refused it"}`);
-    if (status === 200) props.onMoved();
+    setRefused(`Not moved: ${body.error ?? "the factory refused it"}`);
   };
   return (
     <div className="ladder">
