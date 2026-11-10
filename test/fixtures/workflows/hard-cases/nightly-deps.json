@@ -1,0 +1,132 @@
+{
+  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
+  "version": 1,
+  "name": "nightly-deps",
+  "description": "Every night, update dependencies. If the suite passes, open a pull request with no notice. If it fails, one agent tries to fix the breakage. Only when that also fails does a person hear about it.",
+  "roles": {
+    "author": {
+      "description": "Fixes what a dependency update broke."
+    }
+  },
+  "limits": {
+    "minutes": 60,
+    "tokens": 3000000,
+    "usd": 5
+  },
+  "commands": {
+    "open-pr": {
+      "description": "Pushes the run's branch and opens a pull request for it. Exits 0 when the pull request exists."
+    },
+    "update-deps": {
+      "description": "Updates the project's dependencies within their allowed ranges and commits the result."
+    },
+    "verify": {
+      "description": "Runs the project's typecheck, lint and tests on a clean checkout. Exits 0 only when they all pass."
+    }
+  },
+  "collectors": [
+    {
+      "id": "nightly",
+      "uses": "core/schedule@1",
+      "with": {
+        "cron": "0 2 * * *",
+        "title": "Nightly dependency update",
+        "body": "Update every dependency to its latest compatible release."
+      }
+    }
+  ],
+  "gates": {
+    "suite": {
+      "uses": "core/command@1",
+      "with": {
+        "command": "verify"
+      },
+      "onFail": "fail"
+    },
+    "suite-repair": {
+      "uses": "core/command@1",
+      "with": {
+        "command": "verify"
+      },
+      "onFail": "repair"
+    },
+    "ci-untouched": {
+      "uses": "core/protected-paths@1",
+      "with": {
+        "paths": [".github/**", ".factor/**"]
+      },
+      "onFail": "stop"
+    },
+    "tests-kept": {
+      "uses": "core/tests-not-weakened@1",
+      "onFail": "stop"
+    },
+    "floor": {
+      "uses": "core/test-floor@1",
+      "onFail": "stop"
+    }
+  },
+  "lanes": [
+    {
+      "id": "update",
+      "uses": "core/command@1",
+      "with": {
+        "command": "update-deps",
+        "timeoutMinutes": 15
+      },
+      "gates": ["suite"],
+      "checkpoint": "out",
+      "retry": {
+        "max": 2
+      },
+      "on": {
+        "pass": "open-pr",
+        "fail": [
+          {
+            "to": "fix-breakage",
+            "when": {
+              "ref": "update.gates.suite",
+              "in": ["fail"]
+            }
+          },
+          {
+            "to": "@stop"
+          }
+        ]
+      }
+    },
+    {
+      "id": "fix-breakage",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "author",
+        "access": "write",
+        "tier": "medium",
+        "prompt": "The dependency update broke the suite. Change our code to work with the new versions. Do not pin a version back."
+      },
+      "gates": ["ci-untouched", "tests-kept", "floor", "suite-repair"],
+      "checkpoint": "out",
+      "limits": {
+        "minutes": 30,
+        "repairRounds": 2
+      },
+      "on": {
+        "pass": "open-pr",
+        "fail": "@stop",
+        "needsPerson": "@stop"
+      }
+    },
+    {
+      "id": "open-pr",
+      "uses": "core/command@1",
+      "with": {
+        "command": "open-pr"
+      },
+      "checkpoint": "out",
+      "on": {
+        "pass": "@done",
+        "fail": "@stop"
+      }
+    }
+  ]
+}

@@ -1,0 +1,222 @@
+{
+  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
+  "version": 1,
+  "name": "design-critique",
+  "description": "A design task. One vendor's agent, with an image tool, produces the assets. Another vendor's agent builds the interface with them. A critic looks at the result in a browser and sends it back to whichever of the two caused the problem.",
+  "roles": {
+    "artist": {
+      "description": "Produces image assets with the image tool."
+    },
+    "builder": {
+      "description": "Builds the interface.",
+      "differentVendorFrom": ["artist"]
+    },
+    "critic": {
+      "description": "Critiques the design.",
+      "differentVendorFrom": ["builder"]
+    }
+  },
+  "mcp": {
+    "imagegen": {
+      "from": "url",
+      "url": "https://mcp.example.com/images",
+      "headersEnv": {
+        "Authorization": "IMAGEGEN_TOKEN"
+      }
+    }
+  },
+  "skills": {
+    "impeccable": {
+      "from": "profile"
+    },
+    "playwright-cli": {
+      "from": "profile"
+    }
+  },
+  "limits": {
+    "minutes": 240,
+    "tokens": 15000000,
+    "usd": 40
+  },
+  "commands": {
+    "check-assets": {
+      "description": "Exits 0 when every image the design names exists in the worktree at the size it names."
+    },
+    "check-screenshots": {
+      "description": "Exits 0 when there is a before and an after screenshot for every interface criterion."
+    },
+    "open-pr": {
+      "description": "Pushes the run's branch and opens a pull request for it. Exits 0 when the pull request exists."
+    },
+    "verify": {
+      "description": "Runs the project's typecheck, lint and tests on a clean checkout. Exits 0 only when they all pass."
+    }
+  },
+  "collectors": [
+    {
+      "id": "designs",
+      "uses": "core/github-issues@1",
+      "with": {
+        "label": "factory:design"
+      }
+    }
+  ],
+  "gates": {
+    "assets-exist": {
+      "uses": "core/command@1",
+      "with": {
+        "command": "check-assets"
+      },
+      "onFail": "repair",
+      "description": "The folder in FACTOR_OUTPUT_ASSETS holds image files, none over 2 MB."
+    },
+    "only-assets": {
+      "uses": "core/protected-paths@1",
+      "with": {
+        "paths": ["src/**", "package.json"]
+      },
+      "onFail": "stop"
+    },
+    "protected": {
+      "uses": "core/protected-paths@1",
+      "onFail": "stop"
+    },
+    "verify": {
+      "uses": "core/command@1",
+      "with": {
+        "command": "verify"
+      },
+      "onFail": "repair"
+    },
+    "shots-exist": {
+      "uses": "core/command@1",
+      "with": {
+        "command": "check-screenshots"
+      },
+      "onFail": "repair",
+      "description": "The folder in FACTOR_OUTPUT_SHOTS holds a screenshot at each of the three widths."
+    }
+  },
+  "lanes": [
+    {
+      "id": "assets",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "artist",
+        "access": "write",
+        "mcp": ["imagegen"],
+        "prompt": "Produce the image assets the task needs into design/assets/. If critique notes are given, redo only what they name."
+      },
+      "inputs": {
+        "notes": "critique.outputs.notes"
+      },
+      "outputs": {
+        "assets": {
+          "type": "string",
+          "required": true,
+          "description": "Folder of image files."
+        }
+      },
+      "gates": ["only-assets", "assets-exist"],
+      "checkpoint": "near",
+      "limits": {
+        "usd": 15,
+        "repairRounds": 1
+      },
+      "on": {
+        "pass": "build-ui",
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "build-ui",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "builder",
+        "access": "write",
+        "tier": "large",
+        "skills": ["impeccable"],
+        "prompt": "Build the interface with the assets. If critique notes are given, fix only what they name."
+      },
+      "inputs": {
+        "assets": "assets.outputs.assets",
+        "notes": "critique.outputs.notes"
+      },
+      "gates": ["protected", "verify"],
+      "checkpoint": "near",
+      "limits": {
+        "repairRounds": 2
+      },
+      "on": {
+        "pass": "critique",
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "critique",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "critic",
+        "access": "read",
+        "tier": "large",
+        "skills": ["impeccable", "playwright-cli"],
+        "prompt": "Open the running interface in a browser at three widths and save screenshots. Critique hierarchy, spacing, type and whether it looks generic. Fail the lane if it falls short, and say whether the assets or the interface are at fault."
+      },
+      "outputs": {
+        "shots": {
+          "type": "string",
+          "required": true
+        },
+        "fault": {
+          "type": "string",
+          "enum": ["assets", "interface", "none"],
+          "required": true
+        },
+        "notes": {
+          "type": "array"
+        }
+      },
+      "gates": ["shots-exist"],
+      "checkpoint": "near",
+      "limits": {
+        "repairRounds": 1
+      },
+      "on": {
+        "pass": "open-pr",
+        "fail": [
+          {
+            "to": "assets",
+            "when": {
+              "ref": "critique.outputs.fault",
+              "in": ["assets"]
+            },
+            "maxRounds": 2
+          },
+          {
+            "to": "build-ui",
+            "when": {
+              "ref": "critique.outputs.fault",
+              "in": ["interface"]
+            },
+            "maxRounds": 3
+          },
+          {
+            "to": "@inbox"
+          }
+        ]
+      }
+    },
+    {
+      "id": "open-pr",
+      "uses": "core/command@1",
+      "with": {
+        "command": "open-pr"
+      },
+      "checkpoint": "in",
+      "on": {
+        "pass": "@done",
+        "fail": "@stop"
+      }
+    }
+  ]
+}

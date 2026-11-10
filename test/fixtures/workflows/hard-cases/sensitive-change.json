@@ -1,0 +1,217 @@
+{
+  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
+  "version": 1,
+  "name": "sensitive-change",
+  "description": "A change that touches money or auth: a threat model first, then the build, then the full review panel with every member deciding, then a person signs off before anything ships.",
+  "roles": {
+    "author": {
+      "description": "Writes the threat model and the change."
+    },
+    "reviewer": {
+      "description": "Reviews.",
+      "differentVendorFrom": ["author"]
+    },
+    "security": {
+      "description": "Security reviewer.",
+      "differentVendorFrom": ["author"]
+    }
+  },
+  "limits": {
+    "minutes": 360,
+    "tokens": 30000000,
+    "usd": 80
+  },
+  "commands": {
+    "open-pr": {
+      "description": "Pushes the run's branch and opens a pull request for it. Exits 0 when the pull request exists."
+    },
+    "scan-secrets": {
+      "description": "Scans the change for credentials. Exits 0 when none is found."
+    },
+    "threat-model-check": {
+      "description": "Exits 0 when the threat model names the assets, the attackers and a mitigation for each threat."
+    },
+    "verify": {
+      "description": "Runs the project's typecheck, lint and tests on a clean checkout. Exits 0 only when they all pass."
+    }
+  },
+  "collectors": [
+    {
+      "id": "tickets",
+      "uses": "core/github-issues@1",
+      "with": {
+        "label": "factory:sensitive"
+      }
+    }
+  ],
+  "gates": {
+    "threat-model-complete": {
+      "uses": "core/command@1",
+      "with": {
+        "command": "threat-model-check"
+      },
+      "onFail": "repair",
+      "description": "The file in FACTOR_OUTPUT_MODEL has Assets, Attackers and Mitigations, and each mitigation names a test."
+    },
+    "protected": {
+      "uses": "core/protected-paths@1",
+      "onFail": "stop"
+    },
+    "tests-kept": {
+      "uses": "core/tests-not-weakened@1",
+      "onFail": "stop"
+    },
+    "secrets-scan": {
+      "uses": "core/command@1",
+      "with": {
+        "command": "scan-secrets"
+      },
+      "onFail": "stop"
+    },
+    "verify": {
+      "uses": "core/command@1",
+      "with": {
+        "command": "verify"
+      },
+      "onFail": "repair"
+    },
+    "proves-change": {
+      "uses": "core/new-tests-fail-on-base@1",
+      "onFail": "repair"
+    }
+  },
+  "lanes": [
+    {
+      "id": "threat-model",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "author",
+        "access": "write",
+        "tier": "large",
+        "effort": "max",
+        "prompt": "Before any code: write a threat model for this task with the sections Assets, Attackers, Mitigations. Each mitigation names the test that will prove it."
+      },
+      "outputs": {
+        "model": {
+          "type": "string",
+          "required": true,
+          "description": "Path of the threat model."
+        }
+      },
+      "gates": ["threat-model-complete"],
+      "checkpoint": "in",
+      "pin": true,
+      "limits": {
+        "minutes": 40,
+        "repairRounds": 2
+      },
+      "on": {
+        "pass": "build",
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "build",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "author",
+        "access": "write",
+        "tier": "large",
+        "effort": "high",
+        "session": {
+          "continue": "threat-model"
+        },
+        "prompt": "Build the change. Write the test for every mitigation in the threat model first."
+      },
+      "inputs": {
+        "model": "threat-model.outputs.model",
+        "findings": "review.outputs.findings"
+      },
+      "gates": ["protected", "tests-kept", "secrets-scan", "verify", "proves-change"],
+      "checkpoint": "near",
+      "limits": {
+        "minutes": 120,
+        "repairRounds": 2
+      },
+      "on": {
+        "pass": "review",
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "review",
+      "description": "The full panel, whatever the size of the change. A person signs off on its result, always.",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "reviewer",
+        "access": "read",
+        "tier": "large",
+        "effort": "high",
+        "prompt": "Review the change against the threat model. Only a finding you reproduced may fail the lane."
+      },
+      "panel": {
+        "join": "all",
+        "members": [
+          {
+            "id": "correctness",
+            "prompt": "Logic errors, edge cases, error handling, concurrency."
+          },
+          {
+            "id": "requirements",
+            "prompt": "Is every mitigation in the threat model built and tested?"
+          },
+          {
+            "id": "security",
+            "role": "security",
+            "prompt": "Attack it. Money and auth paths first."
+          },
+          {
+            "id": "skeptic",
+            "prompt": "Argue the change is not done. One strongest objection, with proof."
+          },
+          {
+            "id": "maintainability",
+            "prompt": "Duplication, dead code, needless complexity."
+          }
+        ]
+      },
+      "inputs": {
+        "model": "threat-model.outputs.model"
+      },
+      "outputs": {
+        "findings": {
+          "type": "array"
+        }
+      },
+      "checkpoint": "in",
+      "pin": true,
+      "limits": {
+        "minutes": 45
+      },
+      "on": {
+        "pass": "open-pr",
+        "fail": [
+          {
+            "to": "build",
+            "maxRounds": 2
+          },
+          {
+            "to": "@stop"
+          }
+        ]
+      }
+    },
+    {
+      "id": "open-pr",
+      "uses": "core/command@1",
+      "with": {
+        "command": "open-pr"
+      },
+      "checkpoint": "near",
+      "on": {
+        "pass": "@done",
+        "fail": "@stop"
+      }
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
+  "version": 1,
+  "name": "bugfix-fast",
+  "description": "Collect labelled bug reports, fix each one with a test that fails without the fix, and open a pull request for a person to merge.",
+  "roles": {
+    "author": {
+      "description": "Writes the fix and the test that proves it."
+    }
+  },
+  "limits": {
+    "minutes": 60,
+    "tokens": 4000000
+  },
+  "commands": {
+    "verify": {
+      "description": "Runs the project's tests on a clean checkout. Exits 0 only when they all pass."
+    },
+    "open-pr": {
+      "description": "Pushes the run's branch and opens a pull request for it. Exits 0 when the pull request exists."
+    }
+  },
+  "collectors": [
+    {
+      "id": "bugs",
+      "uses": "core/github-issues@1",
+      "with": {
+        "label": "factory:bug"
+      }
+    }
+  ],
+  "gates": {
+    "protected": {
+      "uses": "core/protected-paths@1",
+      "onFail": "stop",
+      "description": "The change touches no CI, agent config or lock file."
+    },
+    "tests-kept": {
+      "uses": "core/tests-not-weakened@1",
+      "onFail": "stop",
+      "description": "No test was deleted, skipped or stripped of its checks."
+    },
+    "verify": {
+      "uses": "core/command@1",
+      "with": {
+        "command": "verify"
+      },
+      "onFail": "repair",
+      "description": "The workspace's own verify command passes on a fresh checkout."
+    },
+    "floor": {
+      "uses": "core/test-floor@1",
+      "onFail": "repair",
+      "description": "At least as many tests run as on the base commit."
+    },
+    "proves-fix": {
+      "uses": "core/new-tests-fail-on-base@1",
+      "onFail": "repair",
+      "description": "The new test fails without the fix."
+    }
+  },
+  "lanes": [
+    {
+      "id": "fix",
+      "name": "Fix",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "author",
+        "access": "write",
+        "tier": "medium",
+        "effort": "medium",
+        "prompt": "Find the root cause of the bug in the task. Write a test that fails because of it, then the smallest fix that makes the test pass. Commit both. In your hand-off, say what the cause was and name the test."
+      },
+      "outputs": {
+        "cause": {
+          "type": "string",
+          "required": true,
+          "description": "The root cause, in one sentence."
+        }
+      },
+      "gates": ["protected", "tests-kept", "verify", "floor", "proves-fix"],
+      "checkpoint": "near",
+      "limits": {
+        "minutes": 40,
+        "repairRounds": 2
+      },
+      "retry": {
+        "max": 1
+      },
+      "on": {
+        "pass": "open-pr",
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "open-pr",
+      "name": "Open pull request",
+      "uses": "core/command@1",
+      "with": {
+        "command": "open-pr"
+      },
+      "checkpoint": "in",
+      "on": {
+        "pass": "@done",
+        "fail": "@stop"
+      }
+    }
+  ]
+}

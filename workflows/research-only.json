@@ -1,0 +1,76 @@
+{
+  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
+  "version": 1,
+  "name": "research-only",
+  "description": "Answer a question with a written report that cites its sources. A second agent tries to knock it down. No code is changed.",
+  "roles": {
+    "researcher": { "description": "Reads widely and writes the report." },
+    "critic": {
+      "description": "Checks the report against its sources. Ideally a different vendor from the researcher."
+    }
+  },
+  "limits": { "minutes": 90, "tokens": 6000000 },
+  "collectors": [
+    { "id": "questions", "uses": "core/file@1", "with": { "path": ".factor/questions.md" } },
+    {
+      "id": "weekly",
+      "uses": "core/schedule@1",
+      "with": {
+        "cron": "0 6 * * 1",
+        "title": "Weekly dependency watch",
+        "body": "List the dependencies of this repository that had a release with breaking changes in the last 7 days."
+      }
+    }
+  ],
+  "gates": {
+    "report-exists": {
+      "uses": "core/command@1",
+      "with": {
+        "run": "test -s \"$FACTOR_OUTPUT_REPORT\" && grep -q '^## Sources' \"$FACTOR_OUTPUT_REPORT\""
+      },
+      "onFail": "repair",
+      "description": "The report file exists and has a Sources section."
+    }
+  },
+  "lanes": [
+    {
+      "id": "research",
+      "name": "Research",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "researcher",
+        "access": "write",
+        "tier": "large",
+        "effort": "high",
+        "prompt": "Answer the question in the task. Write the report to docs/reports/ as markdown. Give a source for every claim and end with a '## Sources' section. Mark what you could not confirm as 'Not verified'. Change no other file."
+      },
+      "outputs": {
+        "report": { "type": "string", "required": true, "description": "Path of the report file." }
+      },
+      "gates": ["report-exists"],
+      "checkpoint": "near",
+      "limits": { "minutes": 45, "repairRounds": 1 },
+      "on": { "pass": "critique", "fail": "@stop" }
+    },
+    {
+      "id": "critique",
+      "name": "Critique",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "critic",
+        "access": "read",
+        "tier": "large",
+        "effort": "high",
+        "prompt": "Read the report. Open at least five of its sources and check that each says what the report claims. Fail the lane if any claim is unsupported, and list each one with its source."
+      },
+      "inputs": { "report": "research.outputs.report" },
+      "outputs": { "unsupported": { "type": "array", "description": "Claims the sources do not support." } },
+      "checkpoint": "near",
+      "limits": { "minutes": 30 },
+      "on": {
+        "pass": "@done",
+        "fail": [{ "to": "research", "maxRounds": 1 }, { "to": "@inbox" }]
+      }
+    }
+  ]
+}
