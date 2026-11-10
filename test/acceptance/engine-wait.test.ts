@@ -87,3 +87,23 @@ describe("a wait lane", () => {
     expect(repo.rows("select kind, status from inbox")).toEqual([{ kind: "question", status: "open" }]);
   });
 });
+
+describe("a wait and the run's budget", () => {
+  it("is not charged to the run's minutes, and cannot be ended early by an approval", () => {
+    // the run may use 3 minutes and the wait is 5
+    const repo = flowRepo({
+      limits: { minutes: 3, tokens: 1000000 },
+      lanes: [
+        agentLane("build", { on: { pass: "pause", fail: "@stop" } }),
+        wait({ minutes: 5 }, { on: { pass: "after", fail: "@stop" } }),
+        agentLane("after"),
+      ],
+    });
+    expect(repo.sf("run").status).toBe(3);
+    expect(repo.sf("approve", runRow(repo)?.id ?? "").status).toBe(1);
+    expect(runRow(repo)?.status).toBe("waiting");
+    repo.env.FACTOR_CLOCK_OFFSET_MS = String(6 * MINUTE);
+    expect(repo.sf("run").status).toBe(0);
+    expect(trail(repo)).toEqual(["build:pass", "pause:pass", "after:pass"]);
+  });
+});

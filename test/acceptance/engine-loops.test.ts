@@ -58,6 +58,36 @@ describe("a review loop", () => {
     expect(runRow(repo)).toMatchObject({ status: "stopped", stop_code: "no_progress" });
   });
 
+  it("counts rounds for each loop on its own", () => {
+    const back = [{ to: "build", maxRounds: 1 }, { to: "@stop" }];
+    const repo = flowRepo({
+      lanes: [
+        agentLane("build", {
+          agent: { access: "write" },
+          gates: ["verify"],
+          on: { pass: "review", fail: "@stop" },
+        }),
+        agentLane("review", { agent: { role: "reviewer" }, on: { pass: "audit", fail: back } }),
+        agentLane("audit", { agent: { role: "reviewer" }, on: { pass: "@done", fail: back } }),
+      ],
+      scripts: {
+        author: { build: builds },
+        reviewer: { review: [[fail("x")], [pass()]], audit: [[fail("y")], [pass()]] },
+      },
+    });
+    expect(repo.sf("run").status).toBe(0);
+    expect(trail(repo)).toEqual([
+      "build:pass",
+      "review:fail",
+      "build:pass",
+      "review:pass",
+      "audit:fail",
+      "build:pass",
+      "review:pass",
+      "audit:pass",
+    ]);
+  });
+
   it("drops a task when a lane says it is not work", () => {
     const repo = flowRepo({
       lanes: [agentLane("confirm", { on: { pass: "@done", fail: "@drop" } })],

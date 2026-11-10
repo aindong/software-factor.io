@@ -159,7 +159,8 @@ export function flowRepo(o: FlowOptions): Repo {
     `${JSON.stringify({ version: 1, workflow: "starter", commands }, null, 2)}\n`,
   );
   const roles = Object.fromEntries(
-    ["author", "reviewer"].map((r) => [r, { adapter: "fake", script: o.scripts?.[r] ?? { "*": [pass()] } }]),
+    // a lane with no script of its own just passes
+    ["author", "reviewer"].map((r) => [r, { adapter: "fake", script: { "*": [pass()], ...o.scripts?.[r] } }]),
   );
   repo.write(".factor/local.json", `${JSON.stringify({ roles }, null, 2)}\n`);
   repo.write(".factor/tasks.md", o.tasks ?? "- [ ] Do the thing\n");
@@ -181,8 +182,13 @@ export const runRow = (repo: Repo) =>
 export function promptsOf(repo: Repo, lane: string): string[] {
   const run = runRow(repo);
   const dir = join(repo.dir, ".factor/runs", run?.id ?? "", "prompts");
+  // "01-build.md" is the first prompt of that lane run and "01-build.2.md" the second
+  const order = (f: string) => {
+    const m = /^(\d+)-.*?(?:\.(\d+))?\.md$/.exec(f);
+    return Number(m?.[1] ?? 0) * 1000 + Number(m?.[2] ?? 1);
+  };
   return readdirSync(dir)
     .filter((f) => new RegExp(`^\\d+-${lane}(\\.\\d+)?\\.md$`).test(f))
-    .sort()
+    .sort((a, b) => order(a) - order(b))
     .map((f) => readFileSync(join(dir, f), "utf8"));
 }

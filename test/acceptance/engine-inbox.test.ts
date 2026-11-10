@@ -106,3 +106,49 @@ describe("a person's decision", () => {
     expect(r.stderr).toMatch(/not waiting/);
   });
 });
+
+describe("what a decision resumes", () => {
+  it("approve lands the work the person saw: the agent does not run again", () => {
+    const repo = approvalFlow();
+    repo.sf("run");
+    expect(repo.sf("approve", runRow(repo)?.id ?? "").status).toBe(0);
+    expect(trail(repo)).toEqual(["work:pass"]);
+  });
+
+  it("reject follows the fail transition on to another lane when the workflow says so", () => {
+    const repo = flowRepo({
+      lanes: [
+        agentLane("work", {
+          agent: { access: "write" },
+          gates: ["verify"],
+          checkpoint: "in",
+          on: { pass: "@done", fail: "tidy" },
+        }),
+        agentLane("tidy"),
+      ],
+      scripts: { author: { work: [...commitFile("a.txt"), pass()] } },
+    });
+    repo.sf("run");
+    expect(repo.sf("reject", runRow(repo)?.id ?? "").status).toBe(0);
+    expect(trail(repo)).toEqual(["work:fail", "tidy:pass"]);
+  });
+
+  it("continues, in a new process, with the values earlier lanes left", () => {
+    const repo = flowRepo({
+      lanes: [
+        agentLane("plan", {
+          outputs: { planPath: { type: "string" } },
+          on: { pass: "stamp", fail: "@stop" },
+        }),
+        commandLane("stamp", 'test "$FACTOR_INPUT_PLAN" = "docs/plan.md"', {
+          inputs: { plan: "plan.outputs.planPath" },
+          checkpoint: "in",
+        }),
+      ],
+      scripts: { author: { plan: [pass({ outputs: { planPath: "docs/plan.md" } })] } },
+    });
+    expect(repo.sf("run").status).toBe(3);
+    expect(repo.sf("approve", runRow(repo)?.id ?? "").status).toBe(0);
+    expect(trail(repo)).toEqual(["plan:pass", "stamp:pass"]);
+  });
+});

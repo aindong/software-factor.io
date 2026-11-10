@@ -3,6 +3,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { nowIso } from "./clock.ts";
 
 // Each entry runs once, in order. Never edit one that has shipped: add another.
 const MIGRATIONS = [
@@ -76,6 +77,17 @@ const MIGRATIONS = [
     data text not null default '{}'
   );
   `,
+  // what a run remembers between steps, how it ended as a code that can be counted, and what it cost
+  `
+  alter table runs add column state text not null default '{}';
+  alter table runs add column stop_code text;
+  alter table runs add column wake_at text;
+  alter table lane_runs add column attempts integer not null default 1;
+  alter table lane_runs add column tokens integer not null default 0;
+  alter table lane_runs add column usd real not null default 0;
+  alter table lane_runs add column duration_ms integer not null default 0;
+  alter table gate_results add column attempt integer not null default 1;
+  `,
 ];
 
 export type Db = DatabaseSync;
@@ -101,4 +113,4 @@ export function openDb(path: string): Db {
   return db;
 }
 
-export const now = () => new Date().toISOString();
+export const now = nowIso;

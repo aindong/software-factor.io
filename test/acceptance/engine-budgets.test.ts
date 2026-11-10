@@ -32,3 +32,28 @@ describe("limits", () => {
     expect(repo.rows("select sum(tokens) as tokens from lane_runs")).toEqual([{ tokens: 1200 }]);
   });
 });
+
+describe("an agent past its time", () => {
+  it("is stopped, not left working while the run moves on", async () => {
+    const { existsSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { commandLane } = await import("../helpers/repo.ts");
+    const repo = flowRepo({
+      lanes: [
+        agentLane("slow", {
+          agent: { access: "write" },
+          gates: ["verify"],
+          limits: { minutes: 1 },
+          on: { pass: "@done", fail: "after" },
+        }),
+        commandLane("after", "sleep 1", { on: { pass: "@stop", fail: "@stop" } }),
+      ],
+      scripts: { author: { slow: [{ sleep: 600 }, { write: { path: "late.txt", content: "x" } }, pass()] } },
+    });
+    repo.env.FACTOR_MINUTE_MS = "150";
+    expect(repo.sf("run").status).toBe(1);
+    expect(trail(repo)).toEqual(["slow:fail", "after:pass"]);
+    const [r] = repo.rows<{ worktree: string }>("select worktree from runs");
+    expect(existsSync(join(r?.worktree ?? "", "late.txt"))).toBe(false);
+  });
+});

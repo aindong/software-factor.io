@@ -65,3 +65,31 @@ describe("an agent that crashes", () => {
     expect(trail(repo)).toEqual(["build:fail"]);
   });
 });
+
+describe("limits on repairs and retries", () => {
+  it("judges a repair on a fresh checkout too: an uncommitted fix does not count", () => {
+    const uncommitted = [{ write: { path: "good.txt", content: "x\n" } }, pass()];
+    const repo = repairFlow([
+      [...commitFile("bad.txt"), pass()],
+      [...commitFile("worse.txt"), pass()],
+      uncommitted,
+    ]);
+    expect(repo.sf("run").status).toBe(1);
+    expect(trail(repo)).toEqual(["build:fail"]);
+    expect(repo.rows("select status from gate_results")).toEqual([
+      { status: "fail" },
+      { status: "fail" },
+      { status: "fail" },
+    ]);
+  });
+
+  it("does not start a crashed agent a third time when one retry is allowed", () => {
+    const repo = flowRepo({
+      lanes: [agentLane("build", { agent: { access: "write" }, gates: ["verify"], retry: { max: 1 } })],
+      scripts: { author: { build: [[{ exit: 2 }], [{ exit: 2 }], [...commitFile("a.txt"), pass()]] } },
+    });
+    expect(repo.sf("run").status).toBe(1);
+    expect(trail(repo)).toEqual(["build:fail"]);
+    expect(repo.rows("select attempts from lane_runs")).toEqual([{ attempts: 2 }]);
+  });
+});

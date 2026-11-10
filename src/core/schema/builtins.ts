@@ -59,6 +59,9 @@ const wait = z
     message: `"timeoutHours" can be at most ${MONTH_HOURS} (30 days).`,
   });
 
+export type CommandSettings = z.infer<typeof command>;
+export type WaitSettings = z.infer<typeof wait>;
+
 type Kind = "lane" | "gate" | "collector";
 const globs = z.array(z.string().min(1)).min(1).optional();
 
