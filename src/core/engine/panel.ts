@@ -6,7 +6,7 @@ import { holdAccount, LIMIT_HOLD_MS } from "../accounts.ts";
 import { nowMs } from "../clock.ts";
 import { saveRunFile } from "../evidence.ts";
 import { branchTip, gitConfigFingerprint } from "../git.ts";
-import { checkHandoff } from "../handoff.ts";
+import { checkHandoff, outputProblems } from "../handoff.ts";
 import { readObject } from "../safe-read.ts";
 import type { Lane } from "../schema/workflow.ts";
 import { servedFor } from "../served.ts";
@@ -144,11 +144,13 @@ export async function runPanel(
   const gitBefore = gitConfigFingerprint(ws.root);
   const before = { tip: branchTip(ws.root, run.branch), path: realpathSync(run.worktree) };
   const stemOf = (m: Member) => `${at.tag}.${m.id}`;
-  const starts = await Promise.all(
-    joined.map((member) => {
+  // Each member's hand-off is taken and checked the moment that member ends. A member that is
+  // still running shares the folder above and could otherwise rewrite a finished member's verdict.
+  const ended = await Promise.all(
+    joined.map(async (member) => {
       const own = memberLane(lane, member);
       const part = ws.prompts[own.id];
-      return startAgent(ctx, own, {
+      const started = await startAgent(ctx, own, {
         laneRun: at.laneRun,
         stem: stemOf(member),
         try: 1,
@@ -157,8 +159,10 @@ export async function runPanel(
         env: at.env,
         ms: at.ms,
       });
+      return { started, verdict: verdictOf(ctx, own, member, started, at.laneRun, stemOf(member)) };
     }),
   );
+  const starts = ended.map((e) => e.started);
   const over = (r: Partial<PanelResult>): PanelResult => ({
     outcome: "fail",
     note: "",
@@ -197,11 +201,7 @@ export async function runPanel(
   }
   if (hold !== undefined) return over({ note: "an account of the panel reached its limit", hold });
 
-  const verdicts = joined.map((member, i) => {
-    const started = starts[i];
-    if (!started) throw new Error("a member was not started");
-    return verdictOf(ctx, memberLane(lane, member), member, started, at.laneRun, stemOf(member));
-  });
+  const verdicts = ended.map((e) => e.verdict);
   // A member that asks a person cannot decide. Where all must pass, a failure ends it before the
   // question matters. Where any may pass, a pass ends it before the question matters.
   const deciding = verdicts.filter((v) => !v.advisory);
@@ -228,6 +228,11 @@ export async function runPanel(
     const given = verdicts.filter((v) => Object.hasOwn(v.outputs, name)).map((v) => v.outputs[name]);
     if (given.length === 0) continue;
     outputs[name] = declared.type === "array" ? given.flatMap((g) => (Array.isArray(g) ? g : [])) : given[0];
+  }
+  // the joined value is checked like any output: two lists that each fit can be too much together
+  const wrong = outputProblems(lane, outputs);
+  if (wrong.length > 0) {
+    return over({ note: oneLine(`the joined outputs were rejected: ${wrong.join(" ")}`), final: false });
   }
   state.last = {
     lane: lane.id,

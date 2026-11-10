@@ -20,7 +20,7 @@ import { writeRunHandoff } from "./report.ts";
 import { slotEnv } from "./slots.ts";
 import { addNote, type Parked, type RunState, type StopCode } from "./state.ts";
 import { tierOf } from "./tier.ts";
-import { choose, type Facts } from "./transition.ts";
+import { choose, type Facts, holds } from "./transition.ts";
 
 export interface RunSummary {
   status: "none" | store.RunStatus;
@@ -260,7 +260,11 @@ export async function advance(ctx: Ctx): Promise<RunSummary> {
 
       // an account near its limit starts no lane, and no panel that one of its members is on
       let heldBy: { name: string; until: number } | undefined;
-      for (const role of rolesOf(lane)) {
+      // only the members that take part this time count: a review is sized to the change
+      const facts = lane.panel ? ctx.facts() : undefined;
+      const joins = (m: { when?: Parameters<typeof holds>[0] }) =>
+        !m.when || (facts !== undefined && holds(m.when, facts));
+      for (const role of rolesOf(lane, joins)) {
         const binding = ws.local.roles[role];
         const bound = binding ? accountOf(binding, role) : undefined;
         const until = bound ? heldUntil(bound.name, bound.account) : undefined;
@@ -316,7 +320,7 @@ export async function advance(ctx: Ctx): Promise<RunSummary> {
         // a review that should be on another vendor than the author and is not still runs: the run says so
         const hostNote = `${lane.id}, by the host`;
         state.open = (state.open ?? []).filter((o) => o.lane !== hostNote);
-        for (const text of sameVendor(ws.workflow.roles, ws.local.roles, lane)) {
+        for (const text of sameVendor(ws.workflow.roles, ws.local.roles, lane, joins)) {
           ctx.log.push(`  ${lane.id}: ${text}`);
           state.open.push({ lane: hostNote, text });
         }

@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { agentLane, flowRepo, panelLane, pass, promptsOf, runRow, sessionRows } from "../helpers/repo.ts";
+import { agentLane, flowRepo, panelLane, pass, promptsOf, runRow } from "../helpers/repo.ts";
 
 const claim = (text: string) => ({ text, evidence: ["file:README.md"] });
 
@@ -42,7 +42,8 @@ describe("what a panel leaves", () => {
 
   it("is a session and a checked hand-off for each member", () => {
     expect(run.status, run.stdout + run.stderr).toBe(0);
-    expect(sessionRows(repo).slice(0, 2)).toEqual([
+    const members = repo.rows("select lane, tokens from sessions where lane like 'review.%' order by lane");
+    expect(members).toEqual([
       { lane: "review.logic", tokens: 100 },
       { lane: "review.needs", tokens: 50 },
     ]);

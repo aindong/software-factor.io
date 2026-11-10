@@ -61,24 +61,30 @@ export const serverFor = (root: string, run: string, lane: string, laneDir: stri
   ...["--lane", lane, "--lane-dir", laneDir, "--account", account],
 ];
 
-/** The roles a lane's agents work as: the lane's own, and those its panel members name. */
-export const rolesOf = (lane: Lane): string[] => [
-  ...new Set(
-    [lane.agent?.role, ...(lane.panel?.members ?? []).map((m) => m.role)].filter((r) => r !== undefined),
-  ),
-];
+/**
+ * The roles a lane's agents work as: the lane's own, and those its panel members name. With
+ * `joins`, only the members that take part this time.
+ */
+export function rolesOf(lane: Lane, joins: (member: Member) => boolean = () => true): string[] {
+  const members = (lane.panel?.members ?? []).filter(joins).map((m) => m.role);
+  // the lane's own role works only when a member has none of its own, or there is no panel
+  const usesOwn = !lane.panel || (lane.panel.members ?? []).filter(joins).some((m) => m.role === undefined);
+  return [...new Set([usesOwn ? lane.agent?.role : undefined, ...members].filter((r) => r !== undefined))];
+}
+type Member = NonNullable<Lane["panel"]>["members"][number];
 
 /** For each role of the lane that should be on another vendor than some role and is not: what to say. */
 export function sameVendor(
   roles: Record<string, { differentVendorFrom?: string[] }>,
   bindings: Record<string, RoleBinding>,
   lane: Lane,
+  joins?: (member: Member) => boolean,
 ): string[] {
   const vendorOf = (role: string) => {
     const binding = own(bindings, role);
     return binding ? accountOf(binding, role)?.account.agent : undefined;
   };
-  return rolesOf(lane).flatMap((role) =>
+  return rolesOf(lane, joins).flatMap((role) =>
     (own(roles, role)?.differentVendorFrom ?? [])
       .filter((other) => vendorOf(role) !== undefined && vendorOf(role) === vendorOf(other))
       .map(
