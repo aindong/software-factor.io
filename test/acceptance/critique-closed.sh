@@ -120,6 +120,13 @@ if [ "${1:-}" = "--self-test" ]; then
   exit 0
 fi
 
+# The reports are among the goal run's own records, which are not in the repository. Where they
+# are not (a clone), the check proves itself and says so.
+if [ $# -eq 0 ] && [ ! -d "$here/.agent/evidence/2026-11-10-task17" ]; then
+  bash "$0" --self-test || exit 1
+  echo "critique: the run's records are not on this machine, so only the check itself was checked"
+  exit 0
+fi
 dir=${1:-$here/.agent/evidence/2026-11-10-task17}
 closed "$dir" || exit 1
 first=$(mktemp); whole "$dir/critique.md" > "$first"
