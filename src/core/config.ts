@@ -24,7 +24,13 @@ export type FactoryConfig = z.infer<typeof FactoryConfig>;
 
 /** One step of the scripted agent used in tests, demos and evals. */
 export const FakeAction = z.union([
-  z.strictObject({ write: z.strictObject({ path: z.string().min(1), content: z.string() }) }),
+  z.strictObject({
+    write: z.strictObject({
+      path: z.string().min(1),
+      content: z.string(),
+      executable: z.boolean().optional(),
+    }),
+  }),
   z.strictObject({ delete: z.string().min(1) }),
   z.strictObject({ commit: z.string().min(1) }),
   z.strictObject({ handoff: z.record(z.string(), z.unknown()) }),

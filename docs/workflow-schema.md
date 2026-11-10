@@ -164,10 +164,15 @@ or grades its own gate. `onFail` says what a failure means:
 | Gate `uses` | Checks | `with` |
 | --- | --- | --- |
 | `core/command@1` | A command exits 0 on a fresh checkout of the lane's work. | `run` or `command`, optional `timeoutMinutes`. |
-| `core/protected-paths@1` | The change touches no protected path: the factory's own `.factor/` folder, CI folders, agent configuration (`.claude/`, `.codex/`, `CLAUDE.md`, `AGENTS.md`, `.mcp.json`), git attributes and submodules, and lock files. | Optional `paths` (globs), added to that list. The workspace can add more in `factory.json` under `protectedPaths`. |
-| `core/tests-not-weakened@1` | No test file with tests was deleted, no file has fewer tests, no more tests are marked skip, todo or only, no assertion in an existing test changed unless a test was added, and the `test`, `lint`, `typecheck`, `verify` and `check` scripts in `package.json` are unchanged. | Optional `testGlobs`. |
-| `core/test-floor@1` | At least as many tests run as on the base commit, and more than zero. The base commit is measured once per run. | Optional `command` (default `verify`), and `pattern` (a regular expression with one group) for a runner whose output is not recognised. |
-| `core/new-tests-fail-on-base@1` | Test files that are new or grew are put on a fresh checkout of the base commit and the suite is run there. It must fail. With no new tests the gate passes and says so. | Optional `command` (default `verify`), `testGlobs`. |
+| `core/protected-paths@1` | The change touches no protected path: the factory's own `.factor/` folder, CI folders, agent configuration (`.claude/`, `.codex/`, `CLAUDE.md`, `AGENTS.md`, `.mcp.json`), git attributes and submodules (the pointer included), and lock files. Letter case is ignored. | Optional `paths` (globs), added to that list. The workspace can add more in `factory.json` under `protectedPaths`. |
+| `core/tests-not-weakened@1` | No test file was deleted (a rename with the same content is fine), no file has fewer tests, no more tests are marked skip, todo or only, no assertion in an existing test changed or was removed (moving a line is fine), and no script that existed in `package.json` changed. Comments are ignored, so a test that is commented out counts as removed. | Optional `testGlobs`. |
+| `core/test-floor@1` | At least as many tests ran (passed or failed, not skipped) as on the base commit, and more than zero. The base commit is measured once per run. It fails when either count cannot be read. | Optional `command` (default `verify`), `timeoutMinutes`, and `pattern` (a regular expression with one group of digits) for a runner whose output is not recognised. |
+| `core/new-tests-fail-on-base@1` | The base commit's suite must pass on its own. Then test files that are new or grew are put on a fresh checkout of the base commit and the suite is run there. It must fail. With no new tests the gate passes and says so. | Optional `command` (default `verify`), `testGlobs`, `timeoutMinutes`. |
+
+**What these gates cannot see.** They count patterns, they do not parse or run your tests one by one. A test
+switched off by code (an early `return`), a test moved to another file (reported as fewer tests, for a person to
+confirm), and a new test that fails on the base commit only because it cannot load a new file are beyond them.
+Review is for those.
 
 **Where gates run.** The host makes one fresh checkout of the commit the lane left, for all the gates of that
 attempt, and removes it afterwards. If the workspace defines a `setup` command in `factory.json`, it runs once in

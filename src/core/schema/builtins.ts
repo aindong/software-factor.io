@@ -62,6 +62,15 @@ const wait = z
 export type CommandSettings = z.infer<typeof command>;
 export type WaitSettings = z.infer<typeof wait>;
 
+/** A regular expression that compiles and has a capture group. */
+function hasOneGroup(pattern: string): boolean {
+  try {
+    return new RegExp(`${pattern}|`).exec("")?.length === 2;
+  } catch {
+    return false;
+  }
+}
+
 type Kind = "lane" | "gate" | "collector";
 const globs = z.array(z.string().min(1)).min(1).optional();
 
@@ -79,11 +88,24 @@ export const BUILTINS: Record<Kind, Record<string, z.ZodType | null>> = {
     "core/test-floor@1": z
       .strictObject({
         command: commandName.optional(),
-        pattern: z.string().min(1).optional(), // for a test runner whose output is not recognised
+        // for a test runner whose output is not recognised
+        pattern: z
+          .string()
+          .min(1)
+          .refine(hasOneGroup, {
+            message:
+              'Write "pattern" as a valid regular expression with one group, such as "ran (\\d+) checks".',
+          })
+          .optional(),
+        timeoutMinutes: z.number().int().positive().optional(),
       })
       .optional(),
     "core/new-tests-fail-on-base@1": z
-      .strictObject({ command: commandName.optional(), testGlobs: globs })
+      .strictObject({
+        command: commandName.optional(),
+        testGlobs: globs,
+        timeoutMinutes: z.number().int().positive().optional(),
+      })
       .optional(),
   },
   collector: {

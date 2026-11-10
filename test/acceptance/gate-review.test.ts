@@ -5,9 +5,20 @@ import { describe, expect, it } from "vitest";
 import { agentLane, evidenceOf, flowRepo, pass, type Repo, RUNNER } from "../helpers/repo.ts";
 
 // Found by the correctness review of the gates.
-const write = (path: string, content: string, extra: Record<string, unknown> = {}) => ({ write: { path, content, ...extra } });
+const write = (path: string, content: string, extra: Record<string, unknown> = {}) => ({
+  write: { path, content, ...extra },
+});
 const commit = { commit: "change" };
-const one = (gate: Record<string, unknown>, o: { steps: unknown[]; files?: Record<string, string>; verify?: string; setup?: string; factory?: Record<string, unknown> }) =>
+const one = (
+  gate: Record<string, unknown>,
+  o: {
+    steps: unknown[];
+    files?: Record<string, string>;
+    verify?: string;
+    setup?: string;
+    factory?: Record<string, unknown>;
+  },
+) =>
   flowRepo({
     commands: { verify: o.verify ?? "sh run-tests.sh", ...(o.setup ? { setup: o.setup } : {}) },
     gates: { g: { onFail: "fail", ...gate } },
@@ -16,7 +27,8 @@ const one = (gate: Record<string, unknown>, o: { steps: unknown[]; files?: Recor
     files: o.files,
     factory: o.factory,
   });
-const status = (repo: Repo) => repo.rows<{ status: string }>("select status from gate_results").map((g) => g.status);
+const status = (repo: Repo) =>
+  repo.rows<{ status: string }>("select status from gate_results").map((g) => g.status);
 
 describe("protected paths", () => {
   const gate = { uses: "core/protected-paths@1" };
@@ -34,7 +46,9 @@ describe("protected paths", () => {
   });
 
   it("names every protected file a change touches, deletions included", () => {
-    const repo = one(gate, { steps: [write(".github/a.yml", "x\n"), write("docs/go.sum", "x\n"), { delete: ".factor/tasks.md" }] });
+    const repo = one(gate, {
+      steps: [write(".github/a.yml", "x\n"), write("docs/go.sum", "x\n"), { delete: ".factor/tasks.md" }],
+    });
     repo.sf("run");
     const evidence = evidenceOf(repo)[0] ?? "";
     for (const f of [".github/a.yml", "docs/go.sum", ".factor/tasks.md"]) expect(evidence).toContain(f);
@@ -50,6 +64,17 @@ it("subtracts", () => {
   expect(2 - 1).toBe(1);
 });
 `;
+  // the same two tests, moved inside a describe block: every line is indented, nothing else changed
+  const WRAPPED = `import { describe, expect, it } from "vitest";
+describe("math", () => {
+  it("adds", () => {
+    expect(1 + 1).toBe(2);
+  });
+  it("subtracts", () => {
+    expect(2 - 1).toBe(1);
+  });
+});
+`;
   const gate = { uses: "core/tests-not-weakened@1" };
   const files = {
     "src/math.test.js": TEST,
@@ -58,10 +83,26 @@ it("subtracts", () => {
   };
   it.each([
     ["deletes a test file in a form the counter does not know", [{ delete: "tests/test_api.py" }], /deleted/],
-    ["comments a test out", [write("src/math.test.js", TEST.replace('it("subtracts"', '/*\nit("subtracts"').concat("*/\n"))], /fewer tests/],
-    ["marks a test only", [write("src/math.test.js", TEST.replace('it("adds"', 'it.only("adds"'))], /skip, todo or only/],
-    ["changes an assertion and adds an empty test to hide it", [write("src/math.test.js", `${TEST.replace("toBe(2)", "toBeDefined()")}it("noop", () => {});\n`)], /assertion/],
-    ["changes a script the test script calls", [write("package.json", '{"scripts":{"test":"npm run test:unit","test:unit":"true"}}\n')], /script/],
+    [
+      "comments a test out",
+      [write("src/math.test.js", TEST.replace('it("subtracts"', '/*\nit("subtracts"').concat("*/\n"))],
+      /fewer tests/,
+    ],
+    [
+      "marks a test only",
+      [write("src/math.test.js", TEST.replace('it("adds"', 'it.only("adds"'))],
+      /skip, todo or only/,
+    ],
+    [
+      "changes an assertion and adds an empty test to hide it",
+      [write("src/math.test.js", `${TEST.replace("toBe(2)", "toBeDefined()")}it("noop", () => {});\n`)],
+      /assertion/,
+    ],
+    [
+      "changes a script the test script calls",
+      [write("package.json", '{"scripts":{"test":"npm run test:unit","test:unit":"true"}}\n')],
+      /script/,
+    ],
   ])("fails a change that %s", (_name, steps, says) => {
     const repo = one(gate, { steps: steps as unknown[], files });
     repo.sf("run");
@@ -70,8 +111,11 @@ it("subtracts", () => {
   });
 
   it.each([
-    ["renames a test file without changing it", [{ delete: "src/math.test.js" }, write("src/arith.test.js", TEST)]],
-    ["re-indents assertions inside a new describe", [write("src/math.test.js", TEST.replace(/^(it|\}| {2}expect)/gm, "  $1").replace('import { expect, it }', 'import { describe, expect, it }').replace("\n  it(\"adds\"", '\ndescribe("math", () => {\n  it("adds"').concat("});\n"))],
+    [
+      "renames a test file without changing it",
+      [{ delete: "src/math.test.js" }, write("src/arith.test.js", TEST)],
+    ],
+    ["re-indents assertions inside a new describe", [write("src/math.test.js", WRAPPED)]],
   ])("passes a change that %s", (_name, steps) => {
     const repo = one(gate, { steps: steps as unknown[], files });
     repo.sf("run");
@@ -85,7 +129,11 @@ describe("the test floor", () => {
   it("fails when the pattern captures something that is not a number", () => {
     const repo = one(
       { ...gate, with: { pattern: "ran (\\S+) checks" } },
-      { steps: [write("result.txt", "ran no checks\n")], files: { "result.txt": "ran 4 checks\n" }, verify: "cat result.txt" },
+      {
+        steps: [write("result.txt", "ran no checks\n")],
+        files: { "result.txt": "ran 4 checks\n" },
+        verify: "cat result.txt",
+      },
     );
     repo.sf("run");
     expect(status(repo)).toEqual(["fail"]);
@@ -127,7 +175,10 @@ describe("new tests fail on base", () => {
     // this suite runs each test file directly, so a copy that lost its mode would fail for the wrong reason
     const direct = 'for t in t/*.test.sh; do "./$t" || exit 1; done';
     const repo = one(gate, {
-      steps: [write("feature.txt", "x\n"), write("t/lazy.test.sh", "#!/bin/sh\ntrue\n", { executable: true })],
+      steps: [
+        write("feature.txt", "x\n"),
+        write("t/lazy.test.sh", "#!/bin/sh\ntrue\n", { executable: true }),
+      ],
       files: { "t/one.test.sh": "#!/bin/sh\ntrue\n" },
       verify: `chmod +x t/one.test.sh; ${direct}`,
     });
@@ -158,18 +209,39 @@ describe("every gate's record", () => {
         floor: { uses: "core/test-floor@1", onFail: "fail" },
         proves: { uses: "core/new-tests-fail-on-base@1", onFail: "fail" },
       },
-      lanes: [agentLane("build", { agent: { access: "write" }, gates: ["paths", "kept", "verify", "floor", "proves"] })],
-      scripts: { author: { build: [write("feature.txt", "x\n"), write("t/feature.test.sh", "test -f feature.txt\n"), commit, pass()] } },
+      lanes: [
+        agentLane("build", {
+          agent: { access: "write" },
+          gates: ["paths", "kept", "verify", "floor", "proves"],
+        }),
+      ],
+      scripts: {
+        author: {
+          build: [
+            write("feature.txt", "x\n"),
+            write("t/feature.test.sh", "test -f feature.txt\n"),
+            commit,
+            pass(),
+          ],
+        },
+      },
       files: { "run-tests.sh": RUNNER, "t/one.test.sh": "true\n" },
     });
     expect(repo.sf("run").status).toBe(0);
     const [r] = repo.rows<{ head_commit: string }>("select head_commit from runs");
     const tree = repo.git("rev-parse", `${r?.head_commit}^{tree}`);
-    const rows = repo.rows<{ gate: string; tree_hash: string; output_path: string; output_sha256: string }>("select * from gate_results order by id");
+    const rows = repo.rows<{ gate: string; tree_hash: string; output_path: string; output_sha256: string }>(
+      "select * from gate_results order by id",
+    );
     expect(rows.map((g) => g.gate)).toEqual(["paths", "kept", "verify", "floor", "proves"]);
     for (const g of rows) {
       expect(g.tree_hash, g.gate).toBe(tree);
-      expect(createHash("sha256").update(readFileSync(join(repo.dir, g.output_path))).digest("hex"), g.gate).toBe(g.output_sha256);
+      expect(
+        createHash("sha256")
+          .update(readFileSync(join(repo.dir, g.output_path)))
+          .digest("hex"),
+        g.gate,
+      ).toBe(g.output_sha256);
     }
   });
 });

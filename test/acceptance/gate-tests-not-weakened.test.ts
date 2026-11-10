@@ -36,7 +36,11 @@ describe("the tests-not-weakened gate", () => {
       [write("src/math.test.js", TEST.replace("toBe(2)", "toBeDefined()"))],
       /assertion/,
     ],
-    ["changes the test script", [write("package.json", '{"scripts":{"test":"true"}}\n')], /test script/],
+    [
+      "changes the test script",
+      [write("package.json", '{"scripts":{"test":"true"}}\n')],
+      /script "test" changed/,
+    ],
   ])("fails a change that %s", (_name, steps, says) => {
     const repo = flow(steps as unknown[]);
     expect(repo.sf("run").status).toBe(1);

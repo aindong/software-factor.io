@@ -31,7 +31,8 @@ export interface Ctx {
 }
 
 const MAX_FILE_BYTES = 1_000_000;
-const REPAIR_TAIL = 6000;
+const REPAIR_HEAD = 1500;
+const REPAIR_TAIL = 4500;
 
 /** A JSON object an agent or command left, or nothing when it is missing, too large or not an object. */
 function readObject(path: string): { text: string; value: Record<string, unknown> } | undefined {
@@ -267,8 +268,13 @@ export async function runLane(
           repairs < (lane.limits?.repairRounds ?? 0)
         ) {
           repairs += 1;
+          // the verdict is at the top of the evidence and the detail at the end: send both
           const output = readFileSync(join(ws.root, record.output_path), "utf8");
-          repair = { gate: gateId, output: output.slice(-REPAIR_TAIL) };
+          const cut = output.length > REPAIR_TAIL + REPAIR_HEAD;
+          repair = {
+            gate: gateId,
+            output: cut ? `${output.slice(0, REPAIR_HEAD)}\n[...]\n${output.slice(-REPAIR_TAIL)}` : output,
+          };
           again = true;
         } else {
           failWith(
@@ -281,6 +287,11 @@ export async function runLane(
       }
     } catch (error) {
       if (!(error instanceof SetupFailed)) throw error;
+      if (wasInterrupted()) {
+        stop = { code: "interrupted", reason: "interrupted" };
+        failWith("interrupted");
+        return done();
+      }
       // the project could not be set up in a clean checkout, so nothing could be checked
       store.addGateResult(db, run.id, laneRun, error.record);
       ctx.log.push(`  ${lane.id}: setup fail (exit ${error.record.exit_code}) ${error.record.output_path}`);

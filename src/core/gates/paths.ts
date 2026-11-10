@@ -14,10 +14,10 @@ export const DEFAULT_PROTECTED = [
   ".kimi-code/",
   ".agents/",
   ".mcp.json",
-  "CLAUDE.md",
-  "AGENTS.md",
   ".gitmodules",
-  ".gitattributes",
+  "**/CLAUDE.md",
+  "**/AGENTS.md",
+  "**/.gitattributes",
   "**/package-lock.json",
   "**/pnpm-lock.yaml",
   "**/yarn.lock",
@@ -26,7 +26,11 @@ export const DEFAULT_PROTECTED = [
   "**/Cargo.lock",
   "**/poetry.lock",
   "**/uv.lock",
+  "**/go.sum",
+  "**/Gemfile.lock",
+  "**/composer.lock",
 ];
+const SUBMODULE = "160000";
 
 export function protectedPathsGate(g: GateJob) {
   const started = Date.now();
@@ -35,9 +39,11 @@ export function protectedPathsGate(g: GateJob) {
     ...(g.ws.config.protectedPaths ?? []),
   ];
   const patterns = [...DEFAULT_PROTECTED, ...added];
-  const hits = changedFiles(g).flatMap(({ path }) => {
-    const by = patterns.find((p) => matches(p, path));
-    return by ? [`${path}  (protected by "${by}")`] : [];
+  const hits = changedFiles(g).flatMap((f) => {
+    if (f.oldMode === SUBMODULE || f.newMode === SUBMODULE)
+      return [`${f.path}  (a submodule now points at other code)`];
+    const by = patterns.find((p) => matches(p, f.path));
+    return by ? [`${f.path}  (protected by "${by}")`] : [];
   });
   const text =
     hits.length > 0
