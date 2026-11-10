@@ -7,13 +7,22 @@
   "engines": {
     "node": ">=24"
   },
+  "bin": {
+    "softwarefactor": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "schema",
+    "workflows"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "format": "biome check --write .",
     "test": "vitest run",
     "schema:gen": "node scripts/gen-schema.ts",
-    "schema:check": "node scripts/check-workflows.ts"
+    "schema:check": "node scripts/check-workflows.ts",
+    "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "zod": "^4.6.7"

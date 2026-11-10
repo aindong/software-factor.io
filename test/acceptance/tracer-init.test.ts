@@ -44,23 +44,21 @@ describe("softwarefactor init", () => {
     expect(tracked.status, ".factor/factory.json must not be ignored").toBe(1);
   });
 
-  it("changes nothing the second time, and says so", () => {
-    const before = [
+  it("changes nothing the second time, even files the person has edited, and says so", () => {
+    repo.write(".factor/tasks.md", "# Tasks\n\n- [ ] mine\n");
+    repo.write(".factor/local.json", '{"roles":{}}\n');
+    const files = [
       ".factor/factory.json",
       ".factor/workflows/starter.json",
       ".factor/tasks.md",
+      ".factor/local.json",
       ".gitignore",
-    ].map((f) => repo.read(f));
+    ];
+    const before = files.map((f) => repo.read(f));
     const second = repo.sf("init");
     expect(second.status).toBe(0);
     expect(second.stdout).toMatch(/already/i);
-    const after = [
-      ".factor/factory.json",
-      ".factor/workflows/starter.json",
-      ".factor/tasks.md",
-      ".gitignore",
-    ].map((f) => repo.read(f));
-    expect(after).toEqual(before);
+    expect(files.map((f) => repo.read(f))).toEqual(before);
   });
 
   it("refuses outside a git repository, with a way forward", () => {

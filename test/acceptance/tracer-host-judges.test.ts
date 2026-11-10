@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { passingScript, readyRepo } from "../helpers/repo.ts";
 
@@ -18,6 +20,33 @@ describe("the host judges, on a fresh checkout", () => {
     expect(repo.rows("select lane, outcome from lane_runs")).toEqual([{ lane: "work", outcome: "fail" }]);
     expect(repo.rows("select status from runs")).toEqual([{ status: "stopped" }]);
     expect(repo.rows("select status from tasks")).toEqual([{ status: "stopped" }]);
+    // the proof really was in the agent's worktree: the gate did not look there
+    const [r] = repo.rows<{ worktree: string }>("select worktree from runs");
+    expect(existsSync(join(r?.worktree ?? "", "proof.txt"))).toBe(true);
+    const status = repo.sf("status").stdout;
+    expect(status).toMatch(/stopped/);
+    expect(status).toMatch(/work\s.*fail/);
+    expect(status).toMatch(/verify\s.*fail/);
+  });
+
+  it("ignores an agent that rewrites the gate's command in its own commit", () => {
+    const repo = readyRepo({
+      verify: "test -f proof.txt",
+      script: [
+        {
+          write: {
+            path: ".factor/factory.json",
+            content: '{"version":1,"workflow":"starter","commands":{"verify":"true"}}\n',
+          },
+        },
+        { commit: "Make the gate easy" },
+        { handoff: { outcome: "pass", summary: "Done." } },
+      ],
+    });
+    expect(repo.sf("run").status).toBe(1);
+    expect(repo.rows("select command, status from gate_results")).toEqual([
+      { command: "test -f proof.txt", status: "fail" },
+    ]);
   });
 
   it("passes the same lane when the proof is committed", () => {
