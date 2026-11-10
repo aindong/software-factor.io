@@ -1,9 +1,20 @@
 // The local web server behind `softwarefactor ui`: the built interface as static files, and a
 // small JSON API over the same core operations the command line uses (ADR 0008). It listens on
-// this machine only. A page on some other site can still make a browser send requests here, so
-// every API call must carry the token that only the served page holds, and name this host.
+// this machine only. A page on some other site can still make a browser send requests here, and
+// so can any process on this machine. So every API call must name this host and carry a token,
+// and the token is given once, in the address the command prints in the developer's own
+// terminal, after the "#", where a browser never sends it. The page itself holds no token:
+// asking the server for the page gives nothing that opens the API.
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, dirname, extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
@@ -24,7 +35,9 @@ const TYPES: Record<string, string> = {
   ".json": "application/json",
 };
 // nothing is loaded from anywhere but this server: the tool works with no network
-const POLICY = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'";
+// and no other site may put the page in a frame, where it could steer clicks onto Save
+const POLICY =
+  "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
 
 /** Where the built interface is: beside the built command, or in dist/ when run from source. */
 function uiDir(): string {
@@ -40,6 +53,8 @@ function uiDir(): string {
 
 export interface Served {
   url: string;
+  /** The address to open: the url, and the token after the "#". */
+  address: string;
   close: () => void;
 }
 
@@ -47,7 +62,21 @@ export function startServer(root: string, config: { workflow: string }, port: nu
   const ui = uiDir();
   const token = randomBytes(24).toString("hex");
   const workflows = join(root, ".factor", "workflows");
-  const fileOf = (name: string) => (NAME.test(name) ? join(workflows, `${name}.json`) : undefined);
+  /**
+   * A workflow's file, when the name is a name and the file is a plain file in this repository's
+   * own workflows folder. A link there, or a folder that is a link, leads somewhere else: it is
+   * neither read nor written through.
+   */
+  const fileOf = (name: string): string | undefined => {
+    if (!NAME.test(name)) return undefined;
+    const file = join(workflows, `${name}.json`);
+    try {
+      if (realpathSync(workflows) !== join(realpathSync(root), ".factor", "workflows")) return undefined;
+      return lstatSync(file).isFile() ? file : undefined;
+    } catch {
+      return undefined; // not there
+    }
+  };
   let host = "";
   const app = new Hono();
 
@@ -57,6 +86,8 @@ export function startServer(root: string, config: { workflow: string }, port: nu
     if (named !== host && named !== host.replace("127.0.0.1", "localhost")) return c.text("Forbidden", 403);
     await next();
     c.header("X-Content-Type-Options", "nosniff");
+    c.header("X-Frame-Options", "DENY");
+    c.header("Cross-Origin-Resource-Policy", "same-origin");
     c.header("Content-Security-Policy", POLICY);
     c.header("Cache-Control", "no-store");
   });
@@ -82,7 +113,7 @@ export function startServer(root: string, config: { workflow: string }, port: nu
 
   app.get("/api/workflows/:name", (c) => {
     const file = fileOf(c.req.param("name"));
-    if (!file || !existsSync(file)) return c.json({ error: "There is no such workflow." }, 404);
+    if (!file) return c.json({ error: "There is no such workflow." }, 404);
     let workflow: unknown;
     try {
       workflow = JSON.parse(readFileSync(file, "utf8"));
@@ -124,7 +155,7 @@ export function startServer(root: string, config: { workflow: string }, port: nu
   app.put("/api/workflows/:name", async (c) => {
     const name = c.req.param("name");
     const file = fileOf(name);
-    if (!file || !existsSync(file)) return c.json({ error: "There is no such workflow." }, 404);
+    if (!file) return c.json({ error: "There is no such workflow." }, 404);
     const workflow = await sent(c.req);
     if (!workflow) return c.json({ problems: notOne }, 422);
     // nothing is written unless the same checker the command line uses finds nothing wrong
@@ -137,13 +168,16 @@ export function startServer(root: string, config: { workflow: string }, port: nu
       });
     }
     if (problems.length > 0) return c.json({ problems }, 422);
-    writeFileSync(file, `${JSON.stringify(workflow, null, 2)}\n`);
+    // written beside and moved into place: never through a link, and never left half written
+    const beside = `${file}.${process.pid}.tmp`;
+    writeFileSync(beside, `${JSON.stringify(workflow, null, 2)}\n`, { flag: "wx" });
+    renameSync(beside, file);
     return c.json({ workflow, problems: [] });
   });
   app.all("/api/*", (c) => c.json({ error: "There is no such operation." }, 404));
 
   // the interface: its files as they were built, and its one page for every other path
-  const page = readFileSync(join(ui, "index.html"), "utf8").replace("__FACTOR_TOKEN__", token);
+  const page = readFileSync(join(ui, "index.html"), "utf8");
   app.get("/assets/*", (c) => {
     const file = normalize(join(ui, decodeURIComponent(new URL(c.req.url).pathname)));
     if (!file.startsWith(`${join(ui, "assets")}${sep}`) || !existsSync(file)) return c.text("Not found", 404);
@@ -156,7 +190,8 @@ export function startServer(root: string, config: { workflow: string }, port: nu
   return new Promise((resolve, reject) => {
     const server = serve({ fetch: app.fetch, port, hostname: "127.0.0.1" }, (info) => {
       host = `127.0.0.1:${info.port}`;
-      resolve({ url: `http://${host}`, close: () => server.close() });
+      const url = `http://${host}`;
+      resolve({ url, address: `${url}/#t=${token}`, close: () => server.close() });
     });
     server.on("error", (error: NodeJS.ErrnoException) =>
       reject(

@@ -90,11 +90,11 @@ export function renameLane(w: Json, id: string, to: string): Json {
   if (!ID.test(to) || to === id || lanes.some((l) => l.id === to) || !lanes.some((l) => l.id === id))
     return w;
   // a lane is named as a target, as the session to continue, and at the start of a value's name
-  const refs = new RegExp(`^${id}\\.(outputs|gates)\\.`);
+  const starts = [`${id}.outputs.`, `${id}.gates.`];
   const walk = (value: unknown, key = ""): unknown => {
     if (typeof value === "string") {
       if ((key === "to" || key === "continue") && value === id) return to;
-      return value.replace(refs, `${to}.$1.`);
+      return starts.some((start) => value.startsWith(start)) ? to + value.slice(id.length) : value;
     }
     if (Array.isArray(value)) return value.map((v) => walk(v, key));
     if (typeof value === "object" && value !== null) {

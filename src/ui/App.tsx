@@ -1,5 +1,6 @@
 // The shell: the navy rail with the six sections, and the section that is open.
 import { useEffect, useState } from "react";
+import { hasKey } from "./api.ts";
 import { Floor } from "./Floor.tsx";
 import { icons } from "./icons.tsx";
 
@@ -98,7 +99,21 @@ export function App() {
           {theme === "auto" ? "Auto" : theme === "light" ? "Light" : "Dark"}
         </button>
       </nav>
-      {later ? (
+      {!hasKey ? (
+        <main className="work">
+          <div className="topbar">
+            <h1>This tab has no key</h1>
+          </div>
+          <div className="plain">
+            <p>
+              The interface reads and saves your workflows, so it answers only to the address that{" "}
+              <code>softwarefactor ui</code> printed in your terminal. That address ends in <code>#t=</code>{" "}
+              and a key.
+            </p>
+            <p>Open that address as it is, in this tab.</p>
+          </div>
+        </main>
+      ) : later ? (
         <main className="work">
           <div className="topbar">
             <h1>{section.name}</h1>

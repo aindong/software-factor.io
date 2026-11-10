@@ -201,7 +201,9 @@ async function main(): Promise<number> {
     }
     const config = JSON.parse(readFileSync(file, "utf8")) as { workflow?: unknown };
     const served = await startServer(root, { workflow: String(config.workflow ?? "") }, port);
-    say(`Software Factor.io is open at ${served.url}  (Ctrl-C closes it)`);
+    // the address carries this session's key after the "#": it is printed here and nowhere else
+    say(`Software Factor.io is open at ${served.address}`);
+    say("Open that address as it is: the part after # is this session's key. Ctrl-C closes it.");
     // it serves until it is stopped: the factory's other commands keep working beside it
     return new Promise((done) => {
       for (const signal of ["SIGINT", "SIGTERM"] as const) {

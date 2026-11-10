@@ -81,7 +81,7 @@ const SUPERUSER = new Set(["sudo", "doas"]);
 const FACTORY = "softwarefactor";
 const FACTORY_COMMANDS = new Set([
   ...["init", "collect", "run", "stop", "approve", "reject", "send-back", "answer"],
-  ...["account", "role", "memory", "mcp", "guard"],
+  ...["account", "role", "memory", "mcp", "guard", "ui"],
 ]);
 const READS_CONFIG = new Set(["--get", "--get-all", "--get-regexp", "--list", "-l"]);
 const GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--exec-path"]);

@@ -1,9 +1,11 @@
 # The interface
 
 ```sh
-softwarefactor ui            # opens on http://127.0.0.1:4390
+softwarefactor ui            # prints the address to open, on port 4390
 softwarefactor ui --port 0   # any free port
 ```
+
+Open the address exactly as printed. It ends in `#t=` and a key for this session.
 
 The interface runs on your machine and nowhere else. It is built into the package, fonts included, and loads
 nothing from a network.
@@ -55,12 +57,24 @@ The same checker the command line runs (`softwarefactor check`) runs in the page
 is listed with its place and its fix, and the station it is about is flagged. Save is off while there is one.
 Saving checks again on the server, and writes nothing unless the checker finds nothing.
 
-## What keeps another site out
+## What keeps others out
 
-A page on some other site can make your browser send requests to a server on your machine. So the server
-listens on 127.0.0.1 only, refuses any request that names another host, and refuses every API call that does
-not carry a token which only the page it served holds. It sends no header that lets another origin read its
-answers.
+A workflow decides what runs on your machine, so who may save one matters. Two kinds of others can reach a
+server on your machine: a page on some other site, which can make your browser send requests to it, and any
+other process on the machine, a coding agent included.
+
+- The server listens on 127.0.0.1 only and refuses any request that names another host.
+- Every API call must carry a token. The token is given once, in the address the command prints in your
+  terminal, after the `#`, where a browser never sends it. The page takes it from there, keeps it for the tab,
+  and removes it from the address bar. The page itself holds no token, so asking the server for the page gives
+  nothing that opens the API. A tab opened without the key says so.
+- No other site can read the server's answers or put the page in a frame.
+- A save writes only a plain file in this repository's own workflows folder, never through a link, and only
+  what the checker accepts.
+- The guard denies an agent the `softwarefactor ui` command, and the command refuses to start inside a run.
+
+What this does not stop: a process running as you can read your terminal's output or the workflow files
+themselves. Only a sandbox for the agents stops that.
 
 ## Not built yet
 
