@@ -14,7 +14,8 @@ web
 ## Stack
 
 React with Vite, built to static files and served by Hono from the `softwarefactor` command on the developer's own
-machine. React Flow (`@xyflow/react`) for the lane canvas. Hand-written CSS on design tokens, no component kit.
+machine. The lane diagram is plain SVG, laid out by the tool's own code (React Flow was the first plan, and
+was dropped in task 14: a workflow file holds no positions). Hand-written CSS on design tokens, no component kit.
 Chosen with the owner on 2026-11-10 (they asked "which stack", then confirmed React and Hono).
 
 ## Users
@@ -62,7 +63,7 @@ checkpoint, inbox, run, round, slot.
 
 ## Capabilities and Constraints
 
-- Built so far: the workflow file format and its checker. Nothing with a screen yet.
+- Built so far: the workflow file format and its checker, the engine, and the first screen: the factory floor.
 - Planned screens: the factory floor (build and edit a workflow by placing and wiring lanes, with the JSON one
   click away), live runs with an evidence viewer, the inbox for approvals and questions, accounts, plugins, costs.
 - Everything the interface can do, the command line and the MCP server can also do.

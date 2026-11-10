@@ -1,3 +1,4 @@
+import "./setup.ts";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "@fontsource/barlow/latin-400.css";

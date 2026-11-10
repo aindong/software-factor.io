@@ -71,11 +71,13 @@ describe.each(files)("the map of %s", (file) => {
     }
   });
 
-  it("runs no two lines along the same stretch of track", () => {
+  it("runs no two lines along the same stretch of track, unless they lead to the same station", () => {
     const flat = segments(floor).filter(({ a, b }) => a[1] === b[1]);
     for (const [i, s] of flat.entries()) {
       for (const t of flat.slice(i + 1)) {
         if (s.line === t.line || s.a[1] !== t.a[1]) continue;
+        // lines of one outcome to one station run together, like branches of one line
+        if (s.line.to === t.line.to && s.line.outcome === t.line.outcome) continue;
         const [s1, s2] = [Math.min(s.a[0], s.b[0]), Math.max(s.a[0], s.b[0])];
         const [t1, t2] = [Math.min(t.a[0], t.b[0]), Math.max(t.a[0], t.b[0])];
         const shared = Math.min(s2, t2) - Math.max(s1, t1);

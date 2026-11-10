@@ -242,6 +242,13 @@ textarea {
   color: var(--ink-soft);
   white-space: nowrap;
 }
+.topbar select {
+  min-height: var(--row);
+  padding: 2px var(--sm);
+  border: 1px solid var(--rule);
+  border-radius: var(--control);
+  background: var(--ground);
+}
 .topbar .group {
   display: flex;
   align-items: center;

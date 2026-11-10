@@ -15,8 +15,8 @@ export interface Station {
   x: number;
   y: number;
   label: string;
-  /** Where the label goes so that it does not sit on a line, when one side is free. */
-  labelSide: "above" | "below";
+  /** Where the label goes so that it does not sit on a line: above or below when that side is free, else beside. */
+  labelSide: "above" | "below" | "beside";
   uses?: string;
   role?: string;
   checkpoint?: string;
@@ -49,8 +49,8 @@ export interface Floor {
   mainY: number;
 }
 
-export const GAP = 168; // between stations
-const PAD = 96; // left and right of the first and last station, for labels
+export const GAP = 124; // between stations
+const PAD = 72; // left and right of the first and last station, for labels
 const TRACK = 28; // between tracks
 const CLEAR = 36; // from the main line to the first track
 const BEVEL = 12; // the 45-degree stretch at each corner
@@ -118,14 +118,16 @@ export function layout(workflow: Workflow): Floor {
       const here = drafts
         .filter((d) => d.side === side && (d.fromAt === index || d.toAt === index))
         .flatMap((d) => [
-          ...(d.fromAt === index ? [{ d, end: "from" as const, other: d.toAt }] : []),
-          ...(d.toAt === index ? [{ d, end: "to" as const, other: d.fromAt }] : []),
+          ...(d.fromAt === index ? [{ d, end: "from" as const, other: d.toAt, key: `from ${d.key}` }] : []),
+          // lines of one outcome that end here arrive together, at one point
+          ...(d.toAt === index ? [{ d, end: "to" as const, other: -1, key: `to ${d.outcome}` }] : []),
         ])
-        .sort((a, b) => a.other - b.other || (a.end === "to" ? -1 : 1));
-      const step = Math.min(PORT, 48 / Math.max(1, here.length - 1));
-      for (const [k, port] of here.entries()) {
+        .sort((a, b) => a.other - b.other);
+      const slots = [...new Set(here.map((p) => p.key))];
+      const step = Math.min(PORT, 48 / Math.max(1, slots.length - 1));
+      for (const port of here) {
         const slot = ports.get(port.d);
-        if (slot) slot[port.end] = Math.round((k - (here.length - 1) / 2) * step);
+        if (slot) slot[port.end] = Math.round((slots.indexOf(port.key) - (slots.length - 1) / 2) * step);
       }
     }
   }
@@ -136,29 +138,35 @@ export function layout(workflow: Workflow): Floor {
     return { a: xOf(d.fromAt) + port.from + self, b: xOf(d.toAt) + port.to - self };
   };
 
-  // A track for each line that is not on the main line: the shortest lines nearest to it, and no
-  // two lines on one track where they would run along each other.
+  // A track for each group of lines that is not on the main line. Lines of one outcome that lead
+  // to the same station run together on one track, like the branches of one line joining: every
+  // lane that fails to "Stopped" is then one grey line with a spur from each lane. The shortest
+  // groups are nearest to the main line, and no two groups share a track where they would overlap.
   const level = new Map<Draft, number>();
   const depth = { above: 0, below: 0 };
   for (const side of [-1, 1] as const) {
+    const groups = new Map<string, Draft[]>();
+    for (const d of drafts.filter((x) => x.side === side)) {
+      const key = `${d.to} ${d.outcome}`;
+      groups.set(key, [...(groups.get(key) ?? []), d]);
+    }
+    const reach = (group: Draft[]): [number, number] => {
+      const xs = group.flatMap((d) => [ends(d).a, ends(d).b]);
+      return [Math.min(...xs) - BEVEL, Math.max(...xs) + BEVEL];
+    };
     const taken: [number, number][][] = [];
-    const lines = drafts
-      .filter((d) => d.side === side)
-      .sort((p, q) => span(p) - span(q) || p.fromAt - q.fromAt);
-    for (const d of lines) {
-      const { a, b } = ends(d);
-      const [lo, hi] = [Math.min(a, b) - BEVEL, Math.max(a, b) + BEVEL];
+    const ordered = [...groups.values()].sort(
+      (p, q) => reach(p)[1] - reach(p)[0] - (reach(q)[1] - reach(q)[0]),
+    );
+    for (const group of ordered) {
+      const [lo, hi] = reach(group);
       let at = taken.findIndex((row) => row.every(([l, h]) => hi < l || lo > h));
       if (at < 0) at = taken.push([]) - 1;
       taken[at]?.push([lo, hi]);
-      level.set(d, at + 1);
+      for (const d of group) level.set(d, at + 1);
     }
     depth[side === -1 ? "above" : "below"] = taken.length;
   }
-  function span(d: Draft): number {
-    return Math.abs(d.toAt - d.fromAt);
-  }
-
   const mainY = EDGE + (depth.above > 0 ? CLEAR + depth.above * TRACK : 0);
   const height = mainY + (depth.below > 0 ? CLEAR + depth.below * TRACK : 0) + EDGE;
   const lines: Line[] = drafts.map((d) => {
@@ -189,7 +197,7 @@ export function layout(workflow: Workflow): Floor {
     drafts.some((d) => d.side === side && (d.fromAt === index || d.toAt === index));
   const stations: Station[] = ids.map((id, index) => {
     const lane = workflow.lanes[index];
-    const labelSide = !busy(index, -1) ? "above" : !busy(index, 1) ? "below" : "above";
+    const labelSide = !busy(index, -1) ? "above" : !busy(index, 1) ? "below" : "beside";
     const at = { id, x: xOf(index), y: mainY, labelSide } as const;
     if (!lane) {
       const missing = unknown.includes(id) ? { missing: true } : {};

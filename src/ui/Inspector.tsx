@@ -326,7 +326,10 @@ function LaneForm({
                 </select>
               </label>
               {main?.maxRounds ? (
-                <p className="note">It goes back at most {main.maxRounds} times, then stops.</p>
+                <p className="note">
+                  It goes back at most {main.maxRounds === 1 ? "once" : `${main.maxRounds} times`}, then
+                  stops.
+                </p>
               ) : null}
               {conditional ? (
                 <p className="note">

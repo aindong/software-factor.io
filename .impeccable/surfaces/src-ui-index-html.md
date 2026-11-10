@@ -71,7 +71,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 ## Unresolved
 
-- Whether React Flow can route edges on the three allowed angles with rounded bends, or needs a custom edge. To be
-  proven in task 14 before the rest of the floor is built.
+- Settled in task 14: the diagram is plain SVG with the tool's own layout and routing, not React Flow. The
+  workflow file holds no positions, so the map is laid out from the process, and the three angles needed a router
+  of our own in any case.
 - The honest risk: a transit map is a famous look. It stays a working diagram only if no map furniture is added
   that carries no information.

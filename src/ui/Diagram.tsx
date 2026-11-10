@@ -201,7 +201,11 @@ export function Diagram({
       ) : null}
       {order.map((s) => {
         const capsule = s.checkpoint === "in";
-        const nameY = s.labelSide === "above" ? -36 : 34;
+        // beside: lines leave on both sides, so the label sits up and to the left, clear of them
+        const beside = s.labelSide === "beside";
+        const nameY = s.labelSide === "below" ? 34 : beside ? -30 : -36;
+        const nameX = beside ? -18 : 0;
+        const anchor = beside ? "end" : "middle";
         const sub = subOf(s);
         const about =
           s.kind === "end"
@@ -239,11 +243,11 @@ export function Diagram({
             {flagged.has(s.id) ? (
               <rect className="flag" x="9" y="-21" width="8" height="8" transform="rotate(45 13 -17)" />
             ) : null}
-            <text className="name" y={nameY} textAnchor="middle">
+            <text className="name" x={nameX} y={nameY} textAnchor={anchor}>
               {s.label}
             </text>
             {sub ? (
-              <text className="sub" y={nameY + 14} textAnchor="middle">
+              <text className="sub" x={nameX} y={nameY + 14} textAnchor={anchor}>
                 {sub}
               </text>
             ) : null}
