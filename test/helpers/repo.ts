@@ -477,3 +477,5 @@ export async function startUi(repo: Repo): Promise<Ui> {
       }),
   };
 }
+/** The JSON body of an answer, as the shape the test expects. */
+export const jsonOf = async <T>(answer: Response) => (await answer.json()) as T;

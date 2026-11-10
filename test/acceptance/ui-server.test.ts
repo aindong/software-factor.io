@@ -1,6 +1,6 @@
 import { request } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { agentLane, flowRepo, startUi, type Ui } from "../helpers/repo.ts";
+import { agentLane, flowRepo, jsonOf, startUi, type Ui } from "../helpers/repo.ts";
 
 const repo = flowRepo({
   lanes: [agentLane("build", { on: { pass: "review", fail: "@stop" } }), agentLane("review")],
@@ -36,14 +36,15 @@ describe("softwarefactor ui", () => {
   });
 
   it("gives the workspace, its workflows and the one in use", async () => {
-    const workspace = await (await ui.api("/api/workspace")).json();
+    const workspace = await jsonOf<{ name: string }>(await ui.api("/api/workspace"));
     expect(workspace).toMatchObject({ workflow: "starter", workflows: ["starter"] });
     expect(workspace.name).toBeTruthy();
   });
 
   it("gives a workflow as it is in its file, with what the checker says about it", async () => {
-    const body = await (await ui.api("/api/workflows/starter")).json();
-    expect(body.workflow.lanes.map((l: { id: string }) => l.id)).toEqual(["build", "review"]);
+    type Body = { workflow: { lanes: { id: string }[] }; problems: unknown[] };
+    const body = await jsonOf<Body>(await ui.api("/api/workflows/starter"));
+    expect(body.workflow.lanes.map((l) => l.id)).toEqual(["build", "review"]);
     expect(body.problems).toEqual([]);
   });
 

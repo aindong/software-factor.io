@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { agentLane, flowRepo, startUi, type Ui } from "../helpers/repo.ts";
+import { agentLane, flowRepo, jsonOf, startUi, type Ui } from "../helpers/repo.ts";
+
+type Problems = { problems: { path: string; message: string; fix: string }[] };
 
 const repo = flowRepo({
   lanes: [agentLane("build", { on: { pass: "review", fail: "@stop" } }), agentLane("review")],
@@ -20,10 +22,10 @@ describe("saving a workflow through the interface", () => {
     (broken.lanes[0] as { on: Record<string, string> }).on.pass = "nowhere";
     const answer = await save(broken);
     expect(answer.status).toBe(422);
-    const { problems } = await answer.json();
+    const { problems } = await jsonOf<Problems>(answer);
     expect(problems[0]).toMatchObject({ path: expect.stringContaining("lanes[0].on.pass") });
-    expect(problems[0].message).toBeTruthy();
-    expect(problems[0].fix).toBeTruthy();
+    expect(problems[0]?.message).toBeTruthy();
+    expect(problems[0]?.fix).toBeTruthy();
     expect(repo.read(path)).toBe(before);
   });
 
@@ -40,7 +42,7 @@ describe("saving a workflow through the interface", () => {
     const before = repo.read(path);
     const answer = await ui.api("/api/check", { method: "POST", body: { workflow: { version: 1 } } });
     expect(answer.status).toBe(200);
-    expect((await answer.json()).problems.length).toBeGreaterThan(0);
+    expect((await jsonOf<Problems>(answer)).problems.length).toBeGreaterThan(0);
     expect(repo.read(path)).toBe(before);
   });
 
