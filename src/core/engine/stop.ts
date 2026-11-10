@@ -38,13 +38,22 @@ export async function stopRun(ws: Workspace, runId: string): Promise<string> {
     }
     const pid = run.pid;
     if (!isAlive(pid)) {
+      // take it first: a `run` in another process may be picking this orphan up right now
+      if (!store.takeOrphan(db, runId, pid))
+        throw new UserError(`Run ${runId} just started moving again.`, "Run stop again.");
       cleanUp(ws, runId);
       return end("stopped by a person, after its process had died");
     }
     store.requestStop(db, runId);
     for (let waited = 0; waited < WAIT_MS; waited += 200) {
       await new Promise((r) => setTimeout(r, 200));
-      if (store.getRun(db, runId)?.status !== "running") return `run ${runId} stopped: stopped by a person`;
+      const now = store.getRun(db, runId);
+      if (!now || now.status === "running") continue;
+      if (now.status === "stopped")
+        return `run ${runId} stopped: ${now.stop_reason ?? "stopped by a person"}`;
+      // it parked on its own before it saw the request: end it here
+      if (now.status === "waiting" && store.takeWaitingRun(db, runId)) return end("stopped by a person");
+      return `run ${runId} had already ended (${now.status}) before it could be stopped`;
     }
     throw new UserError(
       `Run ${runId} did not stop within ${WAIT_MS / 1000} seconds.`,

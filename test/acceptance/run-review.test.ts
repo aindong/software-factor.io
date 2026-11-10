@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -122,6 +123,5 @@ describe("after a crash", () => {
 
 /** Clean up the command the killed process left, so the test leaves nothing behind. */
 function spawnKill(name: string) {
-  // biome-ignore lint/style/noCommonJs: a one-line clean-up
-  require("node:child_process").spawnSync("pkill", ["-f", name]);
+  spawnSync("pkill", ["-f", name]);
 }

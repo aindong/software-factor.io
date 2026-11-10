@@ -5,6 +5,7 @@ import { UserError } from "../errors.ts";
 import * as store from "../store.ts";
 import type { Workspace } from "../workspace.ts";
 import { preflight } from "./preflight.ts";
+import { freeDeadSlots } from "./recover.ts";
 import { advance, applyOutcome, contextFor, crashed, type RunSummary } from "./run.ts";
 import { maxSlots, slotEnv } from "./slots.ts";
 import { addNote } from "./state.ts";
@@ -66,6 +67,7 @@ export async function decide(
         "Look again with `softwarefactor status`.",
       );
     }
+    freeDeadSlots(db); // a run whose process died must not keep this one waiting
     const slot = store.claimSlot(db, runId, maxSlots(ws));
     ctx.slotEnv = slotEnv(ws, slot);
     if (slot === undefined) {

@@ -1,7 +1,7 @@
 // Runs a shell command for a gate or a command lane: bounded in time and output, with a small
 // environment. Leaked environment variables were a main cause of false results in the first factory.
 import { spawn } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { StringDecoder } from "node:string_decoder";
 
 export interface ExecResult {
@@ -57,6 +57,14 @@ export interface Control {
   pidFile?: string;
 }
 
+function forget(pidFile: string, pid: number): void {
+  if (!existsSync(pidFile)) return;
+  const left = readFileSync(pidFile, "utf8")
+    .split("\n")
+    .filter((line) => line !== "" && line !== String(pid));
+  writeFileSync(pidFile, left.length > 0 ? `${left.join("\n")}\n` : "");
+}
+
 export function sh(
   command: string,
   options: { cwd: string; env: Record<string, string>; timeoutMs: number } & Control,
@@ -70,10 +78,13 @@ export function sh(
       detached: true,
     });
     const pid = child.pid;
+    const onAbort = () => {
+      if (pid) killGroup(pid);
+    };
     if (pid) {
       running.add(pid);
       if (options.pidFile) appendFileSync(options.pidFile, `${pid}\n`);
-      options.signal?.addEventListener("abort", () => killGroup(pid), { once: true });
+      options.signal?.addEventListener("abort", onAbort, { once: true });
       if (options.signal?.aborted) killGroup(pid);
     }
     let output = "";
@@ -101,6 +112,10 @@ export function sh(
       if (pid) {
         running.delete(pid);
         killGroup(pid); // nothing the command started may outlive it
+        // the command is over: it must never be signalled again, here or by a later process,
+        // because the system gives its number to something else
+        options.signal?.removeEventListener("abort", onAbort);
+        if (options.pidFile) forget(options.pidFile, pid);
       }
       child.stdout.destroy();
       child.stderr.destroy();

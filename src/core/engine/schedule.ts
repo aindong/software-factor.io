@@ -40,7 +40,11 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
       if (!worst || rank[summary.status] > rank[worst.status]) worst = summary;
     };
 
-    const orphans = recoverOrphans(ws, db, log);
+    const endedByCrash: string[] = [];
+    const orphans = recoverOrphans(ws, db, log, endedByCrash);
+    for (const id of endedByCrash) seen({ status: "stopped", runId: id, code: "crashed", log });
+    // a run this call has already moved is not woken again by the same call
+    const moved = new Set<string>();
     const added = collect(ws, db);
     if (added > 0) log.push(`collected ${added} new task${added === 1 ? "" : "s"}`);
     let started = 0;
@@ -57,6 +61,7 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
         return contextFor(ws, db, run, log);
       }
       for (const due of store.dueRuns(db)) {
+        if (moved.has(due.id)) continue;
         if (!store.takeWaitingRun(db, due.id)) continue; // another process woke it first
         if (store.claimSlot(db, due.id, slots) === undefined) {
           store.endRun(db, due.id, "waiting", "waiting", due.stop_reason ?? "waiting", due.wake_at); // park it again, as it was
@@ -68,14 +73,22 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
         return contextFor(ws, db, { ...due, status: "running" }, log);
       }
       if (!options.all && started >= 1) return undefined;
-      const runId = randomBytes(4).toString("hex");
-      // the slot is claimed first, so a task is never taken by a run that cannot start
       const queued = db.prepare("select count(*) as n from tasks where status = 'queued'").get() as {
         n: number;
       };
       if (queued.n === 0) return undefined;
+      // the slot is claimed first, so a task is never taken by a run that cannot start
+      const runId = randomBytes(4).toString("hex");
+      const slot = store.claimSlot(db, runId, slots);
+      if (slot === undefined) {
+        busy = true;
+        return undefined;
+      }
       const task = store.claimNextTask(db);
-      if (!task) return undefined;
+      if (!task) {
+        store.releaseSlot(db, runId); // another process took the last task
+        return undefined;
+      }
       const branch = `factor/${task.key}-${runId}`;
       const worktree = join(ws.workDir, runId);
       const first = ws.workflow.lanes[0]?.id ?? "";
@@ -91,15 +104,11 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
           worktree,
           state: JSON.stringify(newState(first)),
         });
+        db.prepare("update runs set slot = ? where id = ?").run(slot, runId);
       } catch (error) {
+        store.releaseSlot(db, runId);
         store.setTaskStatus(db, task.id, "queued"); // nothing started: the task goes back in the queue
         throw error;
-      }
-      if (store.claimSlot(db, runId, slots) === undefined) {
-        db.prepare("delete from runs where id = ?").run(runId);
-        store.setTaskStatus(db, task.id, "queued");
-        busy = true;
-        return undefined;
       }
       started += 1;
       store.addEvent(db, runId, "run.started", { task: task.title });
@@ -117,18 +126,28 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
     };
 
     const active = new Set<Promise<void>>();
-    for (;;) {
-      while (active.size < cap && !wasInterrupted()) {
-        const ctx = next();
-        if (!ctx) break;
-        const moving: Promise<void> = advance(ctx)
-          .then(seen)
-          .finally(() => active.delete(moving));
-        active.add(moving);
+    let failure: unknown;
+    try {
+      for (;;) {
+        while (active.size < cap && !wasInterrupted() && failure === undefined) {
+          const ctx = next();
+          if (!ctx) break;
+          moved.add(ctx.run.id);
+          const moving: Promise<void> = advance(ctx)
+            .then(seen, (error) => {
+              failure ??= error;
+            })
+            .finally(() => active.delete(moving));
+          active.add(moving);
+        }
+        if (active.size === 0) break;
+        await Promise.race(active);
       }
-      if (active.size === 0) break;
-      await Promise.race(active);
+    } finally {
+      // the database is closed below: nothing may still be using it
+      await Promise.allSettled(active);
     }
+    if (failure !== undefined) throw failure;
     if (busy && !worst) log.push(`every slot is busy (${slots} in all): nothing was started`);
     return worst
       ? { ...(worst as RunSummary), log }

@@ -204,7 +204,8 @@ async function waitStep(
     lane: lane.id,
     laneRun,
     deadline,
-    nextCheck: Math.min(deadline, now + (settings.everyMinutes ?? 1) * MINUTE_MS),
+    // counted from the end of the check: a check slower than the interval must not be due again at once
+    nextCheck: Math.min(Math.max(deadline, nowMs() + 1), nowMs() + (settings.everyMinutes ?? 1) * MINUTE_MS),
   };
 }
 
@@ -267,6 +268,12 @@ export async function advance(ctx: Ctx): Promise<RunSummary> {
 
       if (lane.uses === "core/wait@1") {
         const step = await waitStep(ctx, lane, laneRun);
+        // a stop that arrived during the check must end the run, not park it to be woken later
+        const stopped = halted(ctx);
+        if (stopped) {
+          store.endLane(db, laneRun, "fail", stopped.reason, null);
+          return finish(ctx, "stopped", stopped.code, stopped.reason);
+        }
         if ("kind" in step) return park(ctx, step, "waiting", `lane "${lane.id}" is waiting`);
         state.parked = undefined;
         ({ outcome, note } = step);

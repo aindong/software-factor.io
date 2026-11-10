@@ -28,7 +28,7 @@ export interface Ctx {
   outDir: string;
   log: string[];
   facts: () => Facts;
-  /** The run's own ports, database name and browser session name, for everything it starts. */
+  /** The run's own ports, database name and browser session name, for its commands and gates (agents get it in task 10). */
   slotEnv: Record<string, string>;
   /** Cancels what the run is running when a person stops it, and records its commands for recovery. */
   control: Control & { signal: AbortSignal };
