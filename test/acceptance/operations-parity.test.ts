@@ -6,7 +6,17 @@ import { FACTOR_TOOLS } from "../../src/core/agents/factor-tools.ts";
 import { OPERATIONS } from "../../src/core/operations.ts";
 import { ROUTE_OPS, startServer } from "../../src/core/server.ts";
 import { op, operator, tool } from "../helpers/operator.ts";
-import { agentLane, ensureUi, flowRepo, mcp, startUi, type Ui } from "../helpers/repo.ts";
+import {
+  agentLane,
+  commitFile,
+  ensureUi,
+  flowRepo,
+  mcp,
+  pass,
+  runRow,
+  startUi,
+  type Ui,
+} from "../helpers/repo.ts";
 
 const repo = flowRepo({ lanes: [agentLane("build")] });
 let ui: Ui;
@@ -89,6 +99,26 @@ describe("the factory's operations", () => {
     }
   });
 
+  it("each read is a command the command line runs to the end, with every word and flag", () => {
+    const done = flowRepo({
+      lanes: [agentLane("build", { agent: { access: "write" } })],
+      scripts: { author: { build: [...commitFile("a.txt"), pass()] } },
+    });
+    expect(done.sf("run").status).toBe(0);
+    const run = runRow(done)?.id ?? "";
+    for (const o of OPERATIONS.filter((x) => !x.changes)) {
+      for (const words of o.cli) {
+        const r = done.sf(...words.map((w) => (w === "<run>" ? run : w)));
+        expect(r.status, `${o.name}: softwarefactor ${words.join(" ")}\n${r.stderr}`).toBe(0);
+        expect(r.stdout.trim().length, words.join(" ")).toBeGreaterThan(0);
+      }
+    }
+    // a word or a flag the command line does not have is not taken for one it has
+    expect(done.sf("runs", run, "--dif").status).not.toBe(0);
+    expect(done.sf("runs", run, "--diff").stdout).toContain("a.txt");
+    expect(done.sf("runs", "--diff").status).not.toBe(0);
+  }, 120_000);
+
   it("cover every route the interface's server has under /api/", async () => {
     ensureUi();
     const served = await startServer(repo.dir, { workflow: "starter" }, 0);
@@ -109,19 +139,32 @@ describe("the factory's operations", () => {
 
   it("refuse an input their own schema refuses, in the API and the MCP server alike", async () => {
     const wrong: [string, unknown, RegExp][] = [
-      ["inbox_decide", { run: 5, decision: "approve" }, /run/],
-      ["inbox_decide", { run: "abc", decision: "maybe" }, /decision/],
-      ["inbox_decide", { run: "abc", decision: "approve", extra: 1 }, /extra/],
-      ["inbox_decide", { run: "--note", decision: "approve" }, /run/],
-      ["inbox_decide", { run: "a; rm -rf x", decision: "approve" }, /run/],
+      ["inbox_decide", { run: 5, item: 1, decision: "approve" }, /run/],
+      ["inbox_decide", { run: "abc", item: 1, decision: "maybe" }, /decision/],
+      ["inbox_decide", { run: "abc", item: 1, decision: "approve", extra: 1 }, /extra/],
+      ["inbox_decide", { run: "--note", item: 1, decision: "approve" }, /run/],
+      ["inbox_decide", { run: "a; rm -rf x", item: 1, decision: "approve" }, /run/],
       ["runs_get", {}, /run/],
       ["runs_get", { run: "../.." }, /run/],
       ["roles_bind", { role: "author" }, /account/],
       ["workflow_get", { name: "../factory" }, /name/],
       ["runs_list", { anything: true }, /anything/],
     ];
-    // every operation too, given a key it does not know (one that also lacks a key says that first)
-    const cases = [...wrong, ...names.map((name): [string, unknown, RegExp] => [name, { nope: 1 }, /\S/])];
+    // every operation too, given all it needs and one key it does not know: no schema lets a key through
+    const needs: Record<string, Record<string, unknown>> = {
+      workflow_get: { name: "starter" },
+      workflow_check: { workflow: {} },
+      workflow_save: { name: "starter", workflow: {} },
+      runs_get: { run: "abc" },
+      runs_file: { run: "abc", path: "x" },
+      runs_diff: { run: "abc" },
+      inbox_decide: { run: "abc", item: 1, decision: "approve" },
+      roles_bind: { role: "author", account: "work" },
+    };
+    const cases = [
+      ...wrong,
+      ...names.map((name): [string, unknown, RegExp] => [name, { ...needs[name], nope: 1 }, /nope/]),
+    ];
     // the API first, then the MCP server in one go: a call to it holds this process up
     const api = [];
     for (const [name, input] of cases) api.push(await op(ui, name, input));

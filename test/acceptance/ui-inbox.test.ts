@@ -1,9 +1,10 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { op, tool } from "../helpers/operator.ts";
+import { op as call, tool as serve } from "../helpers/operator.ts";
 import {
   agentLane,
+  background,
   commandLane,
   commitFile,
   flowRepo,
@@ -28,11 +29,26 @@ const uis: Ui[] = [];
 afterAll(async () => {
   for (const ui of uis) await ui.stop();
 });
+const repoOf = new Map<Ui, Repo>();
 async function open(repo: Repo): Promise<Ui> {
   const ui = await startUi(repo);
   uis.push(ui);
+  repoOf.set(ui, repo);
   return ui;
 }
+/** A decision names the item it is made on: here, the one that is open for the run. */
+function named(repo: Repo | undefined, name: string, input: unknown): unknown {
+  const given = input as { run?: string; item?: number };
+  if (name !== "inbox_decide" || !repo || given.item !== undefined) return input;
+  const open = repo.rows<{ id: number }>(
+    `select id from inbox where status = 'open' and run_id = '${given.run}'`,
+  )[0];
+  return { ...given, item: open?.id ?? 1 };
+}
+const op = <T = Record<string, unknown>>(ui: Ui, name: string, input: unknown = {}) =>
+  call<T>(ui, name, named(repoOf.get(ui), name, input));
+const tool = <T = Record<string, unknown>>(repo: Repo, name: string, input: unknown = {}) =>
+  serve<T>(repo, name, named(repo, name, input));
 /** A run that waits for approval of finished work. */
 const finished = () => {
   const repo = flowRepo({
@@ -270,6 +286,10 @@ describe("the inbox", () => {
     expect((await items(ui))[0]).toMatchObject({ run, lane: "ship", decisions: ["approve", "reject"] });
     const last = await op<{ state: string; run?: string }>(ui, "inbox_decide", { run, decision: "reject" });
     expect(last.status).toBe(200); // a run that stops is not a refusal
+    expect(
+      last.body.state === "going" || (last.body.state === "ended" && last.body.run === "stopped"),
+      JSON.stringify(last.body),
+    ).toBe(true);
     expect(await ended(repo, "stopped")).toBe(true);
   }, 120_000);
 
@@ -282,6 +302,7 @@ describe("the inbox", () => {
     });
     repo.sf("run");
     const ui = await startUi(repo);
+    repoOf.set(ui, repo);
     const asked = Date.now();
     const { status, body } = await op<{ state: string }>(ui, "inbox_decide", {
       run: runRow(repo)?.id,
@@ -293,6 +314,44 @@ describe("the inbox", () => {
     await ui.stop();
     expect(runRow(repo)?.status).toBe("running");
     expect(await until(() => runRow(repo)?.status === "done", 15_000)).toBe(true);
+  }, 120_000);
+
+  it("refuses when every slot is busy, and leaves every row of the record as it was", async () => {
+    const repo = flowRepo({
+      tasks: "- [ ] Wait here\n- [ ] Hold the slot\n",
+      lanes: [
+        commandLane("sort", "true", { on: { pass: "work", fail: "@stop" } }),
+        agentLane("work", { checkpoint: "in" }),
+      ],
+      factory: { slots: { max: 1 } },
+    });
+    expect(repo.sf("run").status).toBe(3);
+    const waitingRun = runRow(repo)?.id ?? "";
+    // the second task holds the only slot: its first lane is made to take long
+    repo.write(
+      ".factor/workflows/starter.json",
+      repo.read(".factor/workflows/starter.json").replace('"run": "true"', '"run": "sleep 5"'),
+    );
+    repo.git("commit", "-qam", "the first lane takes long");
+    const busy = background(repo, "run");
+    expect(
+      await until(() => repo.rows("select 1 from runs where status = 'running'").length === 1, 8000),
+    ).toBe(true);
+    const record = () => ({
+      run: repo.rows(`select * from runs where id = '${waitingRun}'`),
+      lanes: repo.rows(`select * from lane_runs where run_id = '${waitingRun}'`),
+      inbox: repo.rows("select * from inbox"),
+      task: repo.rows("select * from tasks where id = 1"),
+    });
+    const before = record();
+    const ui = await open(repo);
+    const refused = await op(ui, "inbox_decide", { run: waitingRun, decision: "approve" });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toMatch(/Every slot is busy/);
+    expect(refused.body.fix).toMatch(/Decide again/);
+    expect(record()).toEqual(before);
+    busy.child.kill("SIGTERM");
+    await busy.exit;
   }, 120_000);
 
   it("takes one of two decisions given at the same moment", async () => {

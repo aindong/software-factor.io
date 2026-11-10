@@ -128,9 +128,33 @@ describe("costs", () => {
     expect(body.total).toEqual({ sessions: 7, tokens: 3675, usd: 0.8375, unknown: 2 });
     // every amount the command line prints is one the operation gave
     const printed = repo.sf("cost").stdout;
-    const amounts = [...printed.matchAll(/\$(\d+\.\d{4})/g)].map((m) => Number(m[1]));
+    const amounts = [...printed.matchAll(/\$(\d+\.\d+)/g)].map((m) => Number(m[1]));
     const known = [...body.byLane, ...body.byTask, ...body.byAccount, body.total].map((l) => l.usd);
     expect(amounts.length).toBeGreaterThanOrEqual(8);
+    for (const amount of amounts) expect(known, `$${amount}`).toContain(amount);
+  });
+
+  it("print an amount as it is, to the millionth, and never a small one as nothing", async () => {
+    sql(repo, (db) => {
+      const lane = db
+        .prepare("select id from lane_runs where run_id = ? and lane = 'build'")
+        .get(waiting) as {
+        id: number;
+      };
+      const add = db.prepare(
+        "insert into sessions (run_id, lane_run_id, lane, try, account, agent, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, tokens, usd, usd_source, started_at, duration_ms) values (?, ?, ?, 1, 'tiny', 'codex', 0, 0, 0, 0, 1, ?, 'priced', '2026-11-10T12:00:00.000Z', 1)",
+      );
+      add.run(waiting, lane.id, "odd", 0.012345);
+      add.run(waiting, lane.id, "small", 0.00004);
+    });
+    const { body } = await op<Costs>(ui, "costs");
+    expect(body.byLane.find((l) => l.lane === "odd")?.usd).toBe(0.012345);
+    const printed = repo.sf("cost").stdout;
+    expect(printed).toMatch(/odd .*\$0\.012345\b/);
+    expect(printed).toMatch(/small .*\$0\.00004\b/);
+    expect(printed).not.toMatch(/\$0\.0000\b/);
+    const amounts = [...printed.matchAll(/\$(\d+\.\d+)/g)].map((m) => Number(m[1]));
+    const known = [...body.byLane, ...body.byTask, ...body.byAccount, body.total].map((l) => l.usd);
     for (const amount of amounts) expect(known, `$${amount}`).toContain(amount);
   });
 

@@ -50,7 +50,7 @@ standinAccount(repo, "work", "claude", {}, [
   "--headroom",
   "0.8",
 ]);
-standinAccount(repo, "spare", "claude", {});
+standinAccount(repo, "spare", "claude", {}, ["--limit", "5h=1000"]);
 standinAccount(repo, "other", "codex", {});
 bind(repo, "author", "work", "--medium", "sonnet", "--effort", "high");
 writeFileSync(join(repo.home, "profiles", "work", "auth.json"), '{"token":"MARKER-1"}');
@@ -98,7 +98,8 @@ describe("accounts and roles", () => {
       headroom: 0.8,
       heldUntil: null,
     });
-    expect(accounts[1]?.limits).toEqual([]);
+    // what it used before it was removed and added again is not counted, and does not hold it
+    expect(accounts[1]?.limits).toEqual([{ hours: 5, tokens: 1000, used: 0 }]);
     expect(accounts[1]?.heldUntil).toBeNull();
     expect(Date.parse(accounts[2]?.heldUntil ?? "")).toBeGreaterThan(Date.now() + 3_000_000);
   });
