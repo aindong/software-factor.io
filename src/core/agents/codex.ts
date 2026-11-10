@@ -35,6 +35,8 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
           ? [
               ...["-c", `mcp_servers.factor.command=${JSON.stringify(job.server[0])}`],
               ...["-c", `mcp_servers.factor.args=${JSON.stringify(job.server.slice(1))}`],
+              // nobody is there to approve a tool call, and without this the CLI refuses every one
+              ...["-c", 'mcp_servers.factor.default_tools_approval_mode="approve"'],
             ]
           : []),
         "-", // the prompt comes on stdin

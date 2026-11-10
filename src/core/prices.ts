@@ -17,11 +17,21 @@ const Price = z.strictObject({
 export type Price = z.infer<typeof Price>;
 const PricesFile = z.record(z.string().min(1), Price);
 
-/** Read on 2026-11-10 from https://developers.openai.com/api/docs/pricing, in dollars per million tokens. */
+/**
+ * Read on 2026-11-10 from https://developers.openai.com/api/docs/pricing: the standard tier, in
+ * dollars per million tokens, for the models the Codex CLI lists.
+ * shortcut: these are the prices up to 272,000 input tokens. Past that the page lists about double. Add the long rows when a session is that large.
+ */
 const LIST: Record<string, Price> = {
-  "gpt-5.3-codex": { input: 1.75, cacheRead: 0.175, output: 14 },
-  "gpt-5.2-codex": { input: 1.75, cacheRead: 0.175, output: 14 },
-  "gpt-5-codex": { input: 1.25, cacheRead: 0.125, output: 10 },
+  "gpt-6.1-sol": { input: 2, cacheRead: 0.1, output: 10 },
+  "gpt-6.1-terra": { input: 1, cacheRead: 0.05, output: 5 },
+  "gpt-6-sol": { input: 2, cacheRead: 0.2, output: 10 },
+  "gpt-6-astra": { input: 10, cacheRead: 1, output: 50 },
+  "gpt-6-luna": { input: 0.1, cacheRead: 0.01, output: 0.5 },
+  "gpt-5.6-sol": { input: 4, cacheRead: 0.4, output: 20 }, // a promotional price until 2026-11-30
+  "gpt-5.6-terra": { input: 2, cacheRead: 0.2, output: 12 },
+  "gpt-5.6-luna": { input: 0.2, cacheRead: 0.02, output: 1.2 },
+  "gpt-5.3-codex": { input: 1.75, cacheRead: 0.175, output: 14 }, // refused for a ChatGPT login on 0.167.0
 };
 
 export function readPrices(): Record<string, Price> {
