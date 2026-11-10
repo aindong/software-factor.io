@@ -105,6 +105,31 @@ const MIGRATIONS = [
   );
   alter table runs add column risk text;
   `,
+  // one row for each start of an agent: who worked, what it used, what it cost, and its transcript
+  `
+  create table sessions (
+    id integer primary key,
+    run_id text not null references runs(id),
+    lane_run_id integer not null references lane_runs(id),
+    lane text not null,
+    try integer not null,
+    account text,
+    agent text not null,
+    model text,
+    session_id text,
+    input_tokens integer not null,
+    output_tokens integer not null,
+    cache_read_tokens integer not null,
+    cache_write_tokens integer not null,
+    tokens integer not null,
+    usd real,
+    usd_source text not null,
+    transcript_path text,
+    transcript_sha256 text,
+    started_at text not null,
+    duration_ms integer not null
+  );
+  `,
 ];
 
 export type Db = DatabaseSync;

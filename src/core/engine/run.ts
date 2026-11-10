@@ -353,6 +353,21 @@ export async function advance(ctx: Ctx): Promise<RunSummary> {
 
 /** End a run that hit an error: close its open lane, name the reason, and leave nothing "running". */
 export function crashed(ctx: Ctx, error: unknown): RunSummary {
+  // a lane that broke after its agent ran has still spent what its sessions say
+  const open = ctx.db
+    .prepare(
+      `select l.id, coalesce(sum(s.tokens), 0) as tokens, coalesce(sum(s.usd), 0) as usd
+       from lane_runs l left join sessions s on s.lane_run_id = l.id
+       where l.run_id = ? and l.outcome is null group by l.id`,
+    )
+    .all(ctx.run.id) as unknown as { id: number; tokens: number; usd: number }[];
+  for (const lane of open) {
+    ctx.db
+      .prepare("update lane_runs set tokens = ?, usd = ? where id = ?")
+      .run(lane.tokens, lane.usd, lane.id);
+    ctx.state.spent.tokens += lane.tokens;
+    ctx.state.spent.usd += lane.usd;
+  }
   const halt = halted(ctx);
   if (halt) return finish(ctx, "stopped", halt.code, halt.reason);
   const message = (error as Error).message;

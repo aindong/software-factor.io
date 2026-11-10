@@ -361,3 +361,43 @@ export function readStatus(db: Db): StatusView {
     }),
   };
 }
+
+export interface Session {
+  run_id: string;
+  lane_run_id: number;
+  lane: string;
+  try: number;
+  account: string | null;
+  agent: string;
+  model: string | null;
+  session_id: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  tokens: number;
+  /** Null when the cost is unknown: the CLI reported none and the model has no price. */
+  usd: number | null;
+  usd_source: "reported" | "priced" | "unknown";
+  transcript_path: string | null;
+  transcript_sha256: string | null;
+  started_at: string;
+  duration_ms: number;
+}
+
+export function addSession(db: Db, s: Session): void {
+  const columns = Object.keys(s);
+  db.prepare(
+    `insert into sessions (${columns.join(", ")}) values (${columns.map(() => "?").join(", ")})`,
+  ).run(...(Object.values(s) as (string | number | null)[]));
+}
+
+/** Every session, oldest first, with its run's task. One run's when `runId` is given. */
+export const sessionsOf = (db: Db, runId?: string) =>
+  db
+    .prepare(
+      `select sessions.*, tasks.title from sessions
+       join runs on runs.id = sessions.run_id join tasks on tasks.id = runs.task_id
+       where ? is null or sessions.run_id = ? order by sessions.id`,
+    )
+    .all(runId ?? null, runId ?? null) as unknown as (Session & { title: string })[];

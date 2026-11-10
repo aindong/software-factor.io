@@ -2,7 +2,7 @@
 // sandbox as the wall. In the sandbox it cannot write outside the worktree, and a read-only lane
 // cannot write at all, so the hand-off is read from its last message (docs/research/agent-clis.md).
 import type { Account } from "../accounts.ts";
-import { type Choice, handoffFromText, LIMIT, profileEnv, runCli } from "./cli.ts";
+import { type Choice, count, handoffFromText, LIMIT, profileEnv, runCli } from "./cli.ts";
 import type { AgentAdapter } from "./types.ts";
 
 type Event = Record<string, unknown>;
@@ -38,16 +38,25 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
         true,
       );
 
-      let tokens = 0;
+      const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
       let last = "";
       for (const e of out.events) {
-        const usage =
+        const used =
           e.type === "turn.completed" ? (e.usage as Record<string, unknown> | undefined) : undefined;
-        // cached input is part of input, and reasoning is part of output
-        if (usage) tokens += (Number(usage.input_tokens) || 0) + (Number(usage.output_tokens) || 0);
+        if (used) {
+          // cached input is part of the input the CLI reports, and reasoning is part of its output
+          // (that the cache-write count is part of input too is assumed: no run has shown it above 0)
+          const cached = count(used.cached_input_tokens);
+          const written = count(used.cache_write_input_tokens);
+          usage.input += Math.max(0, count(used.input_tokens) - cached - written);
+          usage.cacheRead += cached;
+          usage.cacheWrite += written;
+          usage.output += count(used.output_tokens);
+        }
         const item = e.type === "item.completed" ? (e.item as Event | undefined) : undefined;
         if (item?.type === "agent_message" && typeof item.text === "string") last = item.text;
       }
+      const tokens = usage.input + usage.cacheRead + usage.cacheWrite + usage.output;
       // an error event can be a retry the CLI recovered from: it counts only when no turn finished after it
       const failedAt = out.events.findLastIndex((e) => e.type === "turn.failed" || e.type === "error");
       const doneAt = out.events.findLastIndex((e) => e.type === "turn.completed");
@@ -59,7 +68,9 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
       else handoffFromText(job, last);
       return {
         exitCode: out.exitCode,
-        usage: { tokens, usd: 0 }, // the CLI reports no cost: the cost report prices the tokens (task 11)
+        // the CLI reports no cost: the host prices the tokens. No finished turn means no usage at all.
+        usage: doneAt < 0 ? undefined : { ...usage, tokens, usd: 0, costReported: false },
+        model: choice.model, // the CLI does not print the model it used
         sessionId: typeof started?.thread_id === "string" ? started.thread_id : undefined,
         error,
         limit: error !== undefined && LIMIT.test(error),

@@ -12,8 +12,10 @@ import {
   removeAccount,
 } from "./accounts.ts";
 import { LocalConfig } from "./config.ts";
+import type { Db } from "./db.ts";
 import { UserError } from "./errors.ts";
 import { own } from "./schema/builtins.ts";
+import { getRun, type Session, sessionsOf } from "./store.ts";
 import type { Workspace } from "./workspace.ts";
 
 type Flags = Record<string, string | boolean | string[] | undefined>;
@@ -175,5 +177,72 @@ export function roleCommand(
   }
   writeFileSync(join(ws.factorDir, "local.json"), `${JSON.stringify(local.data, null, 2)}\n`);
   say(`the role "${role}" is now worked by the account "${account}"`);
+  return 0;
+}
+
+const money = (usd: number) => `$${usd.toFixed(4)}`;
+const num = (n: number) => String(n).padStart(13);
+
+/** `sessions [run]`: every start of an agent with what it used and cost, a total per run and per account. */
+export function sessionsCommand(db: Db, runId: string | undefined, say: (line: string) => void): number {
+  if (runId !== undefined && !getRun(db, runId)) {
+    throw new UserError(`There is no run "${runId}".`, "See the run ids with `softwarefactor status`.");
+  }
+  const sessions = sessionsOf(db, runId);
+  if (sessions.length === 0) {
+    say("No sessions yet. A session is recorded each time an agent starts on a lane.");
+    return 0;
+  }
+  /** The known cost of some sessions, and how many of them have none. */
+  const cost = (list: Session[]) => ({
+    usd: list.reduce((sum, s) => sum + (s.usd ?? 0), 0),
+    unknown: list.filter((s) => s.usd === null).length,
+  });
+  const sum = (
+    list: Session[],
+    key: "input_tokens" | "output_tokens" | "cache_read_tokens" | "cache_write_tokens" | "tokens",
+  ) => list.reduce((total, s) => total + s[key], 0);
+  const head = `${"lane".padEnd(14)} ${"try".padEnd(4)} ${"account".padEnd(14)} ${"model".padEnd(22)}`;
+  for (const id of new Set(sessions.map((s) => s.run_id))) {
+    const mine = sessions.filter((s) => s.run_id === id);
+    say(`Run ${id}  ${mine[0]?.title ?? ""}`);
+    say(
+      `  ${head}${["input", "output", "cache read", "cache write"].map((h) => h.padStart(13)).join("")}  cost`,
+    );
+    for (const s of mine) {
+      const who = `${s.lane.padEnd(14)} ${String(s.try).padEnd(4)} ${(s.account ?? "-").padEnd(14)} ${(s.model ?? "-").padEnd(22)}`;
+      const used =
+        num(s.input_tokens) + num(s.output_tokens) + num(s.cache_read_tokens) + num(s.cache_write_tokens);
+      say(
+        `  ${who}${used}  ${s.usd === null ? "unknown" : money(s.usd)}${s.usd_source === "priced" ? " (priced from the table)" : ""}`,
+      );
+    }
+    const { usd, unknown } = cost(mine);
+    const used =
+      num(sum(mine, "input_tokens")) +
+      num(sum(mine, "output_tokens")) +
+      num(sum(mine, "cache_read_tokens")) +
+      num(sum(mine, "cache_write_tokens"));
+    const known = unknown === mine.length ? "unknown" : money(usd);
+    say(`  ${"total".padEnd(head.length)}${used}  ${known}  (${sum(mine, "tokens")} tokens)`);
+    if (unknown > 0) {
+      say(
+        `  ${unknown} session${unknown === 1 ? "" : "s"} of unknown cost ${unknown === 1 ? "is" : "are"} not in the total`,
+      );
+    }
+    say("");
+  }
+  say("By account");
+  for (const account of new Set(sessions.map((s) => s.account))) {
+    const mine = sessions.filter((s) => s.account === account);
+    const { usd, unknown } = cost(mine);
+    const known =
+      unknown === mine.length
+        ? "unknown"
+        : money(usd) + (unknown > 0 ? ` (${unknown} of unknown cost not counted)` : "");
+    say(
+      `  ${(account ?? "(the scripted agent)").padEnd(22)} ${mine.length} session${mine.length === 1 ? "" : "s"}  ${sum(mine, "tokens")} tokens  ${known}`,
+    );
+  }
   return 0;
 }

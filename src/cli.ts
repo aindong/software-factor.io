@@ -5,7 +5,7 @@ import { join, relative } from "node:path";
 // MCP server can offer the same ones (ADR 0008).
 import { parseArgs } from "node:util";
 import { judge, type Verdict } from "./core/agents/guard.ts";
-import { accountCommand, roleCommand } from "./core/commands.ts";
+import { accountCommand, roleCommand, sessionsCommand } from "./core/commands.ts";
 import { openDb } from "./core/db.ts";
 import { decide } from "./core/engine/inbox.ts";
 import { handoffPath, riskLine } from "./core/engine/report.ts";
@@ -33,6 +33,8 @@ Usage: softwarefactor <command>
                            is empty, several runs at once
   stop <run>               Stop a run that is working or waiting
   status                   Show tasks, runs, lanes, gates and where the evidence is
+  sessions [run]           Show each start of an agent: account, model, tokens by kind and cost,
+                           with a total per run and per account
   inbox                    Show what waits for a person
   approve <run>            Approve a waiting lane
   reject <run> [--note]    Reject it: the lane's fail transition is taken
@@ -149,6 +151,15 @@ async function main(): Promise<number> {
 
   if (command === "account") return accountCommand(positionals.slice(1), values, say);
   if (command === "role") return roleCommand(loadWorkspace(cwd), positionals.slice(1), values, say);
+
+  if (command === "sessions") {
+    const db = openDb(loadWorkspace(cwd).dbPath);
+    try {
+      return sessionsCommand(db, positionals[1], say);
+    } finally {
+      db.close();
+    }
+  }
 
   if (command === "collect") {
     const ws = loadWorkspace(cwd);

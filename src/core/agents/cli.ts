@@ -1,13 +1,15 @@
 // What every agent CLI has in common: start it in the worktree with a small environment, keep its
 // output apart from its diagnostics, stop it and everything it started, and read what it printed.
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { hostEnv, sh } from "../exec.ts";
+import { readTail } from "../safe-read.ts";
 import type { AgentJob } from "./types.ts";
 
 const NO_TIMEOUT = 2 ** 31 - 1; // the lane's own clock stops the agent, through the job's signal
 const ERROR_TAIL = 2000;
+const MAX_STREAM = 500_000_000;
 
 /** One argument, safe inside a shell command. */
 export const quote = (arg: string) => `'${arg.replaceAll("'", "'\\''")}'`;
@@ -15,6 +17,10 @@ export const quote = (arg: string) => `'${arg.replaceAll("'", "'\\''")}'`;
 /** What a CLI says when the account has no quota left. */
 export const LIMIT =
   /usage limit|rate limit|limit reached|hit your limit|quota exceeded|out of credits|too many requests/i;
+
+/** A count a CLI printed: a whole number that is not negative, or 0. Its output is not trusted to be sane. */
+export const count = (value: unknown) =>
+  Number.isSafeInteger(value) && (value as number) >= 0 ? (value as number) : 0;
 
 /** The model and effort a lane gets from its role's binding. */
 export interface Choice {
@@ -67,8 +73,10 @@ export async function runCli(
     pidFile: job.pidFile,
   });
   const events: Record<string, unknown>[] = [];
-  // shortcut: the whole stream is read into memory. Read it line by line if sessions pass 100 MB.
-  for (const line of existsSync(streamPath) ? readFileSync(streamPath, "utf8").split("\n") : []) {
+  // shortcut: the stream is read into memory, its last 500 MB at most. Read it line by line if that hurts.
+  // the files are in a folder the agent can reach: they are read without following a link
+  const stream = readTail(streamPath, MAX_STREAM)?.data.toString("utf8") ?? "";
+  for (const line of stream.split("\n")) {
     try {
       const value: unknown = JSON.parse(line);
       if (typeof value === "object" && value !== null) events.push(value as Record<string, unknown>);
@@ -76,7 +84,7 @@ export async function runCli(
       // not an event
     }
   }
-  const stderr = existsSync(errorFile) ? readFileSync(errorFile, "utf8").slice(-ERROR_TAIL).trim() : "";
+  const stderr = readTail(errorFile, ERROR_TAIL)?.data.toString("utf8").trim() ?? "";
   return { exitCode: result.exitCode, events, streamPath, stderr: stderr || result.output.trim() };
 }
 

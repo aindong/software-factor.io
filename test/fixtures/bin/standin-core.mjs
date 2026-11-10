@@ -75,6 +75,7 @@ export async function standin(kind) {
   if (kind === "claude") {
     say({ type: "system", subtype: "init", session_id: "claude-session-1" });
     say({ type: "assistant", message: { content: [{ type: "text", text: final }] } });
+    if (plan.noResult) process.exit(143); // as when the real CLI is killed: no result line
     say({
       type: "result",
       // an error result carries `errors` and no `result`, or is a "success" whose text is the error
@@ -85,6 +86,11 @@ export async function standin(kind) {
       num_turns: 3,
       duration_ms: 1200,
       total_cost_usd: 0.42,
+      // a real result can list more than one model: the small one that did side work comes first here
+      modelUsage: {
+        "claude-standin-small": { inputTokens: 10, outputTokens: 5, costUSD: 0.02 },
+        [plan.modelName ?? "claude-standin-1"]: { inputTokens: 90, outputTokens: 45, costUSD: 0.4 },
+      },
       usage: {
         input_tokens: 100,
         output_tokens: 50,
@@ -104,6 +110,7 @@ export async function standin(kind) {
         usage: {
           input_tokens: 2000,
           cached_input_tokens: 500,
+          cache_write_input_tokens: 100,
           output_tokens: 300,
           reasoning_output_tokens: 40,
         },

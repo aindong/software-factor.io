@@ -27,9 +27,24 @@ export interface AgentJob {
   pidFile?: string;
 }
 
+/** What one start of an agent used. `tokens` is the total: the kinds, when the CLI gives them, add up to it. */
+export interface Usage {
+  tokens: number;
+  usd: number;
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  /** False when the CLI reported no cost: the host prices the tokens, or says the cost is unknown. */
+  costReported?: boolean;
+}
+
 export interface AgentExit {
   exitCode: number;
-  usage?: { tokens: number; usd: number };
+  /** Left out when the agent gave no usage: its tokens and cost are then unknown, not zero. */
+  usage?: Usage;
+  /** The model that worked, when the CLI says it or the binding names it. */
+  model?: string;
   /** The CLI's own name for the session, to find its transcript or continue it. */
   sessionId?: string;
   /** What the CLI said went wrong, when it said so. */

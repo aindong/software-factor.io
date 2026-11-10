@@ -2,8 +2,9 @@
 // command, then the lane's gates. Only the host's gates can pass a lane (ADR 0005).
 import { mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { holdAccount, recordUsage } from "../accounts.ts";
+import { holdAccount } from "../accounts.ts";
 import { adapterFor } from "../agents/index.ts";
+import type { AgentExit } from "../agents/types.ts";
 import { MINUTE_MS, nowMs } from "../clock.ts";
 import type { Db } from "../db.ts";
 import { saveEvidence, saveRunFile } from "../evidence.ts";
@@ -17,8 +18,10 @@ import { readObject } from "../safe-read.ts";
 import type { CommandSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
 import * as store from "../store.ts";
+import { oneLine } from "../text.ts";
 import type { Workspace } from "../workspace.ts";
 import { asText, HANDOFF, handoffHelp, inputsOf, promptFor } from "./prompt.ts";
+import { recordSession } from "./session.ts";
 import type { LaneResult, RunState } from "./state.ts";
 import type { Facts } from "./transition.ts";
 import { settleTree } from "./tree.ts";
@@ -49,14 +52,6 @@ export function halted(ctx: Ctx): { code: "interrupted" | "stopped_by_person"; r
 const REPAIR_HEAD = 1500;
 const REPAIR_TAIL = 4500;
 const LIMIT_HOLD_MS = 60 * 60_000; // shortcut: a CLI that reports its limit is held for an hour. Read its reset time when one is seen.
-
-// biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
-const UNSAFE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]+/g;
-/** Agent text on one line and bounded, for notes, logs and reports: it cannot forge a line of its own. */
-export const oneLine = (text: string, max = 500) => {
-  const flat = text.replace(UNSAFE, " ").replace(/\s+/g, " ").trim();
-  return flat.length > max ? `${flat.slice(0, max)}...` : flat;
-};
 
 export async function runLane(
   ctx: Ctx,
@@ -178,6 +173,7 @@ export async function runLane(
       const stopNow = () => limit.abort();
       ctx.control.signal.addEventListener("abort", stopNow, { once: true });
       if (ctx.control.signal.aborted) limit.abort();
+      const startedMs = Date.now();
       const exit = await adapter
         .run({
           runId: run.id,
@@ -203,21 +199,21 @@ export async function runLane(
           signal: limit.signal,
           pidFile: ctx.control.pidFile,
         })
+        // an adapter that breaks on its CLI's output is a failed start, not a crashed run
+        .catch(
+          (error): AgentExit => ({ exitCode: 1, error: `the adapter failed: ${(error as Error).message}` }),
+        )
         .finally(() => {
           clearTimeout(timer);
           ctx.control.signal.removeEventListener("abort", stopNow);
         });
       usage.tokens += exit.usage?.tokens ?? 0;
-      usage.usd += exit.usage?.usd ?? 0;
-      if (account) {
-        recordUsage(account, exit.usage?.tokens ?? 0); // counted for the account, whatever came of the lane
-        store.addEvent(db, run.id, "lane.session", {
-          lane: lane.id,
-          account,
-          agent,
-          sessionId: exit.sessionId ?? null,
-        });
-      }
+      usage.usd += recordSession(
+        ctx,
+        { lane: lane.id, laneRun, stem, try: agentStarts, startedMs },
+        { agent, account },
+        exit,
+      );
       // what decides which programs the host and the agent's CLI run must be as it was
       const tampered =
         gitConfigFingerprint(ws.root) !== gitBefore
@@ -264,7 +260,8 @@ export async function runLane(
         failWith(oneLine(`the account "${account}" reached its limit: ${exit.error ?? ""}`));
         return done();
       }
-      const handoff = readObject(agentHandoff);
+      let handoff = readObject(agentHandoff);
+      let inTheWay = false;
       if (exit.exitCode !== 0 && !handoff && crashes < (lane.retry?.max ?? 0)) {
         crashes += 1; // a crash, not a round: start the agent again
         continue;
@@ -272,7 +269,13 @@ export async function runLane(
       let said: Handoff | undefined;
       if (handoff) {
         // the host keeps its own copy: the record never points at a file an agent can rewrite
-        handoffPath = saveRunFile(ws, run.id, "handoffs", `${stem}.json`, handoff.text).path;
+        try {
+          handoffPath = saveRunFile(ws, run.id, "handoffs", `${stem}.json`, handoff.text).path;
+        } catch {
+          [handoff, inTheWay] = [undefined, true]; // something is already where the copy goes
+        }
+      }
+      if (handoff) {
         // nothing in a hand-off is used until the host has checked it (ADR 0006)
         const checked = checkHandoff(
           {
@@ -329,6 +332,7 @@ export async function runLane(
       }
       if (exit.error) failWith(oneLine(`the agent reported an error: ${exit.error}`));
       else if (exit.exitCode !== 0) failWith(`the agent exited ${exit.exitCode}`);
+      else if (inTheWay) failWith("a file was already where the host keeps this lane's hand-off");
       else if (!handoff) failWith("the agent left no hand-off");
       else if (!said) failWith("the hand-off was rejected");
       else if (said.outcome === "needsPerson") [outcome, note] = ["needsPerson", oneLine(said.summary)];
@@ -454,3 +458,5 @@ export async function runLane(
     if (!again) return done();
   }
 }
+
+export { oneLine };

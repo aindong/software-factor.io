@@ -5,6 +5,7 @@ import { UserError } from "../errors.ts";
 import { resolveCommand } from "../gates/command.ts";
 import { isBuiltGate } from "../gates/index.ts";
 import { headOf } from "../git.ts";
+import { readPrices } from "../prices.ts";
 import type { CommandSettings, WaitSettings } from "../schema/builtins.ts";
 import type { Workspace } from "../workspace.ts";
 
@@ -16,6 +17,7 @@ const later = (what: string, task: number) =>
   );
 
 export function preflight(ws: Workspace): void {
+  readPrices(); // a price file that cannot be read is refused now, not in the middle of a run
   try {
     headOf(ws.root);
   } catch {

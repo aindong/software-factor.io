@@ -1,7 +1,8 @@
 // Reading a file that an agent or a command may have left. The folder is theirs to write, so the
 // file may be a link to something else or a pipe that never ends: it is opened without following
 // links and without waiting, and only a plain file of a sane size is read.
-import { closeSync, constants, fstatSync, openSync, readFileSync } from "node:fs";
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readSync } from "node:fs";
+import { dirname } from "node:path";
 
 const MAX_FILE_BYTES = 1_000_000;
 
@@ -17,6 +18,31 @@ export function readObject(path: string): { text: string; value: Record<string, 
     return typeof value === "object" && value !== null && !Array.isArray(value)
       ? { text, value: value as Record<string, unknown> }
       : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
+/**
+ * The content of a plain file, or only its last `max` bytes when it is larger. Nothing when it is
+ * missing, a link, in a folder that is a link, or not a plain file.
+ */
+export function readTail(
+  path: string,
+  max: number,
+): { data: Buffer; size: number; cut: boolean } | undefined {
+  let fd: number | undefined;
+  try {
+    if (lstatSync(dirname(path)).isSymbolicLink()) return undefined; // the folder was swapped for a link
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const { size, nlink } = fstatSync(fd);
+    // a second name for the file means it is some other file, linked into this place
+    if (!fstatSync(fd).isFile() || nlink !== 1) return undefined;
+    const data = Buffer.alloc(Math.min(size, max));
+    const read = readSync(fd, data, 0, data.length, size - data.length);
+    return { data: data.subarray(0, read), size, cut: size > max };
   } catch {
     return undefined;
   } finally {

@@ -56,6 +56,35 @@ When a CLI reports that the limit is reached, the account is held for one hour a
 that. The exact words each CLI uses for this are not verified: the factory looks for "usage limit", "rate
 limit" and similar, and only in an error the CLI reported, never in ordinary output.
 
+## Sessions and cost
+
+Every start of an agent leaves a session record: a row with the lane, the account, the model, the tokens by
+kind (input, output, read from the cache, written to the cache), the cost, and the CLI's own output kept as a
+transcript under `.factor/runs/<run>/sessions/`. A retry or a repair round is a start of its own. The numbers
+are the CLI's, stored as it printed them, and a lane's tokens are the sum of its sessions.
+
+```sh
+softwarefactor sessions          # every session, a total per run and per account
+softwarefactor sessions <run>    # one run
+```
+
+The cost has one of three sources:
+
+- `reported`: the CLI gave it (Claude Code). It is the CLI's own estimate.
+- `priced`: the CLI gave tokens only (Codex), and the model named in the role's binding has a price. Prices are
+  list prices per million tokens for an API key, with their source and date in `src/core/prices.ts`. A file
+  `prices.json` in the factor home adds or replaces one:
+  `{ "my-model": { "input": 1.75, "cacheRead": 0.175, "output": 14 } }`.
+- `unknown`: no cost and no price, or the CLI was cut off before it said what it used. It is shown as unknown
+  and left out of totals, which say so. It is never counted as 0. A limit in dollars does not see it, and the
+  run says that too.
+
+With a subscription login nothing is billed per token. The cost is then what the same usage would have cost
+on an API key, which is still the fair way to compare lanes and accounts. Codex does not print the model it
+used, so name the model in the binding (`role bind reviewer --account codex --medium <model>`) or its cost stays
+unknown. A transcript holds whatever the agent read and wrote. It stays in `.factor/runs/`, which is not
+committed.
+
 ## What a lane may do
 
 - A lane with `access: "write"` works in its worktree. What its agent leaves uncommitted is committed by the

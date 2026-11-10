@@ -27,6 +27,7 @@ export function kimiAgent(account: Account, choice: Choice): AgentAdapter {
       // shortcut: usage is not read, because what the CLI prints for it is not documented. Add it once seen.
       return {
         exitCode: out.exitCode,
+        model: choice.model,
         error,
         // no hold on a limit: its diagnostics carry the model's own words, which could say anything
         streamPath: out.streamPath,
