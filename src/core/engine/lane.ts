@@ -11,7 +11,7 @@ import { type Control, hostEnv, sh, wasInterrupted } from "../exec.ts";
 import { Checkouts, SetupFailed } from "../gates/checkout.ts";
 import { resolveCommand } from "../gates/command.ts";
 import { runGate } from "../gates/index.ts";
-import { branchTip, commitAll, currentBranch, gitConfigFingerprint, headOf } from "../git.ts";
+import { branchTip, commitAll, currentBranch, git, gitConfigFingerprint, headOf } from "../git.ts";
 import { checkHandoff, combineRisk, type Handoff, outputProblems, type RunRisk } from "../handoff.ts";
 import type { CommandSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
@@ -258,6 +258,7 @@ export async function runLane(
         ctx.log.push(`  ${lane.id}: ${agent} runs with no guard, so only the gates check its work`);
       }
       const gitBefore = gitConfigFingerprint(ws.root);
+      const tipBefore = branchTip(ws.root, run.branch);
       const limit = new AbortController();
       const remaining = laneMs - (Date.now() - started);
       const timer = setTimeout(() => limit.abort(), Math.max(1, remaining));
@@ -326,6 +327,22 @@ export async function runLane(
         holdAccount(account, hold);
         failWith(oneLine(`the account "${account}" reached its limit: ${exit.error ?? ""}`));
         return done();
+      }
+      if (account && lane.agent?.access !== "write") {
+        // A lane that only reads leaves nothing behind. A commit or a changed file means its verdict
+        // is about code it altered itself, so the lane fails. A scratch file is only removed.
+        const changed = git(run.worktree, "status", "--porcelain", "--untracked-files=no") !== "";
+        const committed = branchTip(ws.root, run.branch) !== tipBefore;
+        const scratch = !changed && git(run.worktree, "status", "--porcelain") !== "";
+        if (changed || committed) git(run.worktree, "reset", "--hard", "-q", tipBefore);
+        git(run.worktree, "clean", "-fdq");
+        if (changed || committed) {
+          failWith(
+            `lane "${lane.id}" only reads, and its agent changed the repository: the change was dropped`,
+          );
+          return done();
+        }
+        if (scratch) ctx.log.push(`  ${lane.id}: this lane only reads: files its agent left were removed`);
       }
       if (account && lane.agent?.access === "write") {
         // an agent in a sandbox cannot reach git's folder, and any agent can forget: what it left

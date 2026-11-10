@@ -4,8 +4,9 @@ import type { Account } from "../accounts.ts";
 import { type Choice, handoffFromText, LIMIT, profileEnv, quote, runCli } from "./cli.ts";
 import type { AgentAdapter } from "./types.ts";
 
-const READ_TOOLS = ["Read", "Glob", "Grep", "Bash", "Write"]; // Write only reaches the lane's folder: the guard sees to it
-const EDIT_TOOLS = ["Edit", "NotebookEdit"];
+// A lane that only reads has no tool that writes files: it gives its hand-off in its last message.
+const READ_TOOLS = ["Read", "Glob", "Grep", "Bash"];
+const WRITE_TOOLS = ["Write", "Edit", "NotebookEdit"];
 
 export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
   return {
@@ -15,6 +16,7 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
       // the hook runs this same program, so the guard is the one the tests cover
       const guard = `${quote(process.execPath)} ${quote(process.argv[1] ?? "")} guard`;
       const hooks = { PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: guard }] }] };
+      const tools = [...READ_TOOLS, ...(canWrite ? WRITE_TOOLS : [])].join(",");
       const args = [
         "-p",
         "--output-format",
@@ -26,10 +28,11 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
         job.laneDir,
         "--settings",
         JSON.stringify({ hooks }),
-        "--allowedTools",
-        [...READ_TOOLS, ...(canWrite ? EDIT_TOOLS : [])].join(","),
-        ...(canWrite ? [] : ["--disallowedTools", EDIT_TOOLS.join(",")]),
-      ]; // never --bare: it skips hooks, so the guard would not run
+        "--tools", // the only tools there are for this run
+        tools,
+        "--allowedTools", // and they need no approval: nobody is there to give one
+        tools,
+      ]; // never --bare: it skips hooks, so the guard would not run. And no permission mode that skips checks.
       const env = profileEnv("CLAUDE_CONFIG_DIR", account.profile, ".claude");
       const out = await runCli(job, account.bin ?? "claude", args, env, true);
 
