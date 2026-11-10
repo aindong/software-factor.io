@@ -189,9 +189,12 @@ it("fetches a repository without running a filter the person has set up for thei
   const repo = flowRepo({ lanes: [commandLane("build", "true")] });
   const marker = join(repo.home, "filter-ran");
   const config = join(repo.home, "gitconfig");
+  // a filter of the person's own, as git-crypt or a custom one would be: it must not run on a plugin's files
+  const filter = join(repo.home, "filter.sh");
+  writeFileSync(filter, `touch "${marker}"\ncat\n`);
   writeFileSync(
     config,
-    `[filter "mine"]\n\tsmudge = sh -c 'touch ${marker}; cat'\n\trequired = true\n[user]\n\tname = T\n\temail = t@example.com\n`,
+    `[filter "mine"]\n\tsmudge = sh ${filter}\n\tclean = cat\n\trequired = true\n[user]\n\tname = T\n\temail = t@example.com\n`,
   );
   repo.env.FACTOR_GIT_BASE = gitHost(
     makePlugin(() => {}, { ".gitattributes": "*.sh filter=mine\n" }),

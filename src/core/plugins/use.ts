@@ -67,9 +67,11 @@ export function fits(range: string, version: string): boolean | "unread" {
   const wantMinor = minor === undefined || minor === "x" || minor === "*" ? undefined : Number(minor);
   const wantPatch = patch === undefined || patch === "x" || patch === "*" ? undefined : Number(patch);
   if (wantMinor === undefined) return true;
-  if (op === "^") return vMinor > wantMinor || (vMinor === wantMinor && vPatch >= (wantPatch ?? 0));
+  // below 1.0.0 a caret keeps the minor version, as semver has it
+  if (op === "^" && vMajor > 0)
+    return vMinor > wantMinor || (vMinor === wantMinor && vPatch >= (wantPatch ?? 0));
   if (vMinor !== wantMinor) return false; // "~1.2.0", "1.2.x" and "1.2.0" keep the minor version
-  return op === "~" || wantPatch === undefined ? vPatch >= (wantPatch ?? 0) : vPatch === wantPatch;
+  return op !== "" || wantPatch === undefined ? vPatch >= (wantPatch ?? 0) : vPatch === wantPatch;
 }
 
 /** The plugin a workspace may use under a name. Throws, with the way out, when it may not. */
@@ -87,7 +89,7 @@ export function pluginOf(ws: Workspace, name: string): Plugin {
   // a gate since the run began. (At most 5 MB, so this is cheap.)
   let plugin: Plugin | undefined;
   try {
-    plugin = readPlugin(installDir(name, allowed));
+    plugin = readPlugin(installDir(name, allowed), "installed");
   } catch {
     plugin = undefined; // a link planted in it, a manifest that no longer reads: it is not what was installed
   }

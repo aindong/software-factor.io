@@ -24,7 +24,9 @@ const REPO = /^(?!-)(?!\.)[A-Za-z0-9_.-]+\/(?!-)(?!\.)[A-Za-z0-9_.-]+$/;
 const NAME = /^(?!-)[A-Za-z0-9_.-]+$/;
 // where `npx skills` puts a skill for the agents the factory runs
 const SKILL_DIR = /^(\.claude|\.agents|\.kimi-code)\/skills\/[A-Za-z0-9_.-]+\//;
-const TOP_FILE = /^[A-Za-z0-9_.-]+$/; // a file of its own at the top of the worktree, such as its lock
+// the installer's own record at the top of the worktree. Any other file it makes there stays in
+// sight: a line for it would hide a file of that name from every later change, here and in the main checkout.
+const TOP_FILE = /^skills-lock\.json$/;
 
 export interface Needed {
   name: string;

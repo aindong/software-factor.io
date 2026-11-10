@@ -22,10 +22,16 @@ const typeKey = z.string().regex(/^[a-z][a-z0-9-]*@[1-9][0-9]*$/, {
 // What is shown must be what runs: no line break (a second, forged line of the summary), no
 // escape, and no character that reorders or hides text.
 const line = z.string().min(1).refine(showsAsIs, { message: "Keep it to one line of plain characters." });
+/** A command that is shown exactly as it runs: visible ASCII, one line, no long run of spaces to push its end out of sight. */
+export const isPlainCommand = (text: string) => /^[\x20-\x7e]{1,500}$/.test(text) && !/ {10}/.test(text);
+const command = z.string().refine(isPlainCommand, {
+  message:
+    "Write the command as one line of plain ASCII, at most 500 characters, with no long run of spaces.",
+});
 const Type = z.strictObject({
   description: line,
   // a shell command line, run like a command lane's. The plugin's folder is in FACTOR_PLUGIN_DIR.
-  run: line,
+  run: command,
 });
 export const Manifest = z.strictObject({
   name: z
@@ -57,14 +63,14 @@ export interface Plugin {
 }
 
 /** Every plain file under a folder, each folder's names in order. A link is refused: it could lead anywhere. It stops once there are too many. */
-function filesIn(dir: string, under = "", found: string[] = []): string[] {
+function filesIn(dir: string, skip: boolean, under = "", found: string[] = []): string[] {
   for (const name of readdirSync(join(dir, under)).sort()) {
-    if (NOT_ITS_OWN.has(name)) continue;
+    if (skip && NOT_ITS_OWN.has(name)) continue;
     const rel = under ? `${under}/${name}` : name;
     const stat = lstatSync(join(dir, rel));
     if (stat.isSymbolicLink())
       throw new UserError(`The plugin holds a link (${rel}).`, "A plugin is plain files only.");
-    if (stat.isDirectory()) filesIn(dir, rel, found);
+    if (stat.isDirectory()) filesIn(dir, skip, rel, found);
     else if (stat.isFile()) found.push(rel);
     else
       throw new UserError(
@@ -97,8 +103,13 @@ function commandsOf(workflow: Record<string, unknown>): string[] {
   return found;
 }
 
-/** Read a plugin folder: its manifest, its files and their hash. Refuses what is not a plugin, saying why. */
-export function readPlugin(dir: string): Plugin {
+/**
+ * Read a plugin folder: its manifest, its files and their hash. Refuses what is not a plugin, saying why.
+ * `from` says what the folder is. A source may hold a `.git` or a `.DS_Store`, which are left
+ * out. An installed copy never does, so there every file counts: one planted where a source's
+ * would be skipped changes the hash like any other.
+ */
+export function readPlugin(dir: string, from: "source" | "installed" = "source"): Plugin {
   let text: string;
   try {
     if (!lstatSync(join(dir, MANIFEST)).isFile()) throw new Error("not a file");
@@ -125,7 +136,7 @@ export function readPlugin(dir: string): Plugin {
       "See docs/plugins.md for what a manifest holds.",
     );
   }
-  const files = filesIn(dir);
+  const files = filesIn(dir, from === "source");
   const hash = createHash("sha256");
   let bytes = 0;
   for (const file of files) {

@@ -23,7 +23,7 @@ import { UserError } from "../errors.ts";
 import { own } from "../schema/builtins.ts";
 import { oneLine } from "../text.ts";
 import type { Workspace } from "../workspace.ts";
-import { type Plugin, readPlugin } from "./manifest.ts";
+import { isPlainCommand, type Plugin, readPlugin } from "./manifest.ts";
 import { installDir, type Lock, type LockEntry, lockPath, readLock } from "./use.ts";
 
 type Say = (line: string) => void;
@@ -152,33 +152,76 @@ async function fetchPlugin(source: string, base: string, ws: Workspace, commit?:
       "Check the name, and that you can read the repository. A ref is a branch or a tag.",
     );
   };
+  // No checkout, and no archive either: both would run whatever filter the person has set up for
+  // their own files on the repository's. The files are read out of the commit one by one.
+  const repoDir = join(temp, "repo");
   const cloned = git(
     "clone",
     "-q",
     "--depth",
     "1",
     "--no-tags",
+    "--no-checkout",
     ...(ref ? ["--branch", ref] : []),
     "--",
     address,
-    temp,
+    repoDir,
   );
   if (cloned.status !== 0) throw failed("fetch", cloned);
-  if (commit && git("-C", temp, "rev-parse", "HEAD").stdout.trim() !== commit) {
-    const got = git("-C", temp, "fetch", "-q", "--depth", "1", "--", "origin", commit);
-    const out = got.status === 0 ? git("-C", temp, "checkout", "-q", "--detach", "FETCH_HEAD") : got;
-    if (out.status !== 0) throw failed(`fetch the commit ${commit.slice(0, 12)} of`, out);
+  let rev = "HEAD";
+  if (commit && git("-C", repoDir, "rev-parse", "HEAD").stdout.trim() !== commit) {
+    const got = git("-C", repoDir, "fetch", "-q", "--depth", "1", "--", "origin", commit);
+    if (got.status !== 0) throw failed(`fetch the commit ${commit.slice(0, 12)} of`, got);
+    rev = "FETCH_HEAD";
   }
-  const head = git("-C", temp, "rev-parse", "HEAD").stdout.trim();
+  const head = git("-C", repoDir, "rev-parse", rev).stdout.trim();
+  const files = join(temp, "files");
+  mkdirSync(files);
+  const listed = git(
+    "-C",
+    repoDir,
+    "ls-tree",
+    "-r",
+    "-z",
+    "--full-tree",
+    head,
+    ...(sub ? ["--", sub.slice(1)] : []),
+  );
+  if (listed.status !== 0) throw failed("read", listed);
+  const entries = listed.stdout.split("\0").filter(Boolean);
+  if (entries.length > 2000)
+    throw failed("read", { stderr: `it holds ${entries.length} files where the plugin should be` });
+  for (const entry of entries) {
+    const [, mode = "", oid = "", path = ""] = /^(\d+) \w+ ([0-9a-f]+)\t([\s\S]*)$/.exec(entry) ?? [];
+    const to = resolve(files, path);
+    if (!to.startsWith(`${files}/`) || path.split("/").some((part) => part === ".." || part === ".git")) {
+      throw failed("read", { stderr: `a path in it leads out of the repository (${oneLine(path, 80)})` });
+    }
+    if (mode !== "100644" && mode !== "100755") {
+      rmSync(temp, { recursive: true, force: true });
+      throw new UserError(
+        `The plugin holds a link or another repository (${oneLine(path, 80)}).`,
+        "A plugin is plain files only.",
+      );
+    }
+    const blob = spawnSync("git", ["-C", repoDir, "cat-file", "blob", oid], {
+      timeout: 60_000,
+      maxBuffer: 6_000_000,
+    });
+    if (blob.status !== 0)
+      throw failed("read", { stderr: `the file ${oneLine(path, 80)} could not be read, or is over 5 MB` });
+    mkdirSync(dirname(to), { recursive: true });
+    writeFileSync(to, blob.stdout, { mode: mode === "100755" ? 0o755 : 0o644 });
+  }
   try {
     // the folder inside the repository must be inside it: a link on the way could lead out
-    if (!`${realpathSync(join(temp, sub))}/`.startsWith(`${realpathSync(temp)}/`)) {
+    if (!`${realpathSync(join(files, sub))}/`.startsWith(`${realpathSync(files)}/`)) {
       throw new UserError(
         `The folder ${sub} of ${owner}/${repo} leads out of the repository.`,
         "Name a folder that is in it.",
       );
     }
-    return { plugin: readPlugin(join(temp, sub)), source, from: `${address}${sub}`, commit: head, temp };
+    return { plugin: readPlugin(join(files, sub)), source, from: `${address}${sub}`, commit: head, temp };
   } catch (error) {
     rmSync(temp, { recursive: true, force: true });
     if (error instanceof UserError) throw error;
@@ -211,7 +254,9 @@ function show(f: Fetched, replaces: LockEntry | undefined, gateEnv: string[], sa
   }
   for (const w of f.plugin.workflows) {
     say(`  workflow ${w.name}, a file for .factor/workflows/`);
-    for (const command of w.commands) say(`      it would run: ${command}`);
+    // a command that is more than one plain line is shown as it is written, with its line breaks as \n
+    for (const command of w.commands)
+      say(`      it would run: ${isPlainCommand(command) ? command : JSON.stringify(command)}`);
   }
   say(
     "Its commands run on this machine with your rights, like a command lane's. The hash covers the plugin's own files, not a program they call.",
@@ -234,7 +279,7 @@ function unlock(dir: string): void {
 
 const hashAt = (dir: string) => {
   try {
-    return readPlugin(dir).hash;
+    return readPlugin(dir, "installed").hash;
   } catch {
     return undefined; // nothing there, or not what a plugin is
   }

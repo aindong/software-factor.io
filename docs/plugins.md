@@ -69,7 +69,13 @@ A plugin's commands run on your machine with your rights, like a command lane's.
 - A run does not start if its workflow uses a plugin that is not installed, allowed and pinned here.
 
 What the hash does not cover: a program the plugin's command calls from outside its own folder (an `npx`
-package, a tool on your PATH). Read the commands with that in mind.
+package, a tool on your PATH, a `node_modules` folder above it). Read the commands with that in mind, and write
+a plugin so that it ships what it needs.
+
+What none of this stops: a program that runs with your own rights and changes an installed file in the instant
+between the hash and the command's start. An agent held only by the guard (Claude Code) could start such a
+program. An agent in an OS sandbox (Codex) cannot write there at all. Where that matters, give lanes that can
+write a sandboxed agent, and keep a person's approval in front of a merge.
 
 ## Use it in a workflow
 
@@ -109,7 +115,7 @@ the installed one does not fit is refused, with both named.
 
 - `name` is the plugin's name in a workflow: lowercase letters, digits and dashes. `core` is the factory's own.
 - `version` is three numbers. A type's key ends in `@` and its major version.
-- `run` is a shell command line. It gets two variables: `FACTOR_PLUGIN_DIR`, the plugin's installed folder, and
+- `run` is a shell command line: one line of plain ASCII, at most 500 characters. It gets two variables: `FACTOR_PLUGIN_DIR`, the plugin's installed folder, and
   `FACTOR_WITH`, the `with` settings of the collector, gate or lane as JSON. The settings are passed as they
   are: the plugin checks them itself.
 - A **collector** runs in the workspace and prints the tasks it found as JSON: a list of items with a `key`
@@ -153,8 +159,8 @@ $ softwarefactor allow --skill review
 
 When a run starts, the factory runs `npx skills add acme/skills -s code-review -a <agent> -y --copy` (version
 1.7.6 of `skills`) in the run's worktree, once for each agent that works a lane naming the skill. The source is
-a repository as `owner/repo`. The skill's folder, and a file the installer leaves at the top of the worktree,
-are kept out of the run's change (they are named in the repository's `.git/info/exclude`). If the workflow later
+a repository as `owner/repo`. The skill's folder and the installer's own `skills-lock.json` are kept out of the
+run's change (they are named in the repository's `.git/info/exclude`). If the workflow later
 names another source for the skill, you are asked again.
 
 The approval is of the source as named, not of what it holds tomorrow: `npx skills` takes the tip of the
