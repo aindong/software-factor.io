@@ -6,7 +6,7 @@ Accepted, 2026-11-10.
 
 ## Context
 
-Agents game visible tests, and an agent's own report of success is not reliable. The gates that held in the first factory were small functions over the committed diff (docs/research/prior-art-own.md). Other factories keep the builder and the reviewer apart (docs/research/prior-art-external.md).
+Agents game visible tests, and an agent's own report of success is not reliable. The gates that held in the first factory were small functions over the committed diff (the owner's notes on that factory, which are not in this repository). Other factories keep the builder and the reviewer apart (docs/research/prior-art-external.md).
 
 ## Decision
 

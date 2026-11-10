@@ -6,7 +6,7 @@ Accepted, 2026-11-10.
 
 ## Context
 
-A public factory had seven workers race for one task because the claim came after a slow CLI start, and ran 293 cycles with 0 merges while looking busy (docs/research/prior-art-external.md). The first factory's worst ticket never converged (docs/research/prior-art-own.md).
+A public factory had seven workers race for one task because the claim came after a slow CLI start, and ran 293 cycles with 0 merges while looking busy (docs/research/prior-art-external.md). The first factory's worst ticket never converged (the owner's notes on that factory, which are not in this repository).
 
 ## Decision
 

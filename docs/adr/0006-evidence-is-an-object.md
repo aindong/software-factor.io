@@ -6,7 +6,7 @@ Accepted, 2026-11-10.
 
 ## Context
 
-The owner's most repeated correction is a request for proof: did you test this, show me before and after. The first factory once shipped an interface change nobody had seen, because the step that looked was silently off (docs/research/prior-art-own.md).
+The owner's most repeated correction is a request for proof: did you test this, show me before and after. The first factory once shipped an interface change nobody had seen, because the step that looked was silently off (the owner's notes on that factory, which are not in this repository).
 
 ## Decision
 
