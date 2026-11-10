@@ -2,8 +2,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
+import { CASES } from "../helpers/eval.ts";
 import { makeRepo } from "../helpers/repo.ts";
-import { CASES } from "./eval-passes.test.ts";
 
 it("saves a result, and names the regressions against it", () => {
   const repo = makeRepo();

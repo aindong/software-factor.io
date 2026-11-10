@@ -96,6 +96,7 @@ const FACTORY_COMMANDS = new Set([
     "ladder",
     "escape",
     "retro",
+    "eval",
   ],
 ]);
 // What an agent may do on GitHub with the person's login: read, and open its own pull request.

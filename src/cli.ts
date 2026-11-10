@@ -21,6 +21,7 @@ import { collect } from "./core/engine/run.ts";
 import { runNext } from "./core/engine/schedule.ts";
 import { stopRun } from "./core/engine/stop.ts";
 import { UserError } from "./core/errors.ts";
+import { evalCommand } from "./core/eval/index.ts";
 import { interrupt } from "./core/exec.ts";
 import { repoRoot } from "./core/git.ts";
 import { HELP } from "./core/help.ts";
@@ -144,6 +145,9 @@ async function main(): Promise<number> {
       yes: { type: "boolean" },
       lane: { type: "string" },
       lesson: { type: "string" },
+      break: { type: "string" },
+      save: { type: "string" },
+      compare: { type: "string" },
       hash: { type: "string" },
       skill: { type: "string" },
       available: { type: "boolean" },
@@ -299,6 +303,7 @@ async function main(): Promise<number> {
       db.close();
     }
   }
+  if (command === "eval") return evalCommand(values, say);
   if (command === "plugins") return values.available ? availableCommand(say) : pluginsCommand(cwd, say);
   if (command === "add") return addCommand(loadWorkspace(cwd), positionals.slice(1), values, say);
   if (command === "export") return exportCommand(locateWorkspace(cwd), positionals.slice(1), values, say);

@@ -101,6 +101,7 @@ export const BUILTINS: Record<Kind, Record<string, z.ZodType | null>> = {
         timeoutMinutes: z.number().int().positive().optional(),
       })
       .optional(),
+    "core/no-secrets@1": null,
     "core/new-tests-fail-on-base@1": z
       .strictObject({
         command: commandName.optional(),

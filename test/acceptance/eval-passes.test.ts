@@ -1,18 +1,7 @@
 // `softwarefactor eval`: every seeded fault is caught, and the honest run still ends done.
 import { expect, it } from "vitest";
+import { CASES } from "../helpers/eval.ts";
 import { makeRepo } from "../helpers/repo.ts";
-
-export const CASES = [
-  "deleted-test",
-  "weakened-assertion",
-  "test-passes-without-change",
-  "claim-without-evidence",
-  "secret-in-diff",
-  "push-to-default-branch",
-  "runaway-loop",
-  "workflows-round-trip",
-  "honest-run",
-];
 
 it("runs every case, prints each with its result, and exits 0 at 100%", () => {
   const repo = makeRepo(); // eval needs no workspace: it makes its own

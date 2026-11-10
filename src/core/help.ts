@@ -15,6 +15,8 @@ Usage: softwarefactor <command>
                            Report a defect that got through a lane: the lane steps back
   retro [draft|keep|drop <id>]
                            What got through or happened again: draft a retro, keep its lesson
+  eval [--break <gate>] [--save <file>] [--compare <file>]
+                           Run the seeded cases: does the factory still catch what it must?
   export [workflow]        Print a workflow as one file to share: no secret, no account, no path
   import <file> [--yes]    Show what a shared workflow would run, and write it on a yes
   run [--all] [--parallel N]

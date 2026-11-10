@@ -1,7 +1,7 @@
 // The eval must be able to fail: with one gate broken on purpose, the cases that gate is for are not caught.
 import { expect, it } from "vitest";
+import { CASES } from "../helpers/eval.ts";
 import { makeRepo } from "../helpers/repo.ts";
-import { CASES } from "./eval-passes.test.ts";
 
 it("fails when the gate that keeps tests from being weakened is broken, and names what got through", () => {
   const repo = makeRepo();
