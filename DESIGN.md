@@ -2,275 +2,465 @@
 name: Software Factor.io
 description: The factory floor drawn as a line diagram, so a process reads like a transit map.
 colors:
-  map-white: "oklch(98.5% 0.003 240)"
+  ground: "oklch(98.5% 0.003 240)"
   panel: "oklch(96% 0.007 240)"
   rule: "oklch(88% 0.01 240)"
+  edge: "oklch(60% 0.02 250)"
   ink: "oklch(24% 0.035 255)"
-  ink-soft: "oklch(48% 0.025 255)"
+  ink-soft: "oklch(44% 0.025 255)"
   rail: "oklch(27% 0.06 258)"
   rail-active: "oklch(36% 0.07 258)"
-  line-through: "oklch(48% 0.17 255)"
-  line-return: "oklch(62% 0.2 38)"
+  rail-ink: "oklch(98.5% 0.003 240)"
+  rail-ink-soft: "oklch(82% 0.03 250)"
+  through: "oklch(48% 0.17 255)"
+  return: "oklch(58% 0.2 38)"
   signal: "oklch(84% 0.17 92)"
-  line-end: "oklch(62% 0.012 250)"
+  signal-ink: "oklch(24% 0.035 255)"
+  end: "oklch(62% 0.012 250)"
   night-ground: "oklch(19% 0.03 258)"
   night-panel: "oklch(23% 0.035 258)"
   night-rule: "oklch(32% 0.03 258)"
+  night-edge: "oklch(58% 0.03 258)"
   night-ink: "oklch(94% 0.01 240)"
-  night-ink-soft: "oklch(72% 0.02 250)"
+  night-ink-soft: "oklch(74% 0.02 250)"
   night-rail: "oklch(14% 0.03 258)"
   night-rail-active: "oklch(27% 0.05 258)"
-  night-line-through: "oklch(70% 0.14 250)"
-  night-line-return: "oklch(70% 0.18 40)"
-  night-line-end: "oklch(55% 0.015 250)"
+  night-through: "oklch(70% 0.14 250)"
+  night-return: "oklch(70% 0.18 40)"
+  night-end: "oklch(55% 0.015 250)"
 typography:
-  body:
-    fontFamily: "Barlow, system-ui, sans-serif"
-    fontSize: "0.875rem"
-    fontWeight: 400
-    lineHeight: 1.45
-  label:
-    fontFamily: "'Barlow Semi Condensed', Barlow, system-ui, sans-serif"
-    fontSize: "0.75rem"
-    fontWeight: 600
-    lineHeight: 1.2
   title:
     fontFamily: "Barlow, system-ui, sans-serif"
     fontSize: "1.25rem"
     fontWeight: 600
     lineHeight: 1.2
+  section:
+    fontFamily: "Barlow, system-ui, sans-serif"
+    fontSize: "1.0625rem"
+    fontWeight: 600
+    lineHeight: 1.2
+  body:
+    fontFamily: "Barlow, system-ui, sans-serif"
+    fontSize: "0.875rem"
+    fontWeight: 400
+    lineHeight: 1.45
   data:
     fontFamily: "'Barlow Semi Condensed', Barlow, system-ui, sans-serif"
     fontSize: "0.8125rem"
     fontWeight: 500
     lineHeight: 1.3
+  label:
+    fontFamily: "'Barlow Semi Condensed', Barlow, system-ui, sans-serif"
+    fontSize: "0.75rem"
+    fontWeight: 600
+    lineHeight: 1.2
+  rail-label:
+    fontFamily: "'Barlow Semi Condensed', Barlow, system-ui, sans-serif"
+    fontSize: "0.6875rem"
+    fontWeight: 600
+    lineHeight: 1.2
   code:
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
     fontSize: "0.8125rem"
     fontWeight: 400
     lineHeight: 1.5
 rounded:
+  asked-mark: "1px"
+  gate-bar: "1.5px"
+  tag: "3px"
   control: "4px"
-  bend: "12px"
-  station: "999px"
+  legend-capsule: "6px"
+  task-number: "8px"
+  count: "9px"
+  disc: "50%"
 spacing:
   xs: "4px"
   sm: "8px"
   md: "12px"
   lg: "16px"
   xl: "24px"
+  row: "28px"
 components:
+  button:
+    backgroundColor: "{colors.ground}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.control}"
+    padding: "0 12px"
+    height: "{spacing.row}"
+  button-active:
+    backgroundColor: "{colors.panel}"
   button-primary:
     backgroundColor: "{colors.ink}"
-    textColor: "{colors.map-white}"
+    textColor: "{colors.ground}"
     rounded: "{rounded.control}"
-    padding: "6px 12px"
+    padding: "0 12px"
+    height: "{spacing.row}"
   button-approve:
     backgroundColor: "{colors.signal}"
+    textColor: "{colors.signal-ink}"
+    rounded: "{rounded.control}"
+    padding: "0 12px"
+    height: "{spacing.row}"
+  button-disabled:
+    backgroundColor: "{colors.panel}"
+    textColor: "{colors.end}"
+  field:
+    backgroundColor: "{colors.ground}"
     textColor: "{colors.ink}"
     rounded: "{rounded.control}"
-    padding: "6px 12px"
-  button-quiet:
-    backgroundColor: "{colors.map-white}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.control}"
-    padding: "6px 12px"
+    padding: "2px 8px"
+    height: "{spacing.row}"
+  switch-pressed:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.ground}"
   nav-rail:
     backgroundColor: "{colors.rail}"
-    textColor: "{colors.map-white}"
+    textColor: "{colors.rail-ink-soft}"
+    typography: "{typography.rail-label}"
     width: "64px"
+  nav-rail-current:
+    backgroundColor: "{colors.rail-active}"
+    textColor: "{colors.rail-ink}"
+  rail-count:
+    backgroundColor: "{colors.signal}"
+    textColor: "{colors.signal-ink}"
+    rounded: "{rounded.count}"
+    padding: "0 4px"
 ---
 
 # Design System: Software Factor.io
 
 ## Overview
 
-**Status: the direction, written on 2026-11-10 before any screen exists.** It records the choice so the build has
-one target. The values are starting values. When the interface is built and reviewed (plan task 17), this file is
-rewritten from what shipped. The development contract for the first surface is in
-`.impeccable/surfaces/src-ui-index-html.md`.
+**Creative North Star: "The Line Diagram"**
+
+This file records the interface as it shipped at the end of plan task 17 (commit ab9d705). Every value here is
+read from `src/ui/tokens.css` and the four style sheets beside it. `test/unit/design-record.test.ts` checks the
+record against the code, and `test/unit/contrast.test.ts` checks the palette.
 
 The product is a factory you lay out: lanes, the routes between them, and tasks moving through. The interface
 draws that floor the way a transit authority draws a network. A lane is a station. A transition is a line. Each
-outcome has its own line colour. A task is a small numbered train. A gate is a barrier before the platform exit.
-A developer who has read one underground map already knows how to read their process.
+outcome has its own line colour. A task is a small numbered train. A gate is a short bar on the line after its
+station. The same notation shrinks into a strip map wherever a run is listed.
 
-The scene that decides light and dark: a developer at a desk in daylight, this tab parked beside a dark terminal
-and editor, glanced at between other work. So the map is white, like the printed diagram, and it is the brightest
-thing on the desk only when it needs to be. In the evening the same tab under a lamp becomes the night map: a
-deep blue ground with the lines lit.
+The map is white in daylight ("map white") and deep blue at night ("night map"). The theme follows the system
+setting, and the button at the foot of the rail switches between Auto, Light and Dark. The world lends type,
+palette, density and the diagram. Navigation, layout and controls are the standard ones for a web tool.
 
-The world lends four things and no more: type, palette, density, and one signature move. Navigation, layout and
-controls are the standard ones for a web tool.
+**Key Characteristics:**
 
-**The signature move: the line diagram.** The workflow is drawn with a transit map's rules, and the same notation
-shrinks into a strip map (the one-line diagram above a carriage door) wherever a run is listed.
-
-Raises taken from the directions this one was weighed against:
-
-- **From the ticket wallet: nothing disappears, it cancels.** A superseded gate result or a rejected hand-off
-  stays in the record, struck through. It is never removed.
-- **From the orienteering map: the course rides above the terrain and never edits it.** The workflow is the fixed
-  layer. A run is an overlay drawn on top, which can be switched off.
-- **From the consumer app: the bright colour is always something you can press.** Signal yellow appears only
-  where a person can act.
-- **From the event catalogue: density courage, and the map and the list are one space.** Every run is a compact
-  row with its strip map, and pointing at a row lights its route on the diagram.
-- **From the type specimen: one control drives the page.** A time scrubber replays any run across the whole floor.
-- **From the reference manual: state steps, it does not fade.**
-
-Alternates kept on record: evidence as stamped travel coupons (competitive on clarity for the evidence viewer),
-and an orienteering map with the run as a numbered course (competitive on clarity). The owner can ask for either.
+- One meaning per colour, and a shape for every state.
+- Flat like print: panel tone and 1px lines, no shadow on the map.
+- Dense: 28px controls and rows, 8px inside a group, 16px between groups.
+- State steps. Nothing fades or slides.
+- The page keeps to the window. Each part scrolls by itself.
 
 ## Colors
 
-Strategy: a full palette where every colour has a job. A screen of grey with one accent would be the category
-default.
+Five colours with one meaning each, on cool neutrals that lean towards the blue. All of them are custom
+properties in `src/ui/tokens.css`. The dark values are in `:root[data-theme="dark"]` and are repeated under
+`@media (prefers-color-scheme: dark)` for a page that has no theme chosen.
+
+| Token | Light (map white) | Dark (night map) | What it is for |
+| --- | --- | --- | --- |
+| `--ground` | `oklch(98.5% 0.003 240)` | `oklch(19% 0.03 258)` | The map and the content. The fill of a control. |
+| `--panel` | `oklch(96% 0.007 240)` | `oklch(23% 0.035 258)` | The inspector, the decision bar, a selected row, a block of output. |
+| `--rule` | `oklch(88% 0.01 240)` | `oklch(32% 0.03 258)` | The hairline between things. Never the only border of a live control. |
+| `--edge` | `oklch(60% 0.02 250)` | `oklch(58% 0.03 258)` | The border of a control. At least 3:1 on ground and on panel. |
+| `--ink` | `oklch(24% 0.035 255)` | `oklch(94% 0.01 240)` | Text, selection, focus, a station's outline, the primary button. |
+| `--ink-soft` | `oklch(44% 0.025 255)` | `oklch(74% 0.02 250)` | Secondary text, labels, hints. The border of a control under the pointer. |
+| `--rail` | `oklch(27% 0.06 258)` | `oklch(14% 0.03 258)` | The navigation rail. |
+| `--rail-active` | `oklch(36% 0.07 258)` | `oklch(27% 0.05 258)` | The current section on the rail. |
+| `--rail-ink` | `oklch(98.5% 0.003 240)` | the same | Text and icon of the current section on the rail. |
+| `--rail-ink-soft` | `oklch(82% 0.03 250)` | the same | Text and icons of the other sections on the rail. |
+| `--through` | `oklch(48% 0.17 255)` | `oklch(70% 0.14 250)` | Passed. |
+| `--return` | `oklch(58% 0.2 38)` | `oklch(70% 0.18 40)` | Failed. |
+| `--signal` | `oklch(84% 0.17 92)` | the same | A person can act here. |
+| `--signal-ink` | `oklch(24% 0.035 255)` | the same | The text and the border on signal yellow. It stays dark at night. |
+| `--end` | `oklch(62% 0.012 250)` | `oklch(55% 0.015 250)` | Nothing is happening here. |
 
 ### Primary
 
-- **Through blue** (`line-through`): passed. The route a task takes when a lane passes, a gate that passed, and
-  evidence that checks out. Nothing else is blue.
-- **Rail navy** (`rail`): the navigation rail. The shell is committed to it in both themes, darker than the
-  ground at night (`night-rail`). The current section sits on `rail-active`.
+- **Through blue** (`--through`): passed. The pass line, a passed stop, the "Done" end, a reference the host
+  checked.
+- **Rail navy** (`--rail`): the navigation rail in both themes. At night it is darker than the ground.
 
 ### Secondary
 
-- **Return vermilion** (`line-return`): failed. The route a task takes when a lane fails, a loop back to an
-  earlier lane, and a gate that failed.
-- **Signal yellow** (`signal`): a person can act here: an approval, a question, the inbox count. Yellow on white
-  is too faint to see on its own, so every yellow shape carries a 1.5px ink border and ink text.
+- **Return vermilion** (`--return`): failed. The fail line, a failed stop, the dashed outline of a station the
+  workflow points to and does not have, the small diamond that flags a problem.
+- **Signal yellow** (`--signal`): a person can act. It always carries a 1.5px ink border (or a 9px ink casing
+  under a 6px line), because yellow on white is too faint alone.
 
 ### Tertiary
 
-- **End grey** (`line-end`): nothing is happening here. Routes to `@stop` and `@drop`, a lane no run has reached,
-  a disabled control.
+- **End grey** (`--end`): nothing is happening. A line that ends the run, the "Stopped" end, a stop not
+  reached, a gate bar, the text of a disabled control.
 
 ### Neutral
 
-- **Map white** (`map-white`) for the diagram and content, **panel** for inspectors and toolbars, **rule** for
-  hairlines, **ink** for text, **ink soft** for secondary text. The neutrals lean cool, towards the blue.
-- Night map: `night-ground`, `night-panel`, `night-rule`, `night-ink`, `night-ink-soft`, with the lines at their
-  `night-` values. Signal yellow is the same in both.
-- Selection and keyboard focus are ink (night ink at night): a 2px ring, offset. They are never a line colour, so
-  a selected failed station is still plainly vermilion.
+- **Ground**, **panel**, **rule**, **edge**, **ink** and **ink soft**, as in the table.
+- Hover and pressed tones are mixed from the palette with `color-mix`, never written as new colours: the
+  primary button is ink mixed with 14% ground under the pointer and 28% when pressed, Approve is signal mixed
+  with 12% and 24% ink, a row under the pointer is half panel and half ground, a line a diff put in stands on
+  ink at 16%.
 
 ### Named Rules
 
-- **One meaning per colour.** Blue means passed, vermilion means failed, yellow means a person can act, grey
-  means nothing is happening. None of them is ever decoration, a link colour or a highlight. Links are ink,
-  underlined.
-- **Never colour alone.** Each line also differs by its end marker and label, and each state by its shape.
+**The One Meaning Rule.** Through blue means passed. Return vermilion means failed. Signal yellow with an ink
+border means a person can act. End grey means nothing is happening. Ink is text, selection and focus. None of
+them is decoration, a link colour or a highlight. Links are ink, underlined. A diff uses neither blue nor
+vermilion.
+
+**The Palette Only Rule.** No colour is written outside `tokens.css`. The style sheets use `var(--name)` and
+`color-mix` of those. One exception: the tab's icon in `src/ui/tab.ts` writes the rail's navy and the signal
+yellow as plain colours, because an icon cannot read the palette.
+
+**The Yellow Is Yours Rule.** Signal yellow appears only on what a person can act on: the Approve and Answer
+buttons and the "Decide in the inbox" link, the rail's count, the mark of a row or lane that waits, the stop
+that asked on a strip map, a train that waits, the route that asks a person (on the map, in the legend and in
+the inspector), the inbox end station, and the station of a run that asked.
+
+**The Rule And Edge Rule.** `--rule` is the hairline between things. `--edge` is the border of a control and
+must be seen: at least 3:1.
+
+**The Contrast Rule.** `test/unit/contrast.test.ts` computes the contrast of the palette in both themes: 4.5:1
+for text, 3:1 for shapes and lines. Two things are deliberately not held to it. The text of a disabled control
+is end grey. The lines, tags and ends of the workflow step back to opacity 0.28 while a run is drawn over the
+map, so the run reads first.
 
 ## Typography
 
-One family in two widths. Barlow comes from public signage lettering, which is the right voice for a map: plain,
-even, good numerals. Barlow Semi Condensed carries station labels, table cells and numbers, where width is scarce.
-Code and command output use the system monospace, because that is what the developer's terminal shows.
+**Display Font:** Barlow (with system-ui, sans-serif)
+**Body Font:** Barlow (with system-ui, sans-serif)
+**Label/Mono Font:** Barlow Semi Condensed for labels and data, the system monospace for code and output
 
-The build must bundle the fonts with the package (nothing is installed yet). The tool runs on one machine and
-must work with no network.
+**Character:** One family in two widths. Barlow comes from public signage lettering: plain, even, good
+numerals. Barlow Semi Condensed carries station names, labels and numbers, where width is scarce. Code and
+command output use the system monospace, because that is what the developer's terminal shows.
+
+The fonts are bundled with the package and load from no network: Barlow at 400, 500 and 600, Barlow Semi
+Condensed at 500 and 600, Latin only.
+
+| Token | Value | What it is for |
+| --- | --- | --- |
+| `--font` | `"Barlow", system-ui, sans-serif` | Body text, headings, controls. |
+| `--font-tight` | `"Barlow Semi Condensed", "Barlow", system-ui, sans-serif` | Labels, data, the rail, everything on the map. |
+| `--font-code` | `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace` | Code, output, the diff, the JSON view. |
+| `--text-title` | `1.25rem` | The title of a screen. |
+| `--text-section` | `1.0625rem` | A heading inside a screen. |
+| `--text-body` | `0.875rem` | Body text and controls. |
+| `--text-data` | `0.8125rem` | Data, code, station names. |
+| `--text-label` | `0.75rem` | Labels, hints, tags on lines. |
 
 ### Hierarchy
 
-- Title 20px, semibold. One per screen.
-- Section 17px, semibold.
-- Body 14px.
-- Label 12px Semi Condensed, semibold. Sentence case, not capitals, not letter-spaced.
-- Data 13px Semi Condensed, medium, tabular numerals.
-- Code 13px monospace.
+- **Title** (600, 1.25rem, 1.2): one per screen, in the top bar.
+- **Section** (600, 1.0625rem, 1.2): the heading of the inspector, of a run, of a block on a plain page.
+- **Body** (400, 0.875rem, 1.45): text and controls. Running text is held to 62ch to 90ch.
+- **Data** (Semi Condensed 500, 0.8125rem, 1.3, tabular numerals): counts, times, tokens, cost, the status
+  line. Station names are the same size at 600.
+- **Label** (Semi Condensed 600, 0.75rem, 1.2, ink soft): field labels, table heads, the headings of the parts
+  of a run, tags on lines. Sentence case, no capitals, no letter-spacing.
+- **Rail label** (Semi Condensed 600, 0.6875rem, 1.2): under each icon on the rail, and the rail's count.
+- **Code** (monospace 400, 0.8125rem, 1.5): output, the diff, the JSON view, names typed into a file.
 
-A fixed scale in rem, ratio about 1.2. Nothing scales with the viewport.
+### Named Rules
+
+**The Fixed Scale Rule.** Text sizes are in rem and nothing scales with the viewport.
 
 ## Layout
 
-The shell, left to right: a 64px navy rail (Floor, Runs, Inbox, Accounts, Plugins, Costs), then the work area
-with a top bar (workspace, workflow, a Diagram or JSON switch, run controls), then a 360px inspector for whatever
-is selected. A strip along the bottom lists what is running now, each run as a strip map. The top bar holds a
-"Runs on map" switch for the run overlay. The bottom strip's header holds the time scrubber for the selected run.
+The shell is a grid that is exactly as high as the window (`100dvh`). Left, a navy rail 64px wide with the six
+sections (Floor, Runs, Inbox, Accounts, Plugins, Costs) and the theme button at its foot. Right, the work
+area: a top bar at least 48px high with the title and the screen's controls, then the screen. The rail and the
+top bar stay. Each part below scrolls by itself: the map, the inspector, a list, a detail, a plain page. The
+page itself never scrolls.
 
-Dense, like a map legend: 28px rows, 8px gaps inside groups, 16px between groups.
+| Token | Value | What it is for |
+| --- | --- | --- |
+| `--xs` | `4px` | Between a label and its field. |
+| `--sm` | `8px` | Inside a group. |
+| `--md` | `12px` | The sides of a button. The padding of a screen under 1000px. |
+| `--lg` | `16px` | Between groups. The padding of the inspector and the top bar. |
+| `--xl` | `24px` | Between the parts of a run or a plain page, and their side padding. |
+| `--row` | `28px` | The height of a control and of a table row. It is 40px under 760px. |
+| `--control` | `4px` | The radius of a control. |
 
-Narrow screens: the inspector becomes a sheet over the map, the rail becomes a bottom bar, the diagram scrolls in
-both directions and never reflows.
+Widths:
+
+- **Above 1000px.** The floor is the map and a 360px inspector beside it. Runs and Inbox are a list (320px to
+  440px) and the detail side by side.
+- **Under 1000px.** The inspector becomes a sheet over the lower part of the map, at most 72% of its height,
+  opened by one tap on a station or by the "Workflow settings" button, and shut by its Close button. Runs and
+  Inbox show one at a time: the list, or the run that was entered, with a button back to the list. In the inbox the
+  decision bar moves to the bottom, after the proof.
+- **Under 760px.** The rail becomes a bar along the bottom with the sections side by side. Controls are 40px
+  high. Tables fit the width: nothing scrolls sideways except the map and a diff.
+
+The map never reflows. It is laid out from the workflow (124px between stations, 28px between tracks) and
+scrolls in both directions inside its own box.
+
+### Not built
+
+- **The strip of running runs along the bottom of the floor.** The original direction had one. The Runs
+  section is that list. On the floor, "Runs on map" puts a numbered train on the lane of each run that is
+  moving or waiting.
+- **A time scrubber in that strip.** The scrubber is the "Replay" control under a run's map: a standard range
+  input that steps through the run with the arrow keys.
+- **Sizes that follow the default font.** The rail, the inspector and the offsets of the map's labels are in
+  px. Page zoom works. A larger default font size (not zoom) breaks the map. This is open (critique finding
+  F18, declined for this pass).
 
 ## Elevation & Depth
 
-Flat, like print. Separation comes from the panel tone and 1px rules. The one shadow in the system is under a
-popover or sheet that covers the map. Stations and trains have no shadow.
+Flat, like print. Separation comes from the panel tone and 1px rules. There is one shadow in the system
+(`--shadow`): under the inspector when it is a sheet over the map, under 1000px. Stations, trains, buttons and
+rows have none.
+
+### Named Rules
+
+**The State Steps Rule.** Nothing fades or slides. The style sheets hold no transition and no animation. A
+train is drawn at its lane and Replay moves it one step at a time.
 
 ## Shapes
 
-The diagram sets the forms. Lines are 6px thick and run only at 0, 45 and 90 degrees, with a 12px radius at each
-bend. A station is a white disc with a 3px ink ring. A lane with a checkpoint is a longer interchange capsule. A
-train is a small capsule in the line's colour with the task number in it. A gate is a short bar across the line
-before the station's exit: grey when it has not run, blue with a tick when passed, vermilion with a cross when
-failed.
+The diagram sets the forms. Lines are 6px thick with round ends, run at 0 and 90 degrees, and turn through a
+12px stretch at 45 degrees. A line that is lit or being drawn is 8px. A route taken only on a condition is
+dotted and has no arrowhead. Lines of one outcome that lead to the same station run together.
 
-Controls have a 4px radius, the inbox count included. Nothing is fully rounded except stations and trains.
+Every state has a shape as well as a colour:
+
+| Shape | Means |
+| --- | --- |
+| Disc, through blue | Passed. |
+| Diamond (a square turned 45 degrees), return vermilion | Failed. |
+| Square, signal yellow with a 1.5px ink border | Asks a person. |
+| Ring | Not reached. With an ink border: the run is here. |
+| Capsule station (40px by 22px) | A person approves here. |
+| Short bars across the line after a station (3px by 18px, end grey) | Its gates. |
+
+A station is a ground disc (11px radius) with a 3px ink outline. On a run's map it is filled with the colour
+of what the run did there, with a tick or a mark inside. The ends are discs without an outline: "Done" is blue
+with a tick, "Stopped" is grey with a bar, the inbox end is yellow with a 1.5px ink outline. A station the
+workflow does not have is outlined in dashed vermilion. A station with a problem carries an 8px vermilion
+diamond. A train is an ink capsule, 34px by 18px, with the task's number. A train that waits is yellow with an
+ink outline.
+
+Every radius the styles use:
+
+| Radius | Where |
+| --- | --- |
+| 1px | The square mark of a row or lane that asks a person. |
+| 1.5px | The gate bar, in the legend and on the map. |
+| 3px | The colour swatches of the legend and of the inspector's routes, a key cap (`kbd`), the reference tag of a claim, a name in a list of names. |
+| `--control` (4px) | Buttons, fields, selects, the Diagram and JSON switch, the frame of a run's map, a row of proof, a block of output. |
+| 6px | The capsule in the legend. |
+| 8px | The task's number in a row of Runs or Inbox. |
+| 9px | The rail's count. A train on the map has the same corner. |
+| 50% | The round state mark. |
+
+### Named Rules
+
+**The Never Colour Alone Rule.** A state is told by its shape and its colour, and a line by its colour, its
+label and its end. The table above is the whole vocabulary.
 
 ## Components
 
 ### Buttons
 
-Primary is an ink fill with white text. Approve is signal yellow with an ink border and ink text, and appears
-only for a person's decision. Quiet is white with a rule border. Each has hover, focus (a 2px ink ring, offset),
-active, disabled and busy states.
+- **Shape:** gently squared (`--control`, 4px), 28px high, 12px at the sides, text on one line.
+- **Quiet (the default):** ground fill, a 1px edge border, ink text. Under the pointer the border is ink soft.
+  Pressed, the fill is panel.
+- **Primary:** ink fill, ground text, weight 500. Used for Save. Lighter by steps under the pointer and when
+  pressed.
+- **Approve:** signal yellow, a 1.5px ink border, signal-ink text, weight 600. Only for a person's decision.
+  Its key is shown in a small key cap inside the button. While a decision is sent it reads "Approving...".
+- **Disabled:** end-grey text, a rule border, and a panel fill where the button had a fill.
+- **Focus:** a 2px ink outline, 2px off the control. This is the same for everything that takes focus.
 
 ### Inputs / Fields
 
-Standard web controls, 28px high, rule border, ink focus ring. No custom select or scrollbar.
+- **Style:** standard web inputs, selects and textareas. Ground fill, a 1px edge border, 4px radius, 28px high,
+  a label above in the label style, a hint below in ink soft.
+- **Hover / Focus:** the border goes to ink soft under the pointer. Focus is the ink outline.
+- **Read only:** panel fill, ink-soft text.
+- **Checkbox and range:** the browser's own, tinted ink with `accent-color`.
+- **What is wrong** is said at the field in ink, after an 8px vermilion diamond.
+
+### The Diagram and JSON switch
+
+Two buttons in one 1px edge border. The pressed half is ink with ground text. Its focus outline is drawn
+inside, in ground on the pressed half.
 
 ### Navigation
 
-The rail: an icon with a short label under it, the current item on the `rail-active` block with a white edge.
-The inbox count is a signal-yellow block with ink text. `g` then a letter jumps between sections.
+The rail: a 20px line icon with a short label under it. Other sections are rail-ink-soft. The current section
+is rail-ink on the rail-active block with a 2px rail-ink bar at its left (at its top when the rail is the
+bottom bar). The inbox carries the count of what waits: signal yellow, 1.5px signal-ink border, 9px radius.
+`g` then a section's letter goes to it. The tab's title carries the same count, and the tab's icon a yellow
+mark.
 
-### The line diagram
+### The Floor: the line diagram, the inspector and the JSON view
 
-Stations, lines, gates and trains as described under Shapes. Selecting a station opens it in the inspector.
-Dragging from a station's exit draws a new line, which snaps to the allowed angles. By keyboard: arrow keys move
-between stations along the lines, Enter opens one, and `c` opens a standard list of lanes to connect it to, with
-the outcome chosen in the same list. The JSON view shows the same workflow as text, and a change in either
-updates the other.
+Stations, lines, gates and trains as under Shapes. A selected or focused station has a 2px ink ring around
+it. Its blue and vermilion handles (5px) appear when it is under the pointer or selected, and a drag from one
+draws a new line. The legend under the map names every line and shape and the keys. The inspector is a panel
+on the panel tone with a 1px rule at its left, its parts divided by rules. Each route in it carries a small
+swatch of its line's colour. The JSON view is the same workflow in one monospace text area on the ground.
+Problems are a list, each after a 7px vermilion diamond, with the fix under it in ink soft.
 
-### The strip map
+### Runs: the list, the strip map, one run
 
-One run on one line: its stations in order, filled up to where the task is, the current one ringed, a vermilion
-tick where a round went back. It fits in a 28px table row. Pointing at a row, or moving keyboard focus to it,
-lights that run's route on the diagram.
+A row of the list: the state mark, the task's number in an ink capsule (8px radius), the task, when, what it
+spent, the strip map, and one sentence. The selected row is on the panel tone. The strip map is 18px high: a
+2px rule-coloured line with one stop for each lane (blue disc, vermilion diamond, yellow square with an ink
+border, grey ring), and a small outlined capsule around the stop the run is at.
 
-### The run overlay and the time scrubber
+One run: the heading, one sentence, the facts on one line, then its map in a 1px rule frame with the "Replay"
+control under it on the panel tone. While a run is drawn over the map, what it did not take steps back to
+opacity 0.28. Below, each proof is a row that opens: an edge border when shut, an ink border when open, and
+several can be open at once. A reference of a claim is a small tag (3px radius) with a mark that says whether
+the host checked it. Output is monospace on the panel tone.
 
-A run is drawn over the workflow and never changes it. The "Runs on map" switch in the top bar turns the overlay
-off, leaving the bare workflow for editing. The scrubber is a standard range input in the bottom strip's header:
-dragging it, or the left and right arrow keys, replays the selected run along its lines. It needs the events the
-engine records for each run, so it appears only for runs that have them.
+The diff is read by shape. A line put in is weight 600 on a band of ink at 16%. A line taken out has a dashed
+ink-soft outline. A file line is weight 700 with an edge line above. Screenshots sit side by side as before
+and after, on a small checker of panel and ground so a see-through picture shows its edges.
 
-### The evidence panel
+### Inbox: the decision bar
 
-For a selected gate or claim: the command, the exit code, the tree it ran on, and the output in monospace.
-Screenshots sit side by side as before and after. A superseded result is struck through, not removed.
+The same list and detail as Runs. Above the detail is the decision bar on the panel tone: what is asked, the
+buttons (Approve or Answer in yellow, the others quiet, each with its key), a box for a note where one is
+needed, and what the factory answered in the data style. A refusal is in ink after a vermilion diamond.
 
-### Motion
+### Accounts, Costs and Plugins: plain pages
 
-A train moves along its line at a constant speed, up to 200ms a hop. State changes snap. With reduced motion,
-trains jump and nothing else moves.
+One scrolling column, 24px between blocks, text held to 72ch. Tables have 28px rows divided by 1px rules,
+heads in the label style, numbers right-aligned in tabular numerals, and controls inside a row are standard
+fields. The three tables of Costs share their columns. A list of names is a row of small tags (rule border,
+3px radius). Under 760px the roles table of Accounts becomes one block per role, each field under its label.
 
 ## Do's and Don'ts
 
 ### Do:
 
-- Keep every line on the three allowed angles.
-- Label a station with its lane's name, in sentence case, beside it and never on top of a line.
-- Show sample data as sample data until real runs exist.
-- Give every state a shape as well as a colour.
+- **Do** take every colour from `tokens.css`, and mix a hover or pressed tone from those with `color-mix`.
+- **Do** give every state a shape as well as a colour, from the table under Shapes.
+- **Do** put an ink border (1.5px) or an ink casing on anything signal yellow.
+- **Do** border a control with `--edge` and divide things with `--rule`.
+- **Do** keep a new screen inside the window: its parts scroll, the page does not.
+- **Do** add a pair to `test/unit/contrast.test.ts` when text or a shape lands on a new ground.
 
 ### Don't:
 
-- Don't use gradients, glows or glass.
-- Don't add a colour for one screen. Five meanings, five colours.
-- Don't lay content out as a grid of cards.
-- Don't decorate with map furniture: no roundel logos, compass roses or fare zones that carry no information.
-- Don't use yellow for anything a person cannot act on.
-- Don't use any game's name, art or icons.
+- **Don't** use signal yellow on anything a person cannot act on.
+- **Don't** use through blue or return vermilion for anything but passed and failed. A diff, a link and a
+  highlight are ink.
+- **Don't** add a transition or an animation.
+- **Don't** add a colour for one screen. Five meanings, five colours.
+- **Don't** use gradients, glows or glass as decoration, and don't put a shadow on the map. The one gradient
+  in the build is the checker behind a screenshot.
+- **Don't** lay content out as a grid of cards.
+- **Don't** decorate with map furniture that carries no information: no roundel logos, compass roses or fare
+  zones.
+- **Don't** use any game's name, art or icons.

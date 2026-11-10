@@ -92,16 +92,24 @@ The arrow keys move through the list and Enter goes into a run. A run shows:
 - **Its map.** The workflow's diagram, read only, with what the run did at each station and the lines it took
   lit. The Replay control steps through the run with the arrow keys: at each step the map shows the run as it
   was then.
-- **What waits for you**, with the command that answers it. Answering from the interface comes with the inbox.
-- **The diff** of the whole run, from its base commit to its head. A line taken out is struck through.
+- **What waits for you**, with a yellow "Decide in the inbox" link and the command that does the same.
+- **The diff** of the whole run, from its base commit to its head, with every changed file named above it. A
+  line put in stands on a band and a line taken out is outlined: blue and vermilion mean passed and failed, so
+  they are not used here.
 - **What its agents attached.** Two images of one lane whose names differ only in the word `before` or `after`
   (`list-before.png`, `list-after.png`) are shown side by side. A `.webm`, `.mp4` or `.mov` plays as a
   recording. Anything else is shown as text or offered as a download.
-- **Lane by lane**: the outcome, time, tokens and cost of each visit, its claims with the evidence each names,
-  each gate with its command, exit code and output, the hand-off, and what the agent printed.
+- **Lane by lane**: the outcome, time, tokens and cost of each visit, its claims, each gate with its command,
+  exit code and output, the hand-off, and what the agent printed. Each reference of a claim says whether the
+  host checked it, and one that names a file opens that file. Several pieces of evidence can be open at once.
+  A station on the run's map leads to that lane's part.
 
-On the floor, "Runs on map" puts a numbered train on the lane of each run that is moving or waiting. A train
-that waits for a person is yellow.
+On the floor, "Runs on map" puts a numbered train on the lane of each run that is moving or waiting. The
+number is the task's, the same as in the rows of Runs and Inbox. A train is a link to its run. One that waits
+for a person is yellow and leads to its decision in the inbox.
+
+A run that was entered is in the address (`/runs/<run>`, and `/inbox/<run>` for its decision), so Back leaves
+the run, a reload keeps it, and the address can be passed on.
 
 A file of a run is served only when it is a plain file inside that run's own folder under `.factor/runs/`, with
 no link on the way, and only as an image, a video, plain text or a download. An `.html` or `.svg` file an agent
@@ -142,10 +150,19 @@ session with no known cost is counted as not known, never as nothing. `softwaref
 What is built in: lane types, gate types, collectors, agents, and the workflows that come with this version.
 Installing more from a directory is not built yet.
 
+## Keys, and the tab
+
+`g` and then a section's letter goes there from anywhere but a text field: `f` floor, `r` runs, `i` inbox, `a`
+accounts, `p` plugins, `c` costs. On the floor, Ctrl or Cmd with Z takes back the last change and with Shift
+brings it again, and Revert asks first when more than one change would go. The tab's title is the section with
+the number of runs that wait for you in front, and its icon carries a yellow mark while one does.
+
 ## Not built yet
 
-Starting and stopping runs from the interface, adding an account, and installing plugins. There is no undo on
-the floor beyond Revert, which reloads the file. A diff is the whole run's, not one lane's.
+Starting and stopping runs from the interface, adding an account, and installing plugins. A diff is the whole
+run's, not one lane's. A screenshot opens at its real size in a new tab, not in a viewer in the page. The rail,
+the inspector and the map's labels are sized in pixels: with a larger default font in the browser (not page
+zoom) the map's labels crowd.
 
 ## How it is checked
 
@@ -158,3 +175,8 @@ stopped, one waiting), and by key presses alone moves through the list, steps a 
 and opens the diff, a screenshot pair, a recording, a gate's output and a hand-off.
 `bash test/ui/inbox.sh` does the inbox, accounts, costs and plugins: it approves, sends work back with a note,
 answers a question, has a decision refused, and binds a role, all by key presses.
+`bash test/ui/all.sh <folder>` runs the three and leaves a screenshot of every main screen in both themes at
+1440 and 390 wide, each checked to be of that screen, in that theme and that wide. At phone width every screen
+is walked with the Tab key (each control shown must be reached) and checked not to scroll sideways. It takes
+about twelve minutes. The design itself is recorded in `DESIGN.md`, and its palette's contrast is held by
+`test/unit/contrast.test.ts`.

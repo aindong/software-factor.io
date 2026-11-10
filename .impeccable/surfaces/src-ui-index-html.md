@@ -20,7 +20,7 @@ whether anything needs them (two seconds), and decide on one approval with the p
 - Runs: where each task is, what each agent is doing in one sentence, and the evidence.
 - Inbox: approvals and questions, each answerable with one key.
 - Real content: lane ids and names, gate results with commands and exit codes, diffs, screenshot pairs, tokens,
-  cost. Until the engine runs, all of it is sample data and is labelled so.
+  cost. All of it is read from the record of real runs. There is no sample data.
 
 ## Constraints
 
@@ -35,12 +35,13 @@ stations, transitions are lines, tasks are trains. It refuses the category defau
 sidebar and rounded gradient nodes on a dotted canvas.
 
 OWN-WORLD: Map-white ground, navy rail, and four colours with one meaning each: through blue for passed (the
-pass route and a passed gate), return vermilion for failed (the fail route, loops and a failed gate), signal
+pass route and a passed stop), return vermilion for failed (the fail route, loops and a failed stop), signal
 yellow with an ink border only where a person can act, end grey where nothing is happening. Selection and focus
 are ink. Lines 6px,
 at 0, 45 and 90 degrees only, 12px bends. Stations are ringed white discs, checkpoints are capsules, trains are
-numbered capsules. Barlow and Barlow Semi Condensed, system monospace for output. Flat, hairline rules, no shadow
-on the map.
+numbered capsules. Gates are short end-grey bars on the line. Their results are shown lane by lane in a run,
+not by colour on the map. Barlow and Barlow Semi Condensed, system monospace for output. Flat, hairline rules,
+no shadow on the map.
 
 STORY: The developer sees their whole process at once, sees where every task is, trusts a result because its
 evidence is one click from the station, and acts only where yellow appears.
@@ -48,17 +49,18 @@ evidence is one click from the station, and acts only where yellow appears.
 FIRST VIEWPORT: Left, a 64px navy rail with six sections and the inbox count in yellow. Top bar: workspace,
 workflow name, Diagram or JSON switch, run controls. Centre, on white: the workflow as a line diagram, the first
 lane at the left, the pass line running right, return lines looping underneath in vermilion, trains at their
-stations. Right: a 360px inspector for the selected lane (settings, gates, record). Bottom: a strip of runs in
-progress, each a strip map. The primary action, Approve, appears in yellow on the station that is waiting and in
-the inbox.
+stations. Right: a 360px inspector for the selected lane (settings, routes, gates). Bottom: the legend of the
+map. As built there is no strip of runs along the bottom: the Runs section is that list, each row with its
+strip map. A run that waits is a yellow train on its station, which leads to the inbox. The primary action,
+Approve, is in yellow in the inbox.
 
 FORM: Transit line diagram, candidate 3 of 8 on the ordered list (railway signalling panel, process flow
 drawing, transit map, inspection tag and manifest, factory-game overlay, lab notebook, departure board,
-graphics standards manual). seed:9c417eafefdc7cb6. Signature interaction: pointing at a run, or focusing it by
-keyboard, lights its route on the map, and a time scrubber in the bottom strip replays the run along the lines
-once the engine records run events. Motion: trains move at constant speed, state snaps.
+graphics standards manual). seed:9c417eafefdc7cb6. Signature interaction, as built: entering a run lights the
+lines it took on its own map while the rest steps back, and the "Replay" control under that map steps through
+the run. Motion, as built: none. A train is drawn at its lane and state steps.
 
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance. DESIGN.md is now the record of what shipped (task 17), with its sidecar in `.impeccable/design.json`.
 
 ## Weighed and set aside
 
@@ -66,7 +68,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 - Orienteering map (run as a numbered course): competitive on clarity. Kept: the run rides above the map and never edits it.
 - Warm consumer app: declined. Kept: the bright colour is always something you can press.
 - Event catalogue: declined. Kept: density courage, and the map and the list are one space.
-- Type specimen: declined. Kept: one control drives the page (the time scrubber).
+- Type specimen: declined. Kept: one control drives a run's map (the "Replay" control).
 - Reference manual with acetate leaves: declined. Kept: state steps, it does not fade.
 
 ## Unresolved

@@ -1,0 +1,587 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-11T00:00:00Z",
+  "title": "Design System: Software Factor.io",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Map White",
+        "canonical": "oklch(98.5% 0.003 240)",
+        "tonalRamp": [
+          "oklch(15% 0.001 240)",
+          "oklch(26% 0.002 240)",
+          "oklch(38% 0.003 240)",
+          "oklch(50% 0.003 240)",
+          "oklch(62% 0.003 240)",
+          "oklch(74% 0.003 240)",
+          "oklch(85% 0.002 240)",
+          "oklch(95% 0.001 240)"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Panel",
+        "canonical": "oklch(96% 0.007 240)",
+        "tonalRamp": [
+          "oklch(15% 0.003 240)",
+          "oklch(26% 0.005 240)",
+          "oklch(38% 0.007 240)",
+          "oklch(50% 0.007 240)",
+          "oklch(62% 0.007 240)",
+          "oklch(74% 0.007 240)",
+          "oklch(85% 0.005 240)",
+          "oklch(95% 0.003 240)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "oklch(88% 0.01 240)",
+        "tonalRamp": [
+          "oklch(15% 0.005 240)",
+          "oklch(26% 0.007 240)",
+          "oklch(38% 0.01 240)",
+          "oklch(50% 0.01 240)",
+          "oklch(62% 0.01 240)",
+          "oklch(74% 0.01 240)",
+          "oklch(85% 0.007 240)",
+          "oklch(95% 0.005 240)"
+        ]
+      },
+      "edge": {
+        "role": "neutral",
+        "displayName": "Edge",
+        "canonical": "oklch(60% 0.02 250)",
+        "tonalRamp": [
+          "oklch(15% 0.009 250)",
+          "oklch(26% 0.015 250)",
+          "oklch(38% 0.02 250)",
+          "oklch(50% 0.02 250)",
+          "oklch(62% 0.02 250)",
+          "oklch(74% 0.02 250)",
+          "oklch(85% 0.015 250)",
+          "oklch(95% 0.009 250)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(24% 0.035 255)",
+        "tonalRamp": [
+          "oklch(15% 0.016 255)",
+          "oklch(26% 0.026 255)",
+          "oklch(38% 0.035 255)",
+          "oklch(50% 0.035 255)",
+          "oklch(62% 0.035 255)",
+          "oklch(74% 0.035 255)",
+          "oklch(85% 0.026 255)",
+          "oklch(95% 0.016 255)"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Ink Soft",
+        "canonical": "oklch(44% 0.025 255)",
+        "tonalRamp": [
+          "oklch(15% 0.011 255)",
+          "oklch(26% 0.019 255)",
+          "oklch(38% 0.025 255)",
+          "oklch(50% 0.025 255)",
+          "oklch(62% 0.025 255)",
+          "oklch(74% 0.025 255)",
+          "oklch(85% 0.019 255)",
+          "oklch(95% 0.011 255)"
+        ]
+      },
+      "rail": {
+        "role": "primary",
+        "displayName": "Rail Navy",
+        "canonical": "oklch(27% 0.06 258)",
+        "tonalRamp": [
+          "oklch(15% 0.027 258)",
+          "oklch(26% 0.045 258)",
+          "oklch(38% 0.06 258)",
+          "oklch(50% 0.06 258)",
+          "oklch(62% 0.06 258)",
+          "oklch(74% 0.06 258)",
+          "oklch(85% 0.045 258)",
+          "oklch(95% 0.027 258)"
+        ]
+      },
+      "rail-active": {
+        "role": "primary",
+        "displayName": "Rail Active",
+        "canonical": "oklch(36% 0.07 258)",
+        "tonalRamp": [
+          "oklch(15% 0.032 258)",
+          "oklch(26% 0.053 258)",
+          "oklch(38% 0.07 258)",
+          "oklch(50% 0.07 258)",
+          "oklch(62% 0.07 258)",
+          "oklch(74% 0.07 258)",
+          "oklch(85% 0.053 258)",
+          "oklch(95% 0.032 258)"
+        ]
+      },
+      "rail-ink": {
+        "role": "neutral",
+        "displayName": "Rail Ink",
+        "canonical": "oklch(98.5% 0.003 240)",
+        "tonalRamp": [
+          "oklch(15% 0.001 240)",
+          "oklch(26% 0.002 240)",
+          "oklch(38% 0.003 240)",
+          "oklch(50% 0.003 240)",
+          "oklch(62% 0.003 240)",
+          "oklch(74% 0.003 240)",
+          "oklch(85% 0.002 240)",
+          "oklch(95% 0.001 240)"
+        ]
+      },
+      "rail-ink-soft": {
+        "role": "neutral",
+        "displayName": "Rail Ink Soft",
+        "canonical": "oklch(82% 0.03 250)",
+        "tonalRamp": [
+          "oklch(15% 0.013 250)",
+          "oklch(26% 0.022 250)",
+          "oklch(38% 0.03 250)",
+          "oklch(50% 0.03 250)",
+          "oklch(62% 0.03 250)",
+          "oklch(74% 0.03 250)",
+          "oklch(85% 0.022 250)",
+          "oklch(95% 0.013 250)"
+        ]
+      },
+      "through": {
+        "role": "primary",
+        "displayName": "Through Blue",
+        "canonical": "oklch(48% 0.17 255)",
+        "tonalRamp": [
+          "oklch(15% 0.077 255)",
+          "oklch(26% 0.128 255)",
+          "oklch(38% 0.17 255)",
+          "oklch(50% 0.17 255)",
+          "oklch(62% 0.17 255)",
+          "oklch(74% 0.17 255)",
+          "oklch(85% 0.128 255)",
+          "oklch(95% 0.077 255)"
+        ]
+      },
+      "return": {
+        "role": "secondary",
+        "displayName": "Return Vermilion",
+        "canonical": "oklch(58% 0.2 38)",
+        "tonalRamp": [
+          "oklch(15% 0.09 38)",
+          "oklch(26% 0.15 38)",
+          "oklch(38% 0.2 38)",
+          "oklch(50% 0.2 38)",
+          "oklch(62% 0.2 38)",
+          "oklch(74% 0.2 38)",
+          "oklch(85% 0.15 38)",
+          "oklch(95% 0.09 38)"
+        ]
+      },
+      "signal": {
+        "role": "secondary",
+        "displayName": "Signal Yellow",
+        "canonical": "oklch(84% 0.17 92)",
+        "tonalRamp": [
+          "oklch(15% 0.077 92)",
+          "oklch(26% 0.128 92)",
+          "oklch(38% 0.17 92)",
+          "oklch(50% 0.17 92)",
+          "oklch(62% 0.17 92)",
+          "oklch(74% 0.17 92)",
+          "oklch(85% 0.128 92)",
+          "oklch(95% 0.077 92)"
+        ]
+      },
+      "signal-ink": {
+        "role": "neutral",
+        "displayName": "Signal Ink",
+        "canonical": "oklch(24% 0.035 255)",
+        "tonalRamp": [
+          "oklch(15% 0.016 255)",
+          "oklch(26% 0.026 255)",
+          "oklch(38% 0.035 255)",
+          "oklch(50% 0.035 255)",
+          "oklch(62% 0.035 255)",
+          "oklch(74% 0.035 255)",
+          "oklch(85% 0.026 255)",
+          "oklch(95% 0.016 255)"
+        ]
+      },
+      "end": {
+        "role": "tertiary",
+        "displayName": "End Grey",
+        "canonical": "oklch(62% 0.012 250)",
+        "tonalRamp": [
+          "oklch(15% 0.005 250)",
+          "oklch(26% 0.009 250)",
+          "oklch(38% 0.012 250)",
+          "oklch(50% 0.012 250)",
+          "oklch(62% 0.012 250)",
+          "oklch(74% 0.012 250)",
+          "oklch(85% 0.009 250)",
+          "oklch(95% 0.005 250)"
+        ]
+      },
+      "night-ground": {
+        "role": "neutral",
+        "displayName": "Night Map White",
+        "canonical": "oklch(19% 0.03 258)",
+        "tonalRamp": [
+          "oklch(15% 0.013 258)",
+          "oklch(26% 0.022 258)",
+          "oklch(38% 0.03 258)",
+          "oklch(50% 0.03 258)",
+          "oklch(62% 0.03 258)",
+          "oklch(74% 0.03 258)",
+          "oklch(85% 0.022 258)",
+          "oklch(95% 0.013 258)"
+        ]
+      },
+      "night-panel": {
+        "role": "neutral",
+        "displayName": "Night Panel",
+        "canonical": "oklch(23% 0.035 258)",
+        "tonalRamp": [
+          "oklch(15% 0.016 258)",
+          "oklch(26% 0.026 258)",
+          "oklch(38% 0.035 258)",
+          "oklch(50% 0.035 258)",
+          "oklch(62% 0.035 258)",
+          "oklch(74% 0.035 258)",
+          "oklch(85% 0.026 258)",
+          "oklch(95% 0.016 258)"
+        ]
+      },
+      "night-rule": {
+        "role": "neutral",
+        "displayName": "Night Rule",
+        "canonical": "oklch(32% 0.03 258)",
+        "tonalRamp": [
+          "oklch(15% 0.013 258)",
+          "oklch(26% 0.022 258)",
+          "oklch(38% 0.03 258)",
+          "oklch(50% 0.03 258)",
+          "oklch(62% 0.03 258)",
+          "oklch(74% 0.03 258)",
+          "oklch(85% 0.022 258)",
+          "oklch(95% 0.013 258)"
+        ]
+      },
+      "night-edge": {
+        "role": "neutral",
+        "displayName": "Night Edge",
+        "canonical": "oklch(58% 0.03 258)",
+        "tonalRamp": [
+          "oklch(15% 0.013 258)",
+          "oklch(26% 0.022 258)",
+          "oklch(38% 0.03 258)",
+          "oklch(50% 0.03 258)",
+          "oklch(62% 0.03 258)",
+          "oklch(74% 0.03 258)",
+          "oklch(85% 0.022 258)",
+          "oklch(95% 0.013 258)"
+        ]
+      },
+      "night-ink": {
+        "role": "neutral",
+        "displayName": "Night Ink",
+        "canonical": "oklch(94% 0.01 240)",
+        "tonalRamp": [
+          "oklch(15% 0.005 240)",
+          "oklch(26% 0.007 240)",
+          "oklch(38% 0.01 240)",
+          "oklch(50% 0.01 240)",
+          "oklch(62% 0.01 240)",
+          "oklch(74% 0.01 240)",
+          "oklch(85% 0.007 240)",
+          "oklch(95% 0.005 240)"
+        ]
+      },
+      "night-ink-soft": {
+        "role": "neutral",
+        "displayName": "Night Ink Soft",
+        "canonical": "oklch(74% 0.02 250)",
+        "tonalRamp": [
+          "oklch(15% 0.009 250)",
+          "oklch(26% 0.015 250)",
+          "oklch(38% 0.02 250)",
+          "oklch(50% 0.02 250)",
+          "oklch(62% 0.02 250)",
+          "oklch(74% 0.02 250)",
+          "oklch(85% 0.015 250)",
+          "oklch(95% 0.009 250)"
+        ]
+      },
+      "night-rail": {
+        "role": "primary",
+        "displayName": "Night Rail Navy",
+        "canonical": "oklch(14% 0.03 258)",
+        "tonalRamp": [
+          "oklch(15% 0.013 258)",
+          "oklch(26% 0.022 258)",
+          "oklch(38% 0.03 258)",
+          "oklch(50% 0.03 258)",
+          "oklch(62% 0.03 258)",
+          "oklch(74% 0.03 258)",
+          "oklch(85% 0.022 258)",
+          "oklch(95% 0.013 258)"
+        ]
+      },
+      "night-rail-active": {
+        "role": "primary",
+        "displayName": "Night Rail Active",
+        "canonical": "oklch(27% 0.05 258)",
+        "tonalRamp": [
+          "oklch(15% 0.023 258)",
+          "oklch(26% 0.038 258)",
+          "oklch(38% 0.05 258)",
+          "oklch(50% 0.05 258)",
+          "oklch(62% 0.05 258)",
+          "oklch(74% 0.05 258)",
+          "oklch(85% 0.038 258)",
+          "oklch(95% 0.023 258)"
+        ]
+      },
+      "night-through": {
+        "role": "primary",
+        "displayName": "Night Through Blue",
+        "canonical": "oklch(70% 0.14 250)",
+        "tonalRamp": [
+          "oklch(15% 0.063 250)",
+          "oklch(26% 0.105 250)",
+          "oklch(38% 0.14 250)",
+          "oklch(50% 0.14 250)",
+          "oklch(62% 0.14 250)",
+          "oklch(74% 0.14 250)",
+          "oklch(85% 0.105 250)",
+          "oklch(95% 0.063 250)"
+        ]
+      },
+      "night-return": {
+        "role": "secondary",
+        "displayName": "Night Return Vermilion",
+        "canonical": "oklch(70% 0.18 40)",
+        "tonalRamp": [
+          "oklch(15% 0.081 40)",
+          "oklch(26% 0.135 40)",
+          "oklch(38% 0.18 40)",
+          "oklch(50% 0.18 40)",
+          "oklch(62% 0.18 40)",
+          "oklch(74% 0.18 40)",
+          "oklch(85% 0.135 40)",
+          "oklch(95% 0.081 40)"
+        ]
+      },
+      "night-end": {
+        "role": "tertiary",
+        "displayName": "Night End Grey",
+        "canonical": "oklch(55% 0.015 250)",
+        "tonalRamp": [
+          "oklch(15% 0.007 250)",
+          "oklch(26% 0.011 250)",
+          "oklch(38% 0.015 250)",
+          "oklch(50% 0.015 250)",
+          "oklch(62% 0.015 250)",
+          "oklch(74% 0.015 250)",
+          "oklch(85% 0.011 250)",
+          "oklch(95% 0.007 250)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "One per screen, in the top bar."
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "The heading of the inspector, of a run, of a block on a plain page."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Text and controls."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Counts, times, tokens, cost, station names. Tabular numerals."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels, table heads, tags on lines. Sentence case."
+      },
+      "rail-label": {
+        "displayName": "Rail label",
+        "purpose": "Under each icon on the rail, and the rail's count."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Output, the diff, the JSON view."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow",
+        "value": "0 6px 24px oklch(24% 0.035 255 / 0.18)",
+        "purpose": "Under the inspector when it is a sheet over the map, under 1000px. Light theme."
+      },
+      {
+        "name": "shadow-night",
+        "value": "0 6px 24px oklch(8% 0.02 258 / 0.6)",
+        "purpose": "The same, dark theme."
+      }
+    ],
+    "motion": [],
+    "breakpoints": [
+      {
+        "name": "one-at-a-time",
+        "value": "1000px"
+      },
+      {
+        "name": "bottom-bar",
+        "value": "760px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "The default button: Undo, Revert, Reject, add a lane.",
+      "html": "<button class=\"ds-button\">Revert</button>",
+      "css": ".ds-button { min-height: var(--row); padding: 0 var(--md); border-radius: var(--control); font: 400 var(--text-body)/1.45 var(--font); white-space: nowrap; cursor: pointer; border: 1px solid var(--edge); background: var(--ground); color: var(--ink); } .ds-button:hover { border-color: var(--ink-soft); } .ds-button:active { background: var(--panel); } .ds-button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Save.",
+      "html": "<button class=\"ds-button-primary\">Save</button>",
+      "css": ".ds-button-primary { min-height: var(--row); padding: 0 var(--md); border-radius: var(--control); font: 400 var(--text-body)/1.45 var(--font); white-space: nowrap; cursor: pointer; border: 1px solid var(--ink); background: var(--ink); color: var(--ground); font-weight: 500; } .ds-button-primary:hover { background: color-mix(in oklch, var(--ink) 86%, var(--ground)); } .ds-button-primary:active { background: color-mix(in oklch, var(--ink) 72%, var(--ground)); } .ds-button-primary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }"
+    },
+    {
+      "name": "Approve Button",
+      "kind": "button",
+      "refersTo": "button-approve",
+      "description": "A person's decision, with its key. The only yellow button.",
+      "html": "<button class=\"ds-button-approve\">Approve <kbd>a</kbd></button>",
+      "css": ".ds-button-approve { min-height: var(--row); padding: 0 var(--md); border-radius: var(--control); font: 400 var(--text-body)/1.45 var(--font); white-space: nowrap; cursor: pointer; border: 1.5px solid var(--ink); background: var(--signal); color: var(--signal-ink); font-weight: 600; } .ds-button-approve:hover { background: color-mix(in oklch, var(--signal) 88%, var(--ink)); } .ds-button-approve:active { background: color-mix(in oklch, var(--signal) 76%, var(--ink)); } .ds-button-approve kbd { margin-left: var(--xs); padding: 0 4px; border: 1px solid currentColor; border-radius: 3px; font: 600 var(--text-label)/1.3 var(--font-tight); opacity: 0.75; } .ds-button-approve:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "A standard input with its label above and a hint below.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Name</span><input value=\"Build\"><span class=\"ds-field-hint\">Shown on the map.</span></label>",
+      "css": ".ds-field { display: grid; gap: var(--xs); max-width: 280px; font: 400 var(--text-body)/1.45 var(--font); color: var(--ink); } .ds-field-label { font: 600 var(--text-label)/1.2 var(--font-tight); color: var(--ink-soft); } .ds-field input { width: 100%; min-height: var(--row); padding: 2px var(--sm); border: 1px solid var(--edge); border-radius: var(--control); background: var(--ground); font: inherit; color: inherit; } .ds-field input:hover { border-color: var(--ink-soft); } .ds-field input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; } .ds-field-hint { color: var(--ink-soft); font-size: var(--text-label); }"
+    },
+    {
+      "name": "Diagram and JSON Switch",
+      "kind": "custom",
+      "refersTo": "switch-pressed",
+      "description": "Two views of one workflow. The pressed half is ink.",
+      "html": "<span class=\"ds-switch\"><button aria-pressed=\"true\">Diagram</button><button aria-pressed=\"false\">JSON</button></span>",
+      "css": ".ds-switch { display: inline-flex; border: 1px solid var(--edge); border-radius: var(--control); overflow: hidden; } .ds-switch button { min-height: calc(var(--row) - 2px); padding: 0 var(--md); border: 0; background: var(--ground); color: var(--ink); font: 400 var(--text-body)/1.45 var(--font); cursor: pointer; } .ds-switch button + button { border-left: 1px solid var(--edge); } .ds-switch button:hover { background: var(--panel); } .ds-switch button[aria-pressed=\"true\"] { background: var(--ink); color: var(--ground); } .ds-switch button:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; } .ds-switch button[aria-pressed=\"true\"]:focus-visible { outline-color: var(--ground); }"
+    },
+    {
+      "name": "Rail Section",
+      "kind": "nav",
+      "refersTo": "nav-rail",
+      "description": "A section on the navy rail: the current one, and the inbox with its count.",
+      "html": "<nav class=\"ds-rail\"><a href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\"><path d=\"M3 13h5l4-6h5\"/></svg>Floor</a><a href=\"#\"><svg viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linejoin=\"round\"><path d=\"M3 11l2-6h10l2 6v4H3z\"/></svg>Inbox<span class=\"ds-rail-count\">1</span></a></nav>",
+      "css": ".ds-rail { display: flex; flex-direction: column; width: 64px; background: var(--rail); color: var(--rail-ink-soft); } .ds-rail a { position: relative; display: grid; justify-items: center; gap: 2px; padding: var(--sm) 0; border-left: 2px solid transparent; color: inherit; font: 600 0.6875rem/1.2 var(--font-tight); text-decoration: none; } .ds-rail a:hover { color: var(--rail-ink); } .ds-rail a[aria-current=\"page\"] { background: var(--rail-active); border-left-color: var(--rail-ink); color: var(--rail-ink); } .ds-rail a:focus-visible { outline: 2px solid var(--rail-ink); outline-offset: -3px; } .ds-rail svg { width: 20px; height: 20px; } .ds-rail-count { position: absolute; top: 4px; right: 10px; min-width: 18px; padding: 0 4px; border: 1.5px solid var(--signal-ink); border-radius: 9px; background: var(--signal); color: var(--signal-ink); font: 600 0.6875rem/15px var(--font-tight); text-align: center; }"
+    },
+    {
+      "name": "State Marks",
+      "kind": "custom",
+      "description": "How a run, a lane or a gate stands: a shape and a colour.",
+      "html": "<span class=\"ds-marks\"><i class=\"ds-mark ds-mark-pass\"></i>passed <i class=\"ds-mark ds-mark-fail\"></i>failed <i class=\"ds-mark ds-mark-asked\"></i>asks a person <i class=\"ds-mark\"></i>not reached</span>",
+      "css": ".ds-marks { display: inline-flex; align-items: center; gap: var(--sm); font: 500 var(--text-data)/1.3 var(--font-tight); color: var(--ink); } .ds-mark { flex: none; display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--end); } .ds-mark-pass { border: 0; background: var(--through); } .ds-mark-fail { border: 0; border-radius: 0; background: var(--return); transform: rotate(45deg) scale(0.86); } .ds-mark-asked { border: 1.5px solid var(--ink); border-radius: 1px; background: var(--signal); }"
+    },
+    {
+      "name": "Line Swatches",
+      "kind": "custom",
+      "description": "The legend of the map: one swatch for each line.",
+      "html": "<span class=\"ds-legend\"><span><i class=\"ds-line-pass\"></i>passes</span><span><i class=\"ds-line-fail\"></i>fails</span><span><i class=\"ds-line-asks\"></i>asks a person</span><span><i class=\"ds-line-end\"></i>ends the run</span></span>",
+      "css": ".ds-legend { display: inline-flex; flex-wrap: wrap; gap: var(--xs) var(--lg); color: var(--ink-soft); font: 500 var(--text-label)/1.2 var(--font-tight); } .ds-legend span { display: inline-flex; align-items: center; gap: 6px; } .ds-legend i { display: inline-block; width: 22px; height: 6px; border-radius: 3px; } .ds-line-pass { background: var(--through); } .ds-line-fail { background: var(--return); } .ds-line-asks { background: var(--signal); outline: 1.5px solid var(--ink); } .ds-line-end { background: var(--end); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Line Diagram",
+    "overview": "This file records the interface as it shipped at the end of plan task 17 (commit ab9d705). Every value here is read from `src/ui/tokens.css` and the four style sheets beside it. `test/unit/design-record.test.ts` checks the record against the code, and `test/unit/contrast.test.ts` checks the palette.\n\nThe product is a factory you lay out: lanes, the routes between them, and tasks moving through. The interface draws that floor the way a transit authority draws a network. A lane is a station. A transition is a line. Each outcome has its own line colour. A task is a small numbered train. A gate is a short bar on the line after its station. The same notation shrinks into a strip map wherever a run is listed.\n\nThe map is white in daylight (\"map white\") and deep blue at night (\"night map\"). The theme follows the system setting, and the button at the foot of the rail switches between Auto, Light and Dark. The world lends type, palette, density and the diagram. Navigation, layout and controls are the standard ones for a web tool.",
+    "keyCharacteristics": [
+      "One meaning per colour, and a shape for every state.",
+      "Flat like print: panel tone and 1px lines, no shadow on the map.",
+      "Dense: 28px controls and rows, 8px inside a group, 16px between groups.",
+      "State steps. Nothing fades or slides.",
+      "The page keeps to the window. Each part scrolls by itself."
+    ],
+    "rules": [
+      {
+        "name": "The One Meaning Rule",
+        "body": "Through blue means passed. Return vermilion means failed. Signal yellow with an ink border means a person can act. End grey means nothing is happening. Ink is text, selection and focus. None of them is decoration, a link colour or a highlight. Links are ink, underlined. A diff uses neither blue nor vermilion.",
+        "section": "colors"
+      },
+      {
+        "name": "The Palette Only Rule",
+        "body": "No colour is written outside `tokens.css`. The style sheets use `var(--name)` and `color-mix` of those. One exception: the tab's icon in `src/ui/tab.ts` writes the rail's navy and the signal yellow as plain colours, because an icon cannot read the palette.",
+        "section": "colors"
+      },
+      {
+        "name": "The Yellow Is Yours Rule",
+        "body": "Signal yellow appears only on what a person can act on: the Approve and Answer buttons and the \"Decide in the inbox\" link, the rail's count, the mark of a row or lane that waits, the stop that asked on a strip map, a train that waits, the route that asks a person (on the map, in the legend and in the inspector), the inbox end station, and the station of a run that asked.",
+        "section": "colors"
+      },
+      {
+        "name": "The Rule And Edge Rule",
+        "body": "`--rule` is the hairline between things. `--edge` is the border of a control and must be seen: at least 3:1.",
+        "section": "colors"
+      },
+      {
+        "name": "The Contrast Rule",
+        "body": "`test/unit/contrast.test.ts` computes the contrast of the palette in both themes: 4.5:1 for text, 3:1 for shapes and lines. Two things are deliberately not held to it. The text of a disabled control is end grey. The lines, tags and ends of the workflow step back to opacity 0.28 while a run is drawn over the map, so the run reads first.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fixed Scale Rule",
+        "body": "Text sizes are in rem and nothing scales with the viewport.",
+        "section": "typography"
+      },
+      {
+        "name": "The State Steps Rule",
+        "body": "Nothing fades or slides. The style sheets hold no transition and no animation. A train is drawn at its lane and Replay moves it one step at a time.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Never Colour Alone Rule",
+        "body": "A state is told by its shape and its colour, and a line by its colour, its label and its end. The table above is the whole vocabulary.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** take every colour from `tokens.css`, and mix a hover or pressed tone from those with `color-mix`.",
+      "**Do** give every state a shape as well as a colour, from the table under Shapes.",
+      "**Do** put an ink border (1.5px) or an ink casing on anything signal yellow.",
+      "**Do** border a control with `--edge` and divide things with `--rule`.",
+      "**Do** keep a new screen inside the window: its parts scroll, the page does not.",
+      "**Do** add a pair to `test/unit/contrast.test.ts` when text or a shape lands on a new ground."
+    ],
+    "donts": [
+      "**Don't** use signal yellow on anything a person cannot act on.",
+      "**Don't** use through blue or return vermilion for anything but passed and failed. A diff, a link and a highlight are ink.",
+      "**Don't** add a transition or an animation.",
+      "**Don't** add a colour for one screen. Five meanings, five colours.",
+      "**Don't** use gradients, glows or glass as decoration, and don't put a shadow on the map. The one gradient in the build is the checker behind a screenshot.",
+      "**Don't** lay content out as a grid of cards.",
+      "**Don't** decorate with map furniture that carries no information: no roundel logos, compass roses or fare zones.",
+      "**Don't** use any game's name, art or icons."
+    ]
+  }
+}
