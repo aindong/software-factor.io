@@ -31,6 +31,8 @@ export interface RunState {
   /** How many times each lane's agent has been started. */
   entries: Record<string, number>;
   spent: { ms: number; tokens: number; usd: number };
+  /** Measured once per run: how many tests the base commit runs, by command. Null when it could not be read. */
+  memo?: Record<string, number | null>;
   /** Set when a person rejected the work, so the end of the run can say so. */
   rejected?: boolean;
 }

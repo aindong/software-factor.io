@@ -76,7 +76,12 @@ export const BUILTINS: Record<Kind, Record<string, z.ZodType | null>> = {
     "core/command@1": command,
     "core/protected-paths@1": z.strictObject({ paths: globs }).optional(),
     "core/tests-not-weakened@1": z.strictObject({ testGlobs: globs }).optional(),
-    "core/test-floor@1": z.strictObject({ command: commandName.optional() }).optional(),
+    "core/test-floor@1": z
+      .strictObject({
+        command: commandName.optional(),
+        pattern: z.string().min(1).optional(), // for a test runner whose output is not recognised
+      })
+      .optional(),
     "core/new-tests-fail-on-base@1": z
       .strictObject({ command: commandName.optional(), testGlobs: globs })
       .optional(),

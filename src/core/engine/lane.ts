@@ -7,7 +7,9 @@ import { MINUTE_MS } from "../clock.ts";
 import type { Db } from "../db.ts";
 import { saveEvidence, saveRunFile } from "../evidence.ts";
 import { hostEnv, sh, wasInterrupted } from "../exec.ts";
-import { resolveCommand, runCommandGate } from "../gates/command.ts";
+import { Checkouts, SetupFailed } from "../gates/checkout.ts";
+import { resolveCommand } from "../gates/command.ts";
+import { runGate } from "../gates/index.ts";
 import { branchTip, gitConfigFingerprint, headOf } from "../git.ts";
 import type { CommandSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
@@ -120,6 +122,7 @@ export async function runLane(
 
     if (lane.uses === "core/command@1") {
       const command = resolveCommand(ws, (lane.with ?? {}) as CommandSettings, `Lane "${lane.id}"`);
+      const tipBefore = branchTip(ws.root, run.branch);
       const outputsFile = join(ctx.outDir, `${tag}.outputs.json`);
       const minutes = (lane.with as CommandSettings).timeoutMinutes ?? 10;
       const result = await sh(command, {
@@ -133,6 +136,9 @@ export async function runLane(
           result.timedOut ? `out of time after ${minutes} minutes` : `command exited ${result.exitCode}`,
         );
       outputs = readObject(outputsFile)?.value ?? {};
+      if ((lane.gates ?? []).length === 0 && branchTip(ws.root, run.branch) !== tipBefore) {
+        failWith("its command committed to the run's branch, and the lane has no gate to check that commit");
+      }
     } else {
       agentStarts += 1;
       const entry = state.entries[lane.id] ?? 0;
@@ -222,52 +228,67 @@ export async function runLane(
     );
     const results: Record<string, "pass" | "fail"> = {};
     let again = false;
-    for (const gateId of lane.gates ?? []) {
-      const gate = ws.workflow.gates?.[gateId];
-      if (!gate) continue;
-      const record = await runCommandGate({
-        ws,
-        runId: run.id,
-        seq,
-        attempt: repairs + 1,
-        lane: lane.id,
-        gateId,
-        uses: gate.uses,
-        settings: (gate.with ?? {}) as CommandSettings,
-        commit: head,
-        env: { ...baseEnv, ...inputEnv, ...outputEnv },
-      });
-      if (wasInterrupted()) {
-        stop = { code: "interrupted", reason: "interrupted" };
-        failWith("interrupted");
-        return done();
+    state.memo ??= {};
+    const checkouts = new Checkouts(ws, run.id, tag, repairs + 1, { ...baseEnv, ...inputEnv, ...outputEnv });
+    try {
+      for (const gateId of lane.gates ?? []) {
+        const gate = ws.workflow.gates?.[gateId];
+        if (!gate) continue;
+        const record = await runGate({
+          ws,
+          runId: run.id,
+          tag,
+          attempt: repairs + 1,
+          gateId,
+          uses: gate.uses,
+          settings: gate.with ?? {},
+          base: run.base_commit,
+          head,
+          env: { ...baseEnv, ...inputEnv, ...outputEnv },
+          checkouts,
+          memo: state.memo,
+        });
+        if (wasInterrupted()) {
+          stop = { code: "interrupted", reason: "interrupted" };
+          failWith("interrupted");
+          return done();
+        }
+        store.addGateResult(db, run.id, laneRun, record);
+        results[gateId] = record.status;
+        const exit = record.exit_code === null ? "" : ` (exit ${record.exit_code})`;
+        ctx.log.push(`  ${lane.id}: gate ${gateId} ${record.status}${exit} ${record.output_path}`);
+        if (record.status === "pass" || gate.onFail === "inform") continue;
+        if (gate.onFail === "stop") {
+          stop = { code: "gate_stop", reason: `gate "${gateId}" failed and stops the run` };
+          failWith(`gate "${gateId}" failed`);
+        } else if (
+          gate.onFail === "repair" &&
+          outcome === "pass" &&
+          repairs < (lane.limits?.repairRounds ?? 0)
+        ) {
+          repairs += 1;
+          const output = readFileSync(join(ws.root, record.output_path), "utf8");
+          repair = { gate: gateId, output: output.slice(-REPAIR_TAIL) };
+          again = true;
+        } else {
+          failWith(
+            gate.onFail === "repair" && repairs > 0
+              ? `gate "${gateId}" still fails after ${repairs} repairs`
+              : `gate "${gateId}" failed`,
+          );
+        }
+        break;
       }
-      store.addGateResult(db, run.id, laneRun, record);
-      results[gateId] = record.status;
-      ctx.log.push(
-        `  ${lane.id}: gate ${gateId} ${record.status} (exit ${record.exit_code}) ${record.output_path}`,
+    } catch (error) {
+      if (!(error instanceof SetupFailed)) throw error;
+      // the project could not be set up in a clean checkout, so nothing could be checked
+      store.addGateResult(db, run.id, laneRun, error.record);
+      ctx.log.push(`  ${lane.id}: setup fail (exit ${error.record.exit_code}) ${error.record.output_path}`);
+      failWith(
+        `the workspace's setup command failed in the gate's checkout (exit ${error.record.exit_code})`,
       );
-      if (record.status === "pass" || gate.onFail === "inform") continue;
-      if (gate.onFail === "stop") {
-        stop = { code: "gate_stop", reason: `gate "${gateId}" failed and stops the run` };
-        failWith(`gate "${gateId}" failed`);
-      } else if (
-        gate.onFail === "repair" &&
-        outcome === "pass" &&
-        repairs < (lane.limits?.repairRounds ?? 0)
-      ) {
-        repairs += 1;
-        const output = readFileSync(join(ws.root, record.output_path), "utf8");
-        repair = { gate: gateId, output: output.slice(-REPAIR_TAIL) };
-        again = true;
-      } else {
-        failWith(
-          gate.onFail === "repair" && repairs > 0
-            ? `gate "${gateId}" still fails after ${repairs} repairs`
-            : `gate "${gateId}" failed`,
-        );
-      }
-      break;
+    } finally {
+      checkouts.dispose();
     }
     state.gates[lane.id] = results;
     if (!again) return done();

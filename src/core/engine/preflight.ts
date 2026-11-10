@@ -1,6 +1,7 @@
 // Refuse what this version cannot run honestly, before any task is claimed.
 import { UserError } from "../errors.ts";
 import { resolveCommand } from "../gates/command.ts";
+import { isBuiltGate } from "../gates/index.ts";
 import { headOf } from "../git.ts";
 import type { CommandSettings, WaitSettings } from "../schema/builtins.ts";
 import type { Workspace } from "../workspace.ts";
@@ -38,8 +39,13 @@ export function preflight(ws: Workspace): void {
     for (const gateId of lane.gates ?? []) {
       const gate = ws.workflow.gates?.[gateId];
       if (!gate) continue;
-      if (gate.uses !== "core/command@1") throw later(`The gate type "${gate.uses}" (gate "${gateId}")`, 7);
-      resolveCommand(ws, (gate.with ?? {}) as CommandSettings, `Gate "${gateId}"`);
+      if (gate.uses.startsWith("core/") && !isBuiltGate(gate.uses))
+        throw later(`The gate type "${gate.uses}" (gate "${gateId}")`, 19);
+      const settings = (gate.with ?? {}) as CommandSettings;
+      // a floor or a fail-on-base gate runs the workspace's verify command unless it names another
+      const runsVerify = gate.uses === "core/test-floor@1" || gate.uses === "core/new-tests-fail-on-base@1";
+      if (gate.uses === "core/command@1") resolveCommand(ws, settings, `Gate "${gateId}"`);
+      else if (runsVerify) resolveCommand(ws, { command: settings.command ?? "verify" }, `Gate "${gateId}"`);
     }
   }
 }

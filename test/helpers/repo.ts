@@ -70,8 +70,11 @@ export function readyRepo(options: { verify: string; script: unknown[]; task?: s
   const factory = repo.json<{ commands: Record<string, string> }>(".factor/factory.json");
   factory.commands.verify = options.verify;
   repo.write(".factor/factory.json", `${JSON.stringify(factory, null, 2)}\n`);
-  const starter = repo.json<{ lanes: { checkpoint: string }[] }>(".factor/workflows/starter.json");
-  for (const lane of starter.lanes) lane.checkpoint = "near";
+  // these tests are about one gate and no approval: trim the starter workflow to that
+  const starter = repo.json<{ lanes: { checkpoint: string; gates: string[] }[] }>(
+    ".factor/workflows/starter.json",
+  );
+  for (const lane of starter.lanes) Object.assign(lane, { checkpoint: "near", gates: ["verify"] });
   repo.write(".factor/workflows/starter.json", `${JSON.stringify(starter, null, 2)}\n`);
   repo.write(
     ".factor/local.json",
