@@ -95,6 +95,7 @@ const FACTORY_COMMANDS = new Set([
     "export",
     "ladder",
     "escape",
+    "retro",
   ],
 ]);
 // What an agent may do on GitHub with the person's login: read, and open its own pull request.
@@ -384,7 +385,18 @@ function judgeShell(command: unknown, where: Where): Verdict {
     if (/(\$\(|`)\s*(\S*\/)?gh\s+auth\b/.test(part)) {
       return deny("The GitHub login may not be read or changed by an agent.");
     }
-    const runsFactory = bare.some((w, i) => nameOf(w) === FACTORY && FACTORY_COMMANDS.has(bare[i + 1] ?? ""));
+    // Right before one of its commands, in whatever is not quoted text. And, where its name
+    // stands as a word of the command (not inside a quoted text, such as a test's name), any of
+    // its commands after it, with quotes and backslashes dropped: options may stand between the
+    // two, and "retro" is retro.
+    const named = bare.some((w) => nameOf(w) === FACTORY) || /["'][^"'\s]*softwarefactor["']/.test(part);
+    const runsFactory =
+      bare.some((w, i) => nameOf(w) === FACTORY && FACTORY_COMMANDS.has(bare[i + 1] ?? "")) ||
+      (named &&
+        !TEXT_ONLY.has(first) &&
+        words.some(
+          (w, i) => nameOf(w) === FACTORY && words.slice(i + 1).some((c) => FACTORY_COMMANDS.has(c)),
+        ));
     if (first === FACTORY || runsFactory) {
       return deny("The softwarefactor command is for people. Use the tools of the factor server.");
     }

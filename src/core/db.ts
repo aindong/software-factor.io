@@ -178,6 +178,23 @@ export const MIGRATIONS = [
     at text not null
   );
   `,
+  // retros: what got through or happened again and again, and what became of looking into it
+  `
+  create table retros (
+    id integer primary key,
+    key text not null unique,
+    kind text not null,
+    workflow text not null,
+    lane text not null,
+    what text not null,
+    runs text not null,
+    status text not null default 'open',
+    path text,
+    note text not null default '',
+    created_at text not null,
+    closed_at text
+  );
+  `,
 ];
 
 export type Db = DatabaseSync;
