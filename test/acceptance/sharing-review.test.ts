@@ -1,5 +1,5 @@
 // From the security review of task 20.
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { gitHost, lock, makePlugin } from "../helpers/plugin.ts";
@@ -20,6 +20,7 @@ it("does not read a prompt file through a link out of the workflows folder, or a
   const folder = exported(repo);
   expect(folder.status).toBe(1);
   expect(folder.stderr).not.toMatch(/EISDIR|at .*\.ts:/);
+  expect(folder.stderr).toMatch(/not a plain file/);
 });
 
 it("prints every text of the document on one line: a description cannot add lines to the listing", () => {
@@ -52,9 +53,14 @@ it("refuses an export whose panel member keeps its prompt in a file", () => {
   const doc = JSON.parse(exported(source()).text) as Export;
   doc.workflow.name = "shared";
   const build = doc.workflow.lanes[0] as Record<string, unknown>;
+  (build.agent as { access: string }).access = "read"; // a panel reads: it does not write
+  delete build.gates;
   build.panel = {
     join: "all",
-    members: [{ role: "reviewer", prompt: { file: "prompts/x.md" } }, { role: "author" }],
+    members: [
+      { id: "first", prompt: { file: "prompts/x.md" } },
+      { id: "second", prompt: "Look for logic errors." },
+    ],
   };
   const { repo, file } = clean(JSON.stringify(doc));
   const r = repo.sf("import", file, "--yes");
@@ -79,4 +85,45 @@ it("installs from the lock only a plugin that has the name the lock gives it", (
   expect(r.status).toBe(1);
   expect(r.stderr).toMatch(/"other".*"acme"/s);
   expect(Object.keys(lock(repo))).toEqual(["other"]);
+});
+
+// ---- from the correctness review
+
+it("refuses a pin whose source `softwarefactor add` could not read", () => {
+  const doc = JSON.parse(exported(source()).text) as Export;
+  doc.workflow.name = "shared";
+  (doc.workflow as { plugins?: unknown }).plugins = { acme: "^1.0.0" };
+  for (const bad of ["acme/tools#-x", "acme/tools//x", "acme/tools/"]) {
+    doc.plugins = { acme: { version: "1.0.0", source: bad, sha256: "a".repeat(64), commit: "b".repeat(40) } };
+    const { repo, file } = clean(JSON.stringify(doc));
+    const r = repo.sf("import", file, "--yes");
+    expect(r.status, bad).toBe(1);
+    expect(r.stderr, bad).toMatch(/plugins/);
+  }
+});
+
+it("imports into a workspace whose active workflow is broken: that is how it is mended", () => {
+  const doc = JSON.parse(exported(source()).text) as Export;
+  doc.workflow.name = "shared";
+  const { repo, file } = clean(JSON.stringify(doc));
+  repo.write(".factor/workflows/starter.json", "{ not json");
+  const r = repo.sf("import", file, "--yes", "--use");
+  expect(r.status, r.stderr).toBe(0);
+  expect(repo.sf("check").status).toBe(0);
+});
+
+it("does not write an export over a file that is there, and does not take a path inside other words for this machine's", () => {
+  const repo = source();
+  const out = join(repo.home, "out.json");
+  writeFileSync(out, "mine");
+  const r = repo.sf("export", "--out", out);
+  expect(r.status).toBe(1);
+  expect(r.stderr).toMatch(/already/);
+  expect(readFileSync(out, "utf8")).toBe("mine");
+  // the workspace's own folder name inside a longer path or word is not this machine's path
+  const name = repo.dir.split("/").pop() ?? "";
+  repo.write(".factor/workflows/prompts/build.md", `Look at docs/${name}x/notes.md and at x${repo.dir}y.\n`);
+  expect(exported(repo).status).toBe(0);
+  repo.write(".factor/workflows/prompts/build.md", `Look at ${repo.dir}/notes.md.\n`);
+  expect(exported(repo).status).toBe(1);
 });
