@@ -91,15 +91,9 @@ describe("the guard", () => {
 });
 
 describe("the guard as a command", () => {
-  const env = {
-    PATH: process.env.PATH ?? "",
-    FACTOR_WORKTREE: worktree,
-    FACTOR_LANE_DIR: laneDir,
-    FACTOR_ACCESS: "write",
-    FACTOR_DEFAULT_BRANCH: "trunk",
-  };
-  const guard = (input: string, e: Record<string, string> = env) =>
-    spawnSync(process.execPath, [resolve("src/cli.ts"), "guard"], { input, env: e, encoding: "utf8" });
+  const lane = ["--worktree", worktree, "--lane-dir", laneDir, "--access", "write", "--protect", "trunk"];
+  const guard = (input: string, args: string[] = lane) =>
+    spawnSync(process.execPath, [resolve("src/cli.ts"), "guard", ...args], { input, encoding: "utf8" });
   const call = (tool_name: string, tool_input: unknown) => JSON.stringify({ tool_name, tool_input });
 
   it("exits 0 for ordinary work", () => {
@@ -115,7 +109,6 @@ describe("the guard as a command", () => {
   it("denies what it cannot read: fails closed", () => {
     expect(guard("not json").status).toBe(2);
     expect(guard("").status).toBe(2);
-    const { FACTOR_WORKTREE: _gone, ...partial } = env;
-    expect(guard(call("Bash", { command: "pnpm test" }), partial).status).toBe(2);
+    expect(guard(call("Bash", { command: "pnpm test" }), lane.slice(2)).status).toBe(2); // no worktree named
   });
 });

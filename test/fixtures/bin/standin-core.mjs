@@ -51,6 +51,8 @@ export async function standin(kind) {
       writeFileSync(process.env.FACTOR_HANDOFF, JSON.stringify(a.handoff));
     } else if (a.final) {
       final = typeof a.final === "string" ? a.final : JSON.stringify(a.final);
+    } else if (a.sh) {
+      spawnSync("sh", ["-c", a.sh], { stdio: "ignore" }); // a shell command, as an agent with a shell can run
     } else if (a.spawn) {
       spawn("sh", ["-c", a.spawn], { stdio: "ignore" }); // something the agent started and left running
     } else if (a.tool) {
@@ -93,6 +95,7 @@ export async function standin(kind) {
   } else if (kind === "codex") {
     say({ type: "thread.started", thread_id: "codex-thread-1" });
     say({ type: "turn.started" });
+    if (plan.retried) say({ type: "error", message: plan.retried }); // a retry the CLI recovers from
     if (plan.error) say({ type: "turn.failed", error: { message: plan.error } });
     else {
       say({ type: "item.completed", item: { id: "item_0", type: "agent_message", text: final } });

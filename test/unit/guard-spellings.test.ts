@@ -73,14 +73,10 @@ describe("the guard, by other spellings", () => {
 });
 
 describe("the guard as a command, with input it cannot read", () => {
-  const env = {
-    PATH: process.env.PATH ?? "",
-    FACTOR_WORKTREE: worktree,
-    FACTOR_LANE_DIR: laneDir,
-    FACTOR_ACCESS: "write",
-  };
-  const guard = (input: string, e: Record<string, string> = env) =>
-    spawnSync(process.execPath, [resolve("src/cli.ts"), "guard"], { input, env: e, encoding: "utf8" }).status;
+  const lane = ["--worktree", worktree, "--lane-dir", laneDir, "--access", "write"];
+  const guard = (input: string, args: string[] = lane) =>
+    spawnSync(process.execPath, [resolve("src/cli.ts"), "guard", ...args], { input, encoding: "utf8" })
+      .status;
   const fine = JSON.stringify({ tool_name: "Bash", tool_input: { command: "ls" } });
 
   it("allows the call these cases are built from", () => {
@@ -97,17 +93,21 @@ describe("the guard as a command, with input it cannot read", () => {
   });
 
   it("exits 2 when it was not told the lane's folder, or the access is not one it knows", () => {
-    const { FACTOR_LANE_DIR: _gone, ...noLane } = env;
-    expect(guard(fine, noLane)).toBe(2);
-    expect(guard(fine, { ...env, FACTOR_ACCESS: "rw" })).toBe(2);
+    expect(guard(fine, ["--worktree", worktree, "--access", "write"])).toBe(2);
+    expect(guard(fine, ["--worktree", worktree, "--lane-dir", laneDir, "--access", "rw"])).toBe(2);
   });
 
-  it("exits 2, never 1, when the command line itself is wrong", () => {
-    const r = spawnSync(process.execPath, [resolve("src/cli.ts"), "guard", "--nonsense"], {
+  it("exits 2 when the command line has something it does not know", () => {
+    expect(guard(fine, [...lane, "--nonsense"])).toBe(2);
+  });
+
+  it("takes the lane from its command line, never from the environment", () => {
+    const env = { PATH: process.env.PATH ?? "", FACTOR_WORKTREE: worktree, FACTOR_LANE_DIR: laneDir };
+    const r = spawnSync(process.execPath, [resolve("src/cli.ts"), "guard"], {
       input: fine,
-      env,
+      env: { ...env, FACTOR_ACCESS: "write" },
       encoding: "utf8",
     });
-    expect(r.status === 0 || r.status === 2).toBe(true);
+    expect(r.status).toBe(2);
   });
 });
