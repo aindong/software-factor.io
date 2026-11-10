@@ -1,7 +1,7 @@
 // The runs as the interface shows them: the list, and one run with everything behind it. Read
 // from the record and from the run's folder, changing nothing. What the record holds is not
 // trusted to be whole: a state that does not parse or a workflow that is gone still gives a row.
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import type { Db } from "../db.ts";
@@ -11,6 +11,7 @@ import { hostEnv } from "../exec.ts";
 import { drawable } from "../floor/layout.ts";
 import { readTail } from "../safe-read.ts";
 import type { GateRecord, InboxItem, Outcome, Run, Session } from "../store.ts";
+import { factorHome, workspaceId } from "../workspace.ts";
 import { type Now, sentenceOf } from "./sentence.ts";
 import { kindOf } from "./track.ts";
 
@@ -19,7 +20,10 @@ const TAIL = 64_000;
 const MAX_FILE = 50_000_000;
 const MAX_DIFF = 1_000_000;
 const NAME = /^[a-z][a-z0-9-]*$/;
-const COMMIT = /^[0-9a-f]{7,64}$/;
+const MAX_GIT = 8_000_000;
+const GIT_MS = 10_000;
+// a full id only: a shorter word could be the name of a branch an agent made
+const COMMIT = /^([0-9a-f]{40}|[0-9a-f]{64})$/;
 
 export interface RunRow {
   id: string;
@@ -132,7 +136,7 @@ function laneReader(root: string): (workflow: string) => LaneDef[] {
   };
 }
 
-function rowOf(db: Db, run: Row, lanesOf: (workflow: string) => LaneDef[]): RunRow {
+function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => LaneDef[]): RunRow {
   const visits = all<LaneRow>(db, "select * from lane_runs where run_id = ? order by seq, id", run.id);
   const state = parsed<Partial<RunState>>(run.state, {});
   const open = visits.findLast((v) => v.ended_at === null);
@@ -174,10 +178,13 @@ function rowOf(db: Db, run: Row, lanesOf: (workflow: string) => LaneDef[]): RunR
       } else {
         now.phase = "agent";
         const handoff = parsed<{ handoffPath?: unknown }>(last?.data ?? null, {}).handoffPath;
-        if (typeof handoff === "string") {
-          // the CLI's raw output is in the host's folder beside the lane's: read, never followed
-          const stream = join(`${dirname(handoff)}.host`, "stream.jsonl");
-          now.tail = readTail(stream, TAIL)?.data.toString("utf8");
+        // The CLI's raw output is in the host's folder beside the lane's. The record says where
+        // the lane's folder is, but only a folder of this run's own is read, and never through a link.
+        const out = join(factorHome(), "work", workspaceId(root), `${run.id}.out`);
+        if (typeof handoff === "string" && dirname(dirname(resolve(handoff))) === out) {
+          now.tail = readTail(join(`${dirname(resolve(handoff))}.host`, "stream.jsonl"), TAIL)?.data.toString(
+            "utf8",
+          );
         }
       }
     }
@@ -217,7 +224,7 @@ export function listRuns(db: Db, root: string): RunRow[] {
   const lanesOf = laneReader(root);
   return [...active, ...ended]
     .sort((a, b) => (a.started_at < b.started_at ? 1 : a.started_at > b.started_at ? -1 : 0))
-    .map((run) => rowOf(db, run, lanesOf));
+    .map((run) => rowOf(db, root, run, lanesOf));
 }
 
 const runFolder = (root: string, id: string) => join(root, ".factor", "runs", id);
@@ -295,7 +302,7 @@ export function runDetail(db: Db, root: string, id: string): RunDetail | undefin
     };
   });
   return {
-    ...rowOf(db, run, laneReader(root)),
+    ...rowOf(db, root, run, laneReader(root)),
     branch: run.branch,
     lanes,
     inbox: all<InboxItem>(db, "select * from inbox where run_id = ? and status = 'open' order by id", id).map(
@@ -332,7 +339,7 @@ export function runFile(
   root: string,
   id: string,
   path: string,
-): { data: Buffer; type: string; download?: string } | undefined {
+): { data: Buffer; type: string; download?: string } | "too large" | undefined {
   if (!path || !db.prepare("select 1 from runs where id = ?").get(id)) return undefined;
   const base = runFolder(root, id);
   const file = resolve(root, path);
@@ -346,6 +353,7 @@ export function runFile(
   }
   const read = readTail(file, MAX_FILE);
   if (!read) return undefined;
+  if (read.cut) return "too large"; // its tail alone would pass for the whole
   const kind = kindOf(basename(file));
   const ext = /\.([A-Za-z0-9]+)$/.exec(file)?.[1]?.toLowerCase() ?? "";
   if (kind === "image" || kind === "recording") {
@@ -359,48 +367,50 @@ export function runFile(
   };
 }
 
-/** What the run changed, from its base commit to its head, as a diff. A note says why when there is none. */
+/**
+ * What the run changed, from its base commit to its head: every changed file by name, and the
+ * diff up to a size. A note says why when there is none. The names come whole also when the diff
+ * is cut, so a long file put first cannot hide the others.
+ */
 export function runDiff(
   db: Db,
   root: string,
   id: string,
-): { diff: string; cut: boolean; note?: string } | undefined {
+): { diff: string; cut: boolean; changed: string[]; note?: string } | undefined {
   const run = db.prepare("select base_commit, head_commit from runs where id = ?").get(id) as
     | { base_commit: string; head_commit: string | null }
     | undefined;
   if (!run) return undefined;
-  const none = (note: string) => ({ diff: "", cut: false, note });
+  const none = (note: string) => ({ diff: "", cut: false, changed: [], note });
   if (!run.head_commit) return none("This run has made no commit yet.");
-  // only a commit's id is ever handed to git: never a word that could be an option
+  // only a commit's full id is ever handed to git: never a word that could be an option or a branch
   if (!COMMIT.test(run.base_commit) || !COMMIT.test(run.head_commit)) {
     return none("The record of this run holds no commit to compare.");
   }
-  try {
-    const diff = execFileSync(
+  const diff = (...how: string[]) =>
+    spawnSync(
       "git",
       [
-        "-c",
-        "core.hooksPath=/dev/null",
-        "-c",
-        "core.fsmonitor=false",
-        "diff",
-        "--no-color",
-        "--no-ext-diff",
-        "--no-textconv",
-        run.base_commit,
-        run.head_commit,
-        "--",
+        ...["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "diff", "--no-color"],
+        ...["--no-ext-diff", "--no-textconv", ...how, run.base_commit, run.head_commit ?? "", "--"],
       ],
       {
         cwd: root,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
         env: hostEnv(),
-        maxBuffer: 64_000_000,
+        maxBuffer: MAX_GIT,
+        timeout: GIT_MS,
       },
     );
-    return { diff: diff.slice(0, MAX_DIFF), cut: diff.length > MAX_DIFF };
-  } catch {
-    return none("The run's commits are no longer in this repository.");
-  }
+  const names = diff("--name-status");
+  if (names.status !== 0) return none("The run's commits are no longer in this repository.");
+  const whole = diff();
+  // more than git was given room for, or more than its time: what came is shown, and said to be a part
+  const text = whole.stdout ?? "";
+  return {
+    diff: text.slice(0, MAX_DIFF),
+    cut: whole.status !== 0 || text.length > MAX_DIFF,
+    changed: names.stdout.split("\n").filter(Boolean),
+  };
 }

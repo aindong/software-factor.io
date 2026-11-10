@@ -32,7 +32,11 @@ export function Proof(props: {
   );
 }
 
-type Loaded = { state: "reading" } | { state: "gone" } | { state: "here"; url: string; text: string };
+type Loaded =
+  | { state: "reading" }
+  | { state: "gone" }
+  | { state: "large" }
+  | { state: "here"; url: string; text: string };
 
 /** A file of the run, read once: as text for text, as an address in memory for the rest. */
 function useFile(runId: string, path: string, asText: boolean): Loaded {
@@ -44,6 +48,7 @@ function useFile(runId: string, path: string, asText: boolean): Loaded {
     getFile(runId, path).then(async (blob) => {
       if (left) return;
       if (!blob) return setLoaded({ state: "gone" });
+      if (blob === "too large") return setLoaded({ state: "large" });
       if (asText) return setLoaded({ state: "here", url: "", text: await blob.text() });
       url = URL.createObjectURL(blob);
       setLoaded({ state: "here", url, text: "" });
@@ -57,7 +62,11 @@ function useFile(runId: string, path: string, asText: boolean): Loaded {
 }
 const Waiting = ({ loaded }: { loaded: Loaded }) => (
   <p className="quiet">
-    {loaded.state === "reading" ? "Reading." : "This file is no longer in the run's folder."}
+    {loaded.state === "reading"
+      ? "Reading."
+      : loaded.state === "large"
+        ? "This file is too large to show here. It is in the run's folder under .factor/runs."
+        : "This file is no longer in the run's folder."}
   </p>
 );
 const Text = ({ text }: { text: string }) => (
@@ -128,14 +137,14 @@ const lineKind = (line: string) =>
 
 /** The run's diff. A line taken out is struck through, not hidden: nothing disappears, it cancels. */
 export function DiffView({ runId, stamp }: { runId: string; stamp: string }) {
-  const [diff, setDiff] = useState<{ text: string; note?: string }>();
+  const [diff, setDiff] = useState<{ text: string; changed: string[]; note?: string }>();
   // biome-ignore lint/correctness/useExhaustiveDependencies: the stamp changes when the run does, and the diff is read again
   useEffect(() => {
     let left = false;
     getDiff(runId).then(({ body }) => {
       if (left) return;
       const cut = body.cut ? "The diff is long: only its first part is shown." : undefined;
-      setDiff({ text: body.diff ?? "", note: body.note ?? body.error ?? cut });
+      setDiff({ text: body.diff ?? "", changed: body.changed ?? [], note: body.note ?? body.error ?? cut });
     });
     return () => {
       left = true;
@@ -146,6 +155,13 @@ export function DiffView({ runId, stamp }: { runId: string; stamp: string }) {
   return (
     <>
       {diff.note ? <p className="quiet">{diff.note}</p> : null}
+      {diff.changed.length > 0 ? (
+        <ul className="changed code" aria-label="Files this run changed">
+          {diff.changed.map((line) => (
+            <li key={line}>{line.replace("\t", "  ")}</li>
+          ))}
+        </ul>
+      ) : null}
       {diff.text ? (
         <pre className="output diff">
           {lines.slice(0, MOST_LINES).map((line, i) => (

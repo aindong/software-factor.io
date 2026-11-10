@@ -74,13 +74,16 @@ export type { RunDetail, RunRow };
 const runPath = (id: string) => `/api/runs/${encodeURIComponent(id)}`;
 export const getRun = (id: string) => call<{ run?: RunDetail; error?: string }>(runPath(id));
 export const getDiff = (id: string) =>
-  call<{ diff?: string; cut?: boolean; note?: string; error?: string }>(`${runPath(id)}/diff`);
+  call<{ diff?: string; cut?: boolean; changed?: string[]; note?: string; error?: string }>(
+    `${runPath(id)}/diff`,
+  );
 /** A file of a run, by the path the record gives. Nothing when the server has no such file. */
-export async function getFile(id: string, path: string): Promise<Blob | undefined> {
+export async function getFile(id: string, path: string): Promise<Blob | "too large" | undefined> {
   try {
     const answer = await fetch(`${runPath(id)}/file?path=${encodeURIComponent(path)}`, {
       headers: { "x-factor-token": token },
     });
+    if (answer.status === 413) return "too large";
     return answer.ok ? await answer.blob() : undefined;
   } catch {
     return undefined;

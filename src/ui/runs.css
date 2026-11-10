@@ -306,6 +306,13 @@
   overflow-wrap: anywhere;
   tab-size: 2;
 }
+.changed {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .diff {
   white-space: pre;
   overflow-wrap: normal;

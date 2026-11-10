@@ -52,7 +52,8 @@ const command = (given: unknown) => {
   if (!whole) return undefined;
   // Codex wraps every command in a login shell
   const inner = /^\S*(?:zsh|bash|sh) -lc (['"])([\s\S]*)\1$/.exec(whole)?.[2] ?? whole;
-  return `running \`${clip(inner.split("\n")[0] ?? "", 80)}\``;
+  // a command with a backtick of its own could close the quotes and go on in the factory's voice
+  return `running \`${clip((inner.split("\n")[0] ?? "").replaceAll("`", "'"), 80)}\``;
 };
 const file = (given: unknown) => {
   const path = text(given);

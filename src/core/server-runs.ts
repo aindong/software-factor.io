@@ -19,7 +19,8 @@ export function runRoutes(app: Hono, db: Db, root: string, closing: () => boolea
   app.get("/api/runs/:id/file", (c) => {
     const file = runFile(db, root, c.req.param("id"), c.req.query("path") ?? "");
     if (!file) return c.json({ error: "There is no such file in this run." }, 404);
-    return c.body(new Uint8Array(file.data), 200, {
+    if (file === "too large") return c.json({ error: "This file is too large to show here." }, 413);
+    return c.body(file.data as Uint8Array<ArrayBuffer>, 200, {
       "Content-Type": file.type,
       ...(file.download ? { "Content-Disposition": `attachment; filename="${file.download}"` } : {}),
     });
