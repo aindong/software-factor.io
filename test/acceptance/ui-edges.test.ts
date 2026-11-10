@@ -72,9 +72,12 @@ describe("who can reach the server", () => {
     ["127.0.0.1.evil.example", 403],
     ["127.0.0.1:1", 403],
     ["", 403],
-    [undefined, 403],
   ])("refuses the host %s", async (host, wanted) => {
     expect(await status(host === "127.0.0.1.evil.example" ? `${host}:${port()}` : host)).toBe(wanted);
+  });
+
+  it("refuses a request that names no host at all", async () => {
+    expect([400, 403]).toContain(await status(undefined)); // the server, or HTTP itself, turns it away
   });
 
   it("answers to localhost with the same port", async () => {
@@ -93,14 +96,13 @@ describe("who can reach the server", () => {
   });
 
   it("reads no file outside its own assets", async () => {
-    for (const path of [
-      "/assets/..%2f..%2fpackage.json",
-      "/assets/..%2findex.html",
-      "/assets/%2e%2e/index.html",
-    ]) {
-      const answer = await fetch(`${ui.url}${path}`);
-      expect(answer.status, path).toBe(404);
+    for (const path of ["/assets/..%2f..%2fpackage.json", "/assets/..%2findex.html", "/assets/nothing.js"]) {
+      expect((await fetch(`${ui.url}${path}`)).status, path).toBe(404);
     }
+    // a path a browser reads as leaving assets/ is a place in the interface: its one page, and no file
+    const page = await fetch(`${ui.url}/assets/%2e%2e/package.json`);
+    expect(page.headers.get("content-type")).toMatch(/text\/html/);
+    expect(await page.text()).not.toContain('"dependencies"');
   });
 });
 

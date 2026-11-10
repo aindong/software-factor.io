@@ -56,6 +56,8 @@ const CLEAR = 36; // from the main line to the first track
 const BEVEL = 12; // the 45-degree stretch at each corner
 const EDGE = 56; // above the highest and below the lowest thing drawn
 const PORT = 8; // between two lines that leave or reach one station on the same side
+const SELF = 10; // how far from its station's middle a lane's line to itself leaves and comes back
+const SELF_BEVEL = 6;
 const ENDS = ["@done", "@inbox", "@stop", "@drop"];
 const END_LABEL: Record<string, string> = {
   "@done": "Done",
@@ -116,7 +118,8 @@ export function layout(workflow: Workflow): Floor {
   for (const side of [-1, 1] as const) {
     for (const index of ids.keys()) {
       const here = drafts
-        .filter((d) => d.side === side && (d.fromAt === index || d.toAt === index))
+        // a lane's line to itself has places of its own, below
+        .filter((d) => d.side === side && d.fromAt !== d.toAt && (d.fromAt === index || d.toAt === index))
         .flatMap((d) => [
           ...(d.fromAt === index ? [{ d, end: "from" as const, other: d.toAt, key: `from ${d.key}` }] : []),
           // lines of one outcome that end here arrive together, at one point
@@ -133,9 +136,13 @@ export function layout(workflow: Workflow): Floor {
   }
   const ends = (d: Draft) => {
     const port = ports.get(d) ?? { from: 0, to: 0 };
-    // a lane's line to itself leaves on one side of the station and comes back on the other
-    const self = d.fromAt === d.toAt ? 2 * BEVEL : 0;
-    return { a: xOf(d.fromAt) + port.from + self, b: xOf(d.toAt) + port.to - self };
+    // a lane's line to itself leaves on one side of the station and comes back on the other, a
+    // little further out for each outcome so that two such loops do not run along each other
+    if (d.fromAt === d.toAt) {
+      const out = SELF + (d.outcome === "needsPerson" ? 3 : 0);
+      return { a: xOf(d.fromAt) + out, b: xOf(d.fromAt) - out };
+    }
+    return { a: xOf(d.fromAt) + port.from, b: xOf(d.toAt) + port.to };
   };
 
   // A track for each group of lines that is not on the main line. Lines of one outcome that lead
@@ -182,12 +189,13 @@ export function layout(workflow: Workflow): Floor {
     const { a, b } = ends(d);
     const y = mainY + side * (CLEAR + (level.get(d) ?? 1) * TRACK);
     const dir = b > a ? 1 : -1;
+    const bevel = fromAt === toAt ? SELF_BEVEL : BEVEL; // a tighter turn for a loop that small
     const points: Point[] = [
       [a, mainY],
-      [a, y - side * BEVEL],
-      [a + dir * BEVEL, y],
-      [b - dir * BEVEL, y],
-      [b, y - side * BEVEL],
+      [a, y - side * bevel],
+      [a + dir * bevel, y],
+      [b - dir * bevel, y],
+      [b, y - side * bevel],
       [b, mainY],
     ];
     return { ...line, points };

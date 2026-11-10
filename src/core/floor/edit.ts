@@ -128,6 +128,12 @@ export function connect(w: Json, from: string, outcome: "pass" | "fail" | "needs
   );
 }
 
+/** True when an outcome of a lane has conditions, which connecting it again would replace. */
+export function hadConditions(w: Json, from: string, outcome: string): boolean {
+  const lane = lanesOf(w).find((l) => l.id === from);
+  return stepsOf(lane?.on?.[outcome]).some((s) => s.when !== undefined);
+}
+
 /** Set fields of a lane. A field set to undefined is removed. `agent` is merged, not replaced. */
 export function updateLane(w: Json, id: string, patch: Json): Json {
   const merge = (base: Json, change: Json): Json =>
@@ -138,9 +144,12 @@ export function updateLane(w: Json, id: string, patch: Json): Json {
       if (lane.id !== id) return lane;
       const { agent, ...rest } = patch;
       const merged = merge(lane, rest) as LaneJson;
-      return agent === undefined || typeof agent !== "object" || agent === null
-        ? merged
-        : { ...merged, agent: merge((lane.agent as Json | undefined) ?? {}, agent as Json) };
+      if (!("agent" in patch)) return merged;
+      if (typeof agent !== "object" || agent === null) {
+        const { agent: _gone, ...without } = merged; // set to nothing: removed
+        return without as LaneJson;
+      }
+      return { ...merged, agent: merge((lane.agent as Json | undefined) ?? {}, agent as Json) };
     }),
   );
 }

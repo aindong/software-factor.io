@@ -2,12 +2,13 @@
 // One document is behind both views, so a change in either shows in the other. The checker runs
 // on every change, here in the page: it is the same code the command line runs.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { addLane, connect } from "../core/floor/edit.ts";
+import { addLane, connect, hadConditions } from "../core/floor/edit.ts";
 import { drawable, layout } from "../core/floor/layout.ts";
 import { parseWorkflow } from "../core/schema/parse.ts";
 import { getWorkflow, getWorkspace, type Json, saveWorkflow, type WorkspaceInfo } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
 import { Inspector } from "./Inspector.tsx";
+import { statusOf } from "./status.ts";
 
 const print = (doc: Json) => `${JSON.stringify(doc, null, 2)}\n`;
 
@@ -21,7 +22,7 @@ export function Floor() {
   const [view, setView] = useState<"diagram" | "json">("diagram");
   const [selected, setSelected] = useState<string>();
   const [sheet, setSheet] = useState(false);
-  const [notice, setNotice] = useState<string>();
+  const [notice, setNotice] = useState<{ text: string; bad: boolean }>();
   const headRef = useRef<HTMLHeadingElement>(null);
   const connectRef = useRef<HTMLSelectElement>(null);
 
@@ -86,8 +87,15 @@ export function Floor() {
     const { status, body } = await saveWorkflow(name, doc);
     if (status === 200) {
       setSaved(print(doc));
-      setNotice("Saved.");
-    } else setNotice(body.problems?.[0]?.message ?? "It could not be saved.");
+      setNotice({ text: "Saved.", bad: false });
+    } else {
+      // the server refused: say why, though the workflow is still not saved
+      const why =
+        status === 401
+          ? "this tab's key is no longer good: open the address the command printed"
+          : (body.problems?.[0]?.message ?? "the server refused it");
+      setNotice({ text: `Not saved: ${why}`, bad: true });
+    }
   }, [name, doc, canSave]);
 
   useEffect(() => {
@@ -120,13 +128,7 @@ export function Floor() {
     if (added) open(added.id);
   };
 
-  const status = broken
-    ? "The JSON does not parse"
-    : problems.length > 0
-      ? `${problems.length} ${problems.length === 1 ? "problem" : "problems"}`
-      : dirty
-        ? "Not saved"
-        : (notice ?? "Saved");
+  const status = statusOf({ broken, problems: problems.length, dirty, notice });
   return (
     <main className="work">
       <div className="topbar">
@@ -172,8 +174,8 @@ export function Floor() {
           </div>
         ) : null}
         <div className="group push">
-          <span className={`status${broken || problems.length > 0 ? " bad" : ""}`} role="status">
-            {status}
+          <span className={`status${status.bad ? " bad" : ""}`} role="status">
+            {status.text}
           </span>
           <button type="button" className="button" disabled={!dirty} onClick={() => name && load(name)}>
             Revert
@@ -186,6 +188,12 @@ export function Floor() {
       <div className="floor">
         {view === "diagram" ? (
           <div className="map-side">
+            {broken ? (
+              <p className="broken" role="alert">
+                The text in the JSON view is not JSON, so this is the last version that was. A change made
+                here replaces that text.
+              </p>
+            ) : null}
             <div className="map-scroll">
               {floor ? (
                 <Diagram
@@ -199,7 +207,17 @@ export function Floor() {
                     setSheet(true);
                     requestAnimationFrame(() => connectRef.current?.focus());
                   }}
-                  onConnect={(from, outcome, to) => doc && change(connect(doc, from, outcome, to))}
+                  onConnect={(from, outcome, to) => {
+                    if (!doc) return;
+                    const replaced = hadConditions(doc, from, outcome);
+                    change(connect(doc, from, outcome, to));
+                    // a drag gives no chance to read a warning first: say what it did
+                    if (replaced)
+                      setNotice({
+                        text: `The conditions on ${from}.${outcome} were replaced. Revert brings them back.`,
+                        bad: false,
+                      });
+                  }}
                 />
               ) : (
                 <div className="plain">

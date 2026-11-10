@@ -6,12 +6,13 @@
   min-height: 0;
 }
 .map-side {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
 }
 .map-scroll {
+  flex: 1;
   overflow: auto;
   min-height: 0;
 }
@@ -314,9 +315,10 @@
 .json textarea:focus-visible {
   outline-offset: -2px;
 }
-.json .broken {
+.broken {
   padding: var(--sm) var(--lg);
   border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
   background: var(--panel);
 }
 .problems {

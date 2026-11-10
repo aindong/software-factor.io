@@ -42,8 +42,9 @@ const POLICY =
 /** Where the built interface is: beside the built command, or in dist/ when run from source. */
 function uiDir(): string {
   const here = dirname(fileURLToPath(import.meta.url));
-  const found = [join(here, "..", "ui"), join(here, "..", "..", "dist", "ui")].find((d) =>
-    existsSync(join(d, "index.html")),
+  // the built interface has its files in assets/: the source folder beside this file does not
+  const found = [join(here, "..", "ui"), join(here, "..", "..", "dist", "ui")].find(
+    (d) => existsSync(join(d, "index.html")) && existsSync(join(d, "assets")),
   );
   if (!found) {
     throw new UserError("The interface is not built.", "Run `pnpm run build` in the softwarefactor folder.");
@@ -185,7 +186,11 @@ export function startServer(root: string, config: { workflow: string }, port: nu
       "Content-Type": TYPES[extname(file)] ?? "application/octet-stream",
     });
   });
-  app.get("*", (c) => c.html(page));
+  // any other path is a place inside the interface, which is one page. Not under assets/: a file
+  // that is not there is not there.
+  app.get("*", (c) =>
+    new URL(c.req.url).pathname.startsWith("/assets/") ? c.text("Not found", 404) : c.html(page),
+  );
 
   return new Promise((resolve, reject) => {
     const server = serve({ fetch: app.fetch, port, hostname: "127.0.0.1" }, (info) => {
