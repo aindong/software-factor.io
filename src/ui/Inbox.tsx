@@ -92,8 +92,11 @@ export function Inbox() {
   const question = current?.kind === "question";
 
   const decide = async (decision: Decision, words = "") => {
-    if (!current || busy) return;
+    // also for a button: a second tap just as the page moved on must not land on the next item
+    if (!current || busy || Date.now() < guard.current) return;
     setBusy(true);
+    // known before the answer: the record may show the item gone first, and that is this page's doing
+    decided.current = current.id;
     const { status, body } = await op<{ state?: string }>("inbox_decide", {
       run: current.run,
       item: current.id, // the item that was on show: the decision is for it and for nothing the run waits on later
@@ -109,10 +112,10 @@ export function Inbox() {
       setNoting(undefined);
       setNote("");
       // it leaves the list at once: the record will say the same in a moment
-      decided.current = current.id;
-      setItems((items ?? []).filter((i) => i.id !== current.id));
+      setItems((now) => now?.filter((i) => i.id !== current.id));
     } else {
       // the factory refused: its own words, and what to do
+      decided.current = undefined;
       setNotice({ text: body.error ?? "The factory did not take the decision.", fix: body.fix, bad: true });
     }
   };

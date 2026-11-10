@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 // The command line. Every command is a thin layer over a core operation, so the interface and the
 // MCP server can offer the same ones (ADR 0008).
@@ -131,7 +131,9 @@ async function mcpCommand(args: string[]): Promise<number> {
     }
     const root = args[args.indexOf("--workspace") + 1];
     // a run's worktree holds the factory's files too, but it is where an agent works, not a workspace
-    if (root && resolve(root).startsWith(`${join(factorHome(), "work")}${sep}`)) {
+    // by what the folders really are: a link or another spelling of the path names the same place
+    const real = (path: string) => (existsSync(path) ? realpathSync(path) : resolve(path));
+    if (root && real(root).startsWith(`${real(join(factorHome(), "work"))}${sep}`)) {
       console.error(
         "softwarefactor mcp --operator was given the worktree of a run. Give it your own repository.",
       );
@@ -327,7 +329,7 @@ async function main(): Promise<number> {
       throw new UserError(`"${command}" needs a run id.`, "See what is waiting with `softwarefactor inbox`.");
     // the line that says the decision is recorded is printed at once: the interface waits for it
     const item = values.item === undefined ? undefined : Number(values.item);
-    if (item !== undefined && !Number.isInteger(item)) {
+    if (values.item !== undefined && !/^[1-9]\d*$/.test(values.item)) {
       throw new UserError(
         `--item needs the number of an inbox item, not "${values.item}".`,
         "Leave it out to decide on whatever the run waits on.",

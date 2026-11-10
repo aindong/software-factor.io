@@ -25,6 +25,8 @@ export function forgetKey(): void {
   } catch {
     // nothing was kept
   }
+  // also out of the address: a key left there would be read again, refused again, and so on
+  if (location.hash) history.replaceState(null, "", location.pathname);
   location.reload();
 }
 // the printed address opened in a tab that is already on this page changes only what is after

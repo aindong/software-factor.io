@@ -161,7 +161,8 @@ grep -lq "as Postgres, the one we already run" .factor/runs/*/prompts/*ask* || f
 tab_to '^Add an export button'
 pw press a
 wait_for "nothing waits" "() => document.querySelector('.plain')?.textContent ?? ''" '^Nothing waits for you\.'
-expect "the rail's count is gone" "$(js "() => document.querySelectorAll('.rail .count').length")" '^0$'
+# the item left the page at once; the rail follows the record, within a second
+wait_for "the rail's count is gone" "() => document.querySelectorAll('.rail .count').length" '^0$'
 shot inbox-empty-light-1440
 
 # ---- 7. accounts: the logins, and a role bound by keyboard

@@ -179,7 +179,11 @@ function decisionLogs(root: string): string {
   // shortcut: logs older than a week are dropped when a new decision is made, not on a clock
   for (const file of readdirSync(folder)) {
     const path = join(folder, file);
-    if (Date.now() - lstatSync(path).mtimeMs > WEEK_MS) rmSync(path, { force: true });
+    try {
+      if (Date.now() - lstatSync(path).mtimeMs > WEEK_MS) rmSync(path, { force: true });
+    } catch {
+      // another decision removed it first
+    }
   }
   return folder;
 }
@@ -226,8 +230,10 @@ async function decide(at: At, input: { run: string; item: number; decision: stri
     }
     if (ended) {
       // how the run stands now, from the record: the command's exit code does not tell done from dropped
-      const run = at.db.prepare("select status from runs where id = ?").get(input.run) as { status: string };
-      return { state: "ended" as const, run: run.status };
+      const run = at.db.prepare("select status from runs where id = ?").get(input.run) as
+        | { status: string }
+        | undefined;
+      return { state: "ended" as const, run: run?.status ?? "stopped" };
     }
     if (taken) return { state: "going" as const };
   }
