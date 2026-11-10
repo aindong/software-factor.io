@@ -6,6 +6,7 @@
       "!schema/*.json",
       "!**/*.md",
       "!.agent",
+      "!.factor",
       "!**/dist",
       "!.playwright-cli",
       "!.impeccable"

@@ -9,3 +9,4 @@ dist/
 .agent
 docs/research/prior-art-own.md
 .impeccable/hook.cache.json
+.factor/local.json

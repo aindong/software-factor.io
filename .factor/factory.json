@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "workflow": "alleo-loop",
+  "commands": {
+    "setup": "pnpm install --frozen-lockfile --prefer-offline --silent",
+    "verify": "pnpm run typecheck && pnpm run lint && pnpm run build && pnpm test",
+    "ship": "root=$(dirname \"$(git rev-parse --path-format=absolute --git-common-dir)\") && branch=$(git rev-parse --abbrev-ref HEAD) && git -C \"$root\" merge --no-ff \"$branch\" -m \"Merge $branch: $FACTOR_TASK_TITLE\""
+  }
+}
