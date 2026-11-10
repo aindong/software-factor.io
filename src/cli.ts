@@ -6,7 +6,13 @@ import { join, relative, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { judge, type Verdict } from "./core/agents/guard.ts";
 import { mcpCall } from "./core/collectors/mcp-call.ts";
-import { accountCommand, memoryCommand, roleCommand, sessionsCommand } from "./core/commands.ts";
+import {
+  accountCommand,
+  allowCommand,
+  memoryCommand,
+  roleCommand,
+  sessionsCommand,
+} from "./core/commands.ts";
 import { costCommand, pluginsCommand, runsCommand } from "./core/commands-view.ts";
 import { openDb } from "./core/db.ts";
 import { decide } from "./core/engine/inbox.ts";
@@ -32,6 +38,7 @@ Usage: softwarefactor <command>
   init                     Set up a factory in this repository (.factor/)
   check [files]            Check workflow files: each problem with its place and fix
   collect                  Ask the workflow's collectors for new tasks
+  allow <server>           Show what an MCP server of the workflow runs, and let collectors start it
   run [--all] [--parallel N]
                            Pick up runs a crash left, wake waits that are due, then take the next
                            queued task through the workflow. With --all, keep going until the queue
@@ -256,6 +263,7 @@ async function main(): Promise<number> {
 
   if (command === "account") return accountCommand(positionals.slice(1), values, say);
   if (command === "role") return roleCommand(loadWorkspace(cwd), positionals.slice(1), values, say);
+  if (command === "allow") return allowCommand(loadWorkspace(cwd), positionals.slice(1), say);
 
   if (command === "memory") {
     const ws = loadWorkspace(cwd);

@@ -9,6 +9,8 @@ const ISSUES = JSON.stringify([
     title: "Export fails on empty carts",
     body: "Steps:\n1. Empty the cart",
     labels: [{ name: "factory" }, { name: "bug" }],
+    author: { login: "mona" },
+    url: "https://github.com/acme/shop/issues/12",
   },
   { number: 7, title: "Add a dark theme", body: "", labels: [{ name: "factory" }] },
 ]);
@@ -28,14 +30,20 @@ it("collects the open issues with the label, once each, and asks gh for that lab
       collector: "issues",
       key: "#12",
       title: "Export fails on empty carts",
-      body: "Steps:\n1. Empty the cart",
+      body: "GitHub issue #12, opened by mona: https://github.com/acme/shop/issues/12\n\nSteps:\n1. Empty the cart",
       labels: '["factory","bug"]',
     },
-    { collector: "issues", key: "#7", title: "Add a dark theme", body: "", labels: '["factory"]' },
+    {
+      collector: "issues",
+      key: "#7",
+      title: "Add a dark theme",
+      body: "GitHub issue #7",
+      labels: '["factory"]',
+    },
   ]);
   // each argument is one argument (a label may hold a space), and nothing but a list is asked of gh
   expect(calls(log)).toEqual([
-    "[issue][list][--label][good first issue][--state][open][--limit][100][--json][number,title,body,labels]",
+    "[issue][list][--label][good first issue][--state][open][--limit][101][--json][number,title,body,labels,author,url]",
   ]);
 
   expect(repo.sf("collect").stdout).toContain("collected 0 new tasks");

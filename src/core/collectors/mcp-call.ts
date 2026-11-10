@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { oneLine } from "../text.ts";
 
-type Message = { id?: number; result?: unknown; error?: { message?: string } };
+type Message = { id?: number; method?: string; result?: unknown; error?: { message?: string } };
+const DRAIN_MS = 200; // after the server exits, how long its last words may still be on their way
 type Out = { ok: true; result: unknown } | { ok: false; error: string };
 
 export async function mcpCall(): Promise<number> {
@@ -16,7 +17,8 @@ export async function mcpCall(): Promise<number> {
     arguments: unknown;
     timeoutMs: number;
   };
-  const child = spawn(req.command, req.args, { stdio: ["pipe", "pipe", "pipe"] });
+  // in a group of its own: a launcher (npx, uvx, docker) starts the server as its child, and both must go
+  const child = spawn(req.command, req.args, { stdio: ["pipe", "pipe", "pipe"], detached: true });
   let complaint = "";
   child.stderr.on("data", (d) => {
     complaint = (complaint + String(d)).slice(-2000);
@@ -26,7 +28,8 @@ export async function mcpCall(): Promise<number> {
   createInterface({ input: child.stdout }).on("line", (line) => {
     try {
       const m = JSON.parse(line) as Message;
-      if (typeof m.id === "number") waiting.get(m.id)?.(m);
+      // a line with a method is the server asking or telling, not its answer
+      if (typeof m.id === "number" && m.method === undefined) waiting.get(m.id)?.(m);
     } catch {
       // a line that is not JSON is the server talking to itself
     }
@@ -40,10 +43,14 @@ export async function mcpCall(): Promise<number> {
   const gone = new Promise<Out>((say) => {
     child.on("error", (e) => say({ ok: false, error: `the server could not start: ${e.message}` }));
     child.on("exit", (code) =>
-      say({
-        ok: false,
-        error: `the server ended${code ? ` with exit ${code}` : ""} before it answered${complaint ? `: ${oneLine(complaint, 300)}` : ""}`,
-      }),
+      setTimeout(
+        () =>
+          say({
+            ok: false,
+            error: `the server ended${code ? ` with exit ${code}` : ""} before it answered${complaint ? `: ${oneLine(complaint, 300)}` : ""}`,
+          }),
+        DRAIN_MS,
+      ),
     );
   });
   let timer: NodeJS.Timeout | undefined;
@@ -66,7 +73,13 @@ export async function mcpCall(): Promise<number> {
   })();
   const out = await Promise.race([call, gone, late]);
   clearTimeout(timer); // or the wait would hold this process open after the answer
-  child.kill("SIGKILL"); // a server that does not answer may not listen to a polite signal either
-  console.log(JSON.stringify(out));
-  return 0;
+  try {
+    if (child.pid) process.kill(-child.pid, "SIGKILL"); // the whole group: a server that hangs does not listen to a polite signal
+  } catch {
+    // already gone
+  }
+  // a server that outlives its launcher would hold these pipes, and this process, open
+  for (const stream of [child.stdin, child.stdout, child.stderr]) stream.destroy();
+  await new Promise<void>((done) => process.stdout.write(`${JSON.stringify(out)}\n`, () => done()));
+  process.exit(0);
 }

@@ -81,8 +81,52 @@ const SUPERUSER = new Set(["sudo", "doas"]);
 const FACTORY = "softwarefactor";
 const FACTORY_COMMANDS = new Set([
   ...["init", "collect", "run", "stop", "approve", "reject", "send-back", "answer"],
-  ...["account", "role", "memory", "mcp", "guard", "ui"],
+  ...["account", "role", "memory", "mcp", "guard", "ui", "allow", "mcp-call"],
 ]);
+// What an agent may not do on GitHub with the person's login: anything that lands or publishes a
+// change, or changes the repository itself. It reads, and it opens its own pull request.
+const GH_DENIED: Record<string, Set<string> | "all"> = {
+  pr: new Set(["merge"]),
+  repo: new Set(["delete", "edit", "rename", "archive", "unarchive", "deploy-key", "sync"]),
+  release: new Set(["create", "delete", "edit", "upload", "delete-asset"]),
+  workflow: new Set(["run", "enable", "disable"]),
+  variable: new Set(["set", "delete"]),
+  secret: "all",
+  "ssh-key": "all",
+  "gpg-key": "all",
+};
+const GH_API_WRITES = /^(-f|-F|--field|--raw-field|--input)(=|$)|^-[fF]./;
+
+function judgeGh(words: string[]): Verdict | undefined {
+  // the words that are not options, without the repository an option names
+  const plain = words.filter((w, i) => !w.startsWith("-") && !/^(-R|--repo)$/.test(words[i - 1] ?? ""));
+  const [group = "", verb = ""] = plain;
+  if (group === "auth") return deny("The GitHub login may not be read or changed by an agent.");
+  const denied = Object.hasOwn(GH_DENIED, group) ? GH_DENIED[group] : undefined;
+  if (denied === "all" || denied?.has(verb)) {
+    return deny(
+      `An agent may not run "gh ${group}${verb ? ` ${verb}` : ""}": a person lands and publishes changes.`,
+    );
+  }
+  if (group === "api") {
+    // a method other than GET, or a field (which makes the call a POST), is a write
+    const method = words.flatMap((w, i) =>
+      /^(-X|--method)$/.test(w)
+        ? [words[i + 1] ?? ""]
+        : /^(-X|--method=)/.test(w)
+          ? [w.replace(/^(-X|--method=)/, "")]
+          : [],
+    );
+    if (
+      method.some((m) => m.toUpperCase() !== "GET") ||
+      (method.length === 0 && words.some((w) => GH_API_WRITES.test(w)))
+    ) {
+      return deny("An agent may read the GitHub API, not write to it.");
+    }
+  }
+  return undefined;
+}
+
 const READS_CONFIG = new Set(["--get", "--get-all", "--get-regexp", "--list", "-l"]);
 const GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--exec-path"]);
 const GIT_ELSEWHERE = /^--(git-dir|work-tree|namespace|config-env)(=|$)/;
@@ -302,8 +346,8 @@ function judgeShell(command: unknown, where: Where): Verdict {
         ? judgeDelete(first, rest, where, moved)
         : first === "git"
           ? judgeGit(rest, where)
-          : first === "gh" && rest[0] === "auth"
-            ? deny("The GitHub login may not be read or changed by an agent.")
+          : first === "gh"
+            ? judgeGh(rest)
             : undefined;
     if (verdict) return verdict;
   }

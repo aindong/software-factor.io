@@ -69,7 +69,12 @@ export function addTask(
       "insert or ignore into tasks (collector, key, title, body, labels, created_at) values (?, ?, ?, ?, ?, ?)",
     )
     .run(t.collector, t.key, t.title, t.body, JSON.stringify(t.labels ?? []), now());
-  return r.changes > 0;
+  if (r.changes > 0) return true;
+  // found again: a task that still waits takes the words and labels it has now, one that started keeps its own
+  db.prepare(
+    "update tasks set title = ?, body = ?, labels = ? where collector = ? and key = ? and status = 'queued'",
+  ).run(t.title, t.body, JSON.stringify(t.labels ?? []), t.collector, t.key);
+  return false;
 }
 
 /** A task's labels, as its collector found them. */

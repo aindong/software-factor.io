@@ -100,7 +100,13 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
         store.releaseSlot(db, runId); // another process took the last task
         return undefined;
       }
-      const branch = `factor/${task.key}-${runId}`;
+      // the key is whatever the collector found (a time, an id from a server): only its letters and digits name the branch
+      const slug = task.key
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40);
+      const branch = `factor/${slug || "task"}-${runId}`;
       const worktree = join(ws.workDir, runId);
       const first = ws.workflow.lanes[0]?.id ?? "";
       let base: string;

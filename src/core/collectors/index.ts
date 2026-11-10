@@ -26,7 +26,10 @@ export interface Collected {
 export interface At {
   root: string;
   workflow: Workflow;
+  /** The MCP servers the person allowed a collector to start on this machine, each by the print of what it runs. */
+  servers: Record<string, string>;
 }
+const MOST_BODY = 60_000;
 /** Throws, with words for the person, when it cannot collect. */
 export type Collector = (at: At, settings: never) => Collected;
 
@@ -45,11 +48,23 @@ export function collectAll(ws: Workspace, db: Db): { added: number; said: string
     const collect = Object.hasOwn(COLLECTORS, c.uses) ? COLLECTORS[c.uses] : undefined;
     try {
       if (!collect) throw new Error(`there is no collector "${c.uses}" on this machine`);
-      const found = collect({ root: ws.root, workflow: ws.workflow }, c.with as never);
-      for (const draft of found.tasks) if (store.addTask(db, { collector: c.id, ...draft })) added += 1;
+      const at = { root: ws.root, workflow: ws.workflow, servers: ws.local.servers ?? {} };
+      const found = collect(at, c.with as never);
+      for (const draft of found.tasks) {
+        // the words came from outside: a title is one line, a body has an end
+        const task = {
+          collector: c.id,
+          key: oneLine(draft.key, 200),
+          title: oneLine(draft.title, 300),
+          body: draft.body.slice(0, MOST_BODY),
+          labels: (draft.labels ?? []).slice(0, 50).map((l) => oneLine(l, 100)),
+        };
+        if (store.addTask(db, task)) added += 1;
+      }
       if (found.said) said.push(`collector ${c.id}: ${found.said}`);
     } catch (error) {
-      said.push(`collector ${c.id}: could not collect: ${oneLine((error as Error).message, 400)}`);
+      const why = error instanceof Error ? error.message : String(error);
+      said.push(`collector ${c.id}: could not collect: ${oneLine(why, 400)}`);
     }
   }
   return { added, said };
