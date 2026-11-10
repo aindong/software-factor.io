@@ -1,6 +1,16 @@
 // A throwaway git repository and a way to call the command against it, for acceptance tests.
 import { type ChildProcess, execFileSync, spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmdirSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -412,3 +422,85 @@ export function editWorkflow(repo: Repo, change: (workflow: Record<string, Json>
 /** The sessions of the workspace, oldest first. */
 export const sessionRows = (repo: Repo, columns = "lane, tokens") =>
   repo.rows<Record<string, unknown>>(`select ${columns} from sessions order by id`);
+
+// ---- the interface's server
+
+/** Build the interface when it is not built, or older than its source: the server serves it from dist/ui. */
+export function ensureUi(): void {
+  const built = resolve("dist/ui/index.html");
+  const changed = (dir: string) =>
+    Math.max(
+      ...readdirSync(resolve(dir), { recursive: true }).map((f) => statSync(resolve(dir, String(f))).mtimeMs),
+    );
+  const fresh = () =>
+    existsSync(built) && statSync(built).mtimeMs >= Math.max(changed("src/ui"), changed("src/core"));
+  if (fresh()) return;
+  // test files run side by side: one builds, the others wait for it
+  const lock = resolve("dist/.building-ui");
+  mkdirSync(resolve("dist"), { recursive: true });
+  try {
+    mkdirSync(lock);
+  } catch {
+    for (let i = 0; i < 1200 && existsSync(lock); i++)
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+    return;
+  }
+  try {
+    if (!fresh()) execFileSync("pnpm", ["run", "-s", "build:ui"], { stdio: "ignore" });
+  } finally {
+    rmdirSync(lock);
+  }
+}
+
+export interface Ui {
+  /** The server's origin. */
+  url: string;
+  /** The address the command printed: the origin, and the token after the #. */
+  address: string;
+  token: string;
+  /** Call the API as the page does. */
+  api: (
+    path: string,
+    init?: { method?: string; body?: unknown; headers?: Record<string, string> },
+  ) => Promise<Response>;
+  stop: () => Promise<void>;
+}
+/** Start `softwarefactor ui` on a free port and wait until it has printed its address. */
+export async function startUi(repo: Repo): Promise<Ui> {
+  ensureUi();
+  const child = spawn(process.execPath, [CLI, "ui", "--port", "0"], {
+    cwd: repo.dir,
+    env: { ...process.env, FACTOR_HOME: repo.home, NO_COLOR: "1", ...repo.env },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let out = "";
+  child.stdout?.on("data", (chunk) => {
+    out += chunk;
+  });
+  child.stderr?.on("data", (chunk) => {
+    out += chunk;
+  });
+  const found = () => /http:\/\/127\.0\.0\.1:\d+\/#t=[0-9a-f]+/.exec(out)?.[0];
+  for (let waited = 0; waited < 10_000 && !found(); waited += 50) await new Promise((r) => setTimeout(r, 50));
+  const address = found();
+  if (!address) throw new Error(`the interface did not start: ${out}`);
+  const [url = "", token = ""] = address.split("/#t=");
+  return {
+    url,
+    address,
+    token,
+    api: (path, init = {}) =>
+      fetch(`${url}${path}`, {
+        method: init.method ?? "GET",
+        headers: { "x-factor-token": token, "content-type": "application/json", ...init.headers },
+        body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      }),
+    stop: () =>
+      new Promise((done) => {
+        child.on("exit", () => done());
+        child.kill("SIGTERM");
+      }),
+  };
+}
+/** The JSON body of an answer, as the shape the test expects. */
+export const jsonOf = async <T>(answer: Response) => (await answer.json()) as T;

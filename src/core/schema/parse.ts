@@ -83,6 +83,16 @@ function messageFor(path: PropertyKey[], issue: Issue): string {
   return issue.message;
 }
 
+/** The path of every key named "__proto__" in a value read from JSON. */
+function protoKeys(value: unknown, path = "", depth = 0): string[] {
+  if (typeof value !== "object" || value === null || depth > 40) return [];
+  if (Array.isArray(value)) return value.flatMap((v, i) => protoKeys(v, `${path}[${i}]`, depth + 1));
+  return Object.keys(value).flatMap((key) => {
+    const here = path ? `${path}.${key}` : key;
+    return key === "__proto__" ? [here] : protoKeys((value as Record<string, unknown>)[key], here, depth + 1);
+  });
+}
+
 export function parseWorkflow(input: unknown): ParseResult {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     return {
@@ -105,6 +115,18 @@ export function parseWorkflow(input: unknown): ParseResult {
           fix: "Upgrade softwarefactor, then try again.",
         },
       ],
+    };
+  }
+  // A key named "__proto__" is skipped by the schema library, so nothing would check what is
+  // under it. A workflow has no use for one.
+  const hidden = protoKeys(input);
+  if (hidden.length > 0) {
+    return {
+      problems: hidden.map((path) => ({
+        path,
+        message: 'A key named "__proto__" is not allowed: the checker cannot see what is under it.',
+        fix: "Remove the key, or give it another name.",
+      })),
     };
   }
   const parsed = Workflow.safeParse(input);

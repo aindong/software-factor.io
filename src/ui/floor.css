@@ -1,0 +1,382 @@
+/* The factory floor: the line diagram, the inspector beside it, the JSON view and the problems. */
+.floor {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  min-height: 0;
+}
+.map-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.map-scroll {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+.map {
+  display: block;
+  user-select: none;
+}
+.map .line {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.map .line.pass {
+  stroke: var(--through);
+}
+.map .line.fail {
+  stroke: var(--return);
+}
+.map .line.needsPerson {
+  stroke: var(--signal);
+}
+/* yellow on white is too faint alone: it rides on an ink casing */
+.map .casing {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.map .line.to-end {
+  stroke: var(--end);
+}
+.map .line.conditional {
+  stroke-dasharray: 2 10;
+}
+.map .line.lit,
+.map .line.drawing {
+  stroke-width: 8;
+}
+.map .head {
+  fill: var(--ground);
+  stroke: none;
+}
+.map .tag {
+  font: 600 var(--text-label) / 1 var(--font-tight);
+  fill: var(--ink-soft);
+  paint-order: stroke;
+  stroke: var(--ground);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.map .station {
+  cursor: pointer;
+  outline: none;
+}
+.map .station .body {
+  fill: var(--ground);
+  stroke: var(--ink);
+  stroke-width: 3;
+}
+.map .station.end .body {
+  stroke-width: 0;
+}
+.map .station.end.done .body {
+  fill: var(--through);
+}
+.map .station.end.stop .body,
+.map .station.end.drop .body {
+  fill: var(--end);
+}
+.map .station.end.inbox .body {
+  fill: var(--signal);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+.map .station.missing .body {
+  stroke: var(--return);
+  stroke-dasharray: 3 3;
+}
+.map .station .mark {
+  fill: none;
+  stroke: var(--ground);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.map .station.end.inbox .mark {
+  stroke: var(--signal-ink);
+}
+.map .station .name {
+  font: 600 var(--text-data) / 1 var(--font-tight);
+  fill: var(--ink);
+  paint-order: stroke;
+  stroke: var(--ground);
+  stroke-width: 5px;
+  stroke-linejoin: round;
+}
+.map .station .sub {
+  font: 500 var(--text-label) / 1 var(--font-tight);
+  fill: var(--ink-soft);
+  paint-order: stroke;
+  stroke: var(--ground);
+  stroke-width: 5px;
+  stroke-linejoin: round;
+}
+.map .station .ring {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+  opacity: 0;
+}
+.map .station[aria-pressed="true"] .ring,
+.map .station:focus-visible .ring {
+  opacity: 1;
+}
+.map .station.bad .flag {
+  fill: var(--return);
+}
+.map .gate {
+  fill: var(--end);
+}
+.map .handle {
+  fill: var(--ground);
+  stroke-width: 2;
+  cursor: crosshair;
+  opacity: 0;
+}
+.map .handle.pass {
+  stroke: var(--through);
+}
+.map .handle.fail {
+  stroke: var(--return);
+}
+.map .station:hover .handle,
+.map .station[aria-pressed="true"] .handle {
+  opacity: 1;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xs) var(--lg);
+  padding: var(--sm) var(--lg);
+  border-top: 1px solid var(--rule);
+  color: var(--ink-soft);
+  font: 500 var(--text-label) / 1.2 var(--font-tight);
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.legend i {
+  display: inline-block;
+  width: 22px;
+  height: 6px;
+  border-radius: 3px;
+}
+.legend .pass {
+  background: var(--through);
+}
+.legend .fail {
+  background: var(--return);
+}
+.legend .asks {
+  background: var(--signal);
+  outline: 1.5px solid var(--ink);
+}
+.legend .end {
+  background: var(--end);
+}
+.legend .cond {
+  height: 0;
+  border-top: 6px dotted var(--ink-soft);
+  border-radius: 0;
+}
+.legend kbd {
+  font: inherit;
+  padding: 0 4px;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  color: var(--ink);
+}
+
+/* ---- inspector */
+.inspector {
+  display: grid;
+  align-content: start;
+  gap: var(--lg);
+  padding: var(--lg);
+  border-left: 1px solid var(--rule);
+  background: var(--panel);
+  overflow-y: auto;
+  min-height: 0;
+}
+/* the heading takes the keyboard's focus when a station is opened: it is where reading starts, not a control */
+.inspector h2:focus {
+  outline: none;
+}
+.inspector header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sm);
+}
+.inspector section {
+  display: grid;
+  gap: var(--sm);
+}
+.inspector section + section {
+  padding-top: var(--lg);
+  border-top: 1px solid var(--rule);
+}
+.inspector .pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sm);
+}
+.inspector .route {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sm);
+}
+.inspector .route select {
+  width: 100%;
+  min-height: var(--row);
+  padding: 2px var(--sm);
+  border: 1px solid var(--rule);
+  border-radius: var(--control);
+  background: var(--ground);
+}
+.inspector .route select:hover {
+  border-color: var(--ink-soft);
+}
+.inspector .route .label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+}
+.inspector .route .label::before {
+  content: "";
+  width: 14px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--end);
+}
+.inspector .route.pass .label::before {
+  background: var(--through);
+}
+.inspector .route.fail .label::before {
+  background: var(--return);
+}
+.inspector .route.needsPerson .label::before {
+  background: var(--signal);
+  outline: 1.5px solid var(--ink);
+}
+.inspector .note {
+  color: var(--ink-soft);
+  font-size: var(--text-label);
+}
+.inspector .row {
+  display: flex;
+  gap: var(--sm);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.inspector dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--xs) var(--md);
+  margin: 0;
+}
+.inspector dt {
+  color: var(--ink-soft);
+}
+.inspector dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---- JSON view and problems */
+.json {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+}
+.json textarea {
+  width: 100%;
+  height: 100%;
+  padding: var(--lg);
+  border: 0;
+  background: var(--ground);
+  resize: none;
+  font: 400 var(--text-data) / 1.5 var(--font-code);
+  tab-size: 2;
+}
+.json textarea:focus-visible {
+  outline-offset: -2px;
+}
+.broken {
+  padding: var(--sm) var(--lg);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel);
+}
+.problems {
+  display: grid;
+  gap: var(--sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.problems li {
+  display: grid;
+  gap: 2px;
+  padding-left: var(--md);
+  position: relative;
+}
+.problems li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 7px;
+  height: 7px;
+  background: var(--return);
+  transform: rotate(45deg);
+}
+.problems button {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.problems .fix {
+  color: var(--ink-soft);
+}
+
+@media (max-width: 1000px) {
+  .floor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* the inspector becomes a sheet over the map, opened by choosing a station */
+  .inspector {
+    position: absolute;
+    inset: auto 0 0 0;
+    max-height: 72%;
+    border-left: 0;
+    border-top: 1px solid var(--rule);
+    box-shadow: var(--shadow);
+    z-index: 2;
+  }
+  .inspector[data-open="false"] {
+    display: none;
+  }
+}
+@media (min-width: 1001px) {
+  .inspector .close {
+    display: none;
+  }
+}
