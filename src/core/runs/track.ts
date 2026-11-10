@@ -54,10 +54,10 @@ export interface Leg {
 }
 /**
  * The lines of the map a run took in its first `n` visits: from each lane, by its outcome, to the
- * lane it entered next. With `ended`, also the line from the last lane to the end of the run, when
- * that outcome has one way out of the lane and it is an end.
+ * lane it entered next. With `end`, the end the run came to ("@done" for a run that is done), also
+ * the line from the last lane, by its outcome, to that end, at the last step.
  */
-export function routeOf(lines: Leg[], visits: Visit[], n?: number, ended = false): Set<string> {
+export function routeOf(lines: Leg[], visits: Visit[], n?: number, end?: string): Set<string> {
   const step = stepOf(visits.length, n);
   const taken = new Set<string>();
   const from = (visit: Visit | undefined) =>
@@ -66,8 +66,8 @@ export function routeOf(lines: Leg[], visits: Visit[], n?: number, ended = false
     const line = from(visits[i]).find((l) => l.to === visits[i + 1]?.lane);
     if (line) taken.add(line.key);
   }
-  const [way, other] = from(visits[step - 1]);
-  if (ended && step === visits.length && way?.to.startsWith("@") && !other) taken.add(way.key);
+  const out = end && step === visits.length ? from(visits[step - 1]).find((l) => l.to === end) : undefined;
+  if (out) taken.add(out.key);
   return taken;
 }
 

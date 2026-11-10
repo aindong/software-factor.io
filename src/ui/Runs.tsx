@@ -37,6 +37,10 @@ export function Runs() {
   const rows = useRef(new Map<string, HTMLDivElement>());
   const head = useRef<HTMLHeadingElement>(null);
   const current = runs?.find((r) => r.id === chosen) ?? runs?.[0];
+  // the run that is shown stays the one shown: a run that starts must not take its place
+  useEffect(() => {
+    if (runs && !runs.some((r) => r.id === chosen)) setChosen(runs[0]?.id);
+  }, [runs, chosen]);
   const count = useMemo(() => {
     const all = runs ?? [];
     const yours = all.filter((r) => standing(r).mark === "asked").length;

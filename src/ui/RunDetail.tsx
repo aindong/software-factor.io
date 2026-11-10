@@ -47,7 +47,10 @@ export function RunView({ row, workflow, headRef, onBack }: RunViewProps) {
   const nameOf = (id: string) => names.get(id) ?? id;
   const total = row.visits.length;
   const step = stepOf(total, at);
-  const ended = row.status !== "running" && row.status !== "waiting";
+  // the end the run came to: a run a person stopped after its last lane passed did not come to Done
+  const end = { done: "@done", dropped: "@drop", stopped: "@stop", running: undefined, waiting: undefined }[
+    row.status
+  ];
   const track = trackOf(workflow?.lanes.map((l) => l.id) ?? [], row.visits, step, row.at);
   const states = Object.fromEntries(track.lanes.map((l) => [l.id, l.state]));
   const visit = row.visits[step - 1];
@@ -145,7 +148,7 @@ export function RunView({ row, workflow, headRef, onBack }: RunViewProps) {
               selected={station}
               onSelect={setStation}
               states={states}
-              route={routeOf(floor.lines, row.visits, step, ended)}
+              route={routeOf(floor.lines, row.visits, step, end)}
               trains={
                 track.here
                   ? [{ lane: track.here, label: String(row.taskId), title: `${row.task}. ${row.sentence}` }]
@@ -164,7 +167,10 @@ export function RunView({ row, workflow, headRef, onBack }: RunViewProps) {
               disabled={total === 0}
               aria-label="Replay the run, step by step"
               aria-valuetext={stepWords}
-              onChange={(event) => setAt(Number(event.target.value))}
+              // back on the last step, the control follows the run again
+              onChange={(event) =>
+                setAt(Number(event.target.value) === total ? undefined : Number(event.target.value))
+              }
             />
             <output className="data">{stepWords}</output>
           </label>

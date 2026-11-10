@@ -137,6 +137,53 @@ function laneReader(root: string): (workflow: string) => LaneDef[] {
   };
 }
 
+/**
+ * What the open lane of a moving run is busy with, from what happened since the lane was entered:
+ * the lane before left events too, and they say nothing about this one.
+ */
+function busyWith(
+  db: Db,
+  root: string,
+  runId: string,
+  open: LaneRow | undefined,
+  def: LaneDef | undefined,
+): Partial<Now> {
+  if (def?.uses?.startsWith("core/command")) return { phase: "command" };
+  if (def?.uses?.startsWith("core/wait")) return { phase: "wait" };
+  if (!open) return {};
+  const events = all<{ kind: string; at: string; data: string }>(
+    db,
+    "select kind, at, data from events where run_id = ? and kind in ('lane.agent', 'lane.session') and at >= ? order by id",
+    runId,
+    open.started_at,
+  );
+  const ended = events.filter((e) => e.kind === "lane.session");
+  const atWork = events.length - ended.length * 2; // each agent leaves one event when it starts and one when it ends
+  const panel = Array.isArray((def?.panel as { members?: unknown } | undefined)?.members);
+  if (panel && atWork > 0) return { phase: "panel", members: atWork };
+  if (panel && events.length === 0) return {};
+  const last = events.at(-1);
+  if (last?.kind === "lane.session") {
+    // the agent has ended and the gates check its work: those of this check, not of one before a repair
+    const done = db
+      .prepare("select count(*) as n from gate_results where lane_run_id = ? and started_at >= ?")
+      .get(open.id, last.at) as { n: number };
+    const gates = { phase: "gates" as const, gatesDone: done.n, gatesTotal: def?.gates?.length ?? 0 };
+    return panel ? { ...gates, members: 0 } : gates;
+  }
+  const handoff = parsed<{ handoffPath?: unknown }>(last?.data ?? null, {}).handoffPath;
+  // The CLI's raw output is in the host's folder beside the lane's. The record says where the
+  // lane's folder is, but only a folder of this run's own is read, and never through a link.
+  const out = join(factorHome(), "work", workspaceId(root), `${runId}.out`);
+  if (typeof handoff !== "string" || dirname(dirname(resolve(handoff))) !== out) return { phase: "agent" };
+  const stream = join(`${dirname(resolve(handoff))}.host`, "stream.jsonl");
+  const read = (bytes: number) => readTail(stream, bytes)?.data.toString("utf8");
+  const tail = read(TAIL);
+  // the last line is often one long result of a tool: look further back for what was done
+  const far = tail !== undefined && activityOf(tail) === undefined;
+  return { phase: "agent", tail: far ? read(FAR_TAIL) : tail };
+}
+
 function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => LaneDef[]): RunRow {
   const visits = all<LaneRow>(db, "select * from lane_runs where run_id = ? order by seq, id", run.id);
   const state = parsed<Partial<RunState>>(run.state, {});
@@ -159,39 +206,13 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
   };
   if (run.status === "running") {
     now.gone = run.pid !== process.pid && !isAlive(run.pid);
-    const members = (def?.panel as { members?: unknown[] } | undefined)?.members;
-    if (def?.uses?.startsWith("core/command")) now.phase = "command";
-    else if (Array.isArray(members)) Object.assign(now, { phase: "panel", members: members.length });
-    else if (open && !now.gone) {
-      // the last word on this run's agents: one was started, or one has ended
-      const last = db
-        .prepare(
-          "select kind, data from events where run_id = ? and kind in ('lane.agent', 'lane.session') order by id desc limit 1",
-        )
-        .get(run.id) as { kind: string; data: string } | undefined;
-      if (last?.kind === "lane.session") {
-        const done = db
-          .prepare(
-            "select count(*) as n from gate_results where lane_run_id = ? and attempt = (select max(attempt) from gate_results where lane_run_id = ?)",
-          )
-          .get(open.id, open.id) as { n: number };
-        Object.assign(now, { phase: "gates", gatesDone: done.n, gatesTotal: def?.gates?.length ?? 0 });
-      } else {
-        now.phase = "agent";
-        const handoff = parsed<{ handoffPath?: unknown }>(last?.data ?? null, {}).handoffPath;
-        // The CLI's raw output is in the host's folder beside the lane's. The record says where
-        // the lane's folder is, but only a folder of this run's own is read, and never through a link.
-        const out = join(factorHome(), "work", workspaceId(root), `${run.id}.out`);
-        if (typeof handoff === "string" && dirname(dirname(resolve(handoff))) === out) {
-          const stream = join(`${dirname(resolve(handoff))}.host`, "stream.jsonl");
-          const last = (bytes: number) => readTail(stream, bytes)?.data.toString("utf8");
-          now.tail = last(TAIL);
-          // the last line is often one long result of a tool: look further back for what was done
-          if (now.tail !== undefined && activityOf(now.tail) === undefined) now.tail = last(FAR_TAIL);
-        }
-      }
-    }
+    if (!now.gone) Object.assign(now, busyWith(db, root, run.id, open, def));
   }
+  const used = db
+    .prepare(
+      "select coalesce(sum(tokens), 0) as tokens, coalesce(sum(usd), 0) as usd from sessions where run_id = ?",
+    )
+    .get(run.id) as { tokens: number; usd: number };
   const unknown = db
     .prepare("select count(*) as n from sessions where run_id = ? and usd is null")
     .get(run.id) as { n: number };
@@ -208,8 +229,9 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
     visits: visits.map((v) => ({ lane: v.lane, outcome: v.outcome })),
     at,
     sentence: sentenceOf(now),
-    tokens: visits.reduce((sum, v) => sum + v.tokens, 0),
-    usd: Math.round(visits.reduce((sum, v) => sum + v.usd, 0) * 1e6) / 1e6,
+    // from the sessions, not the lanes: a lane's own sums are written only when it ends
+    tokens: used.tokens,
+    usd: Math.round(used.usd * 1e6) / 1e6,
     usdUnknown: unknown.n > 0,
   };
 }

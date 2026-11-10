@@ -188,11 +188,14 @@ wait_for "the list follows the record" "() => [...document.querySelectorAll('.ru
 expect "the top bar counts what waits" "$(js "() => document.querySelector('.topbar .where span').textContent")" '^1 waits for you, 3 shown$'
 expect "each row has its sentence" "$(js "() => [...document.querySelectorAll('.run .sentence')].map((s) => s.textContent).join(' | ')")" '^Ship it waits for your approval before it runs\. \| Stopped: .*check.* \| Done\.$'
 expect "each row has its strip map" "$(js "() => document.querySelector('.run .strip').getAttribute('aria-label')")" '^Build passed; Review passed; Check passed; Ship it at work, the run is here$'
+expect "the run that was shown is still the one shown" "$(js "() => document.querySelector('.rundetail h2').textContent")" '^Add an export button$'
 shot runs-light-1440
 
 # ---- 1. through the list by keyboard
-tab_to 'Show the cost of each lane'
-expect "the keyboard is on the newest run" "$(js "() => document.activeElement.getAttribute('aria-selected')")" '^true$'
+tab_to '^Add an export button.*Done\.$'
+expect "the keyboard is on the run that is shown" "$(js "() => document.activeElement.getAttribute('aria-selected')")" '^true$'
+pw press Home
+expect "Home goes to the newest" "$(js "$focused")" 'Show the cost of each lane'
 pw press ArrowDown
 expect "the arrow keys move through the runs" "$(js "$focused")" 'Fix the date format'
 expect "the run beside the list follows" "$(js "() => document.querySelector('.rundetail h2').textContent")" '^Fix the date format$'

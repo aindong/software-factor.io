@@ -13,9 +13,10 @@ export interface Now {
   lane?: string;
   parked?: Parked["kind"];
   /** What the open lane is busy with. */
-  phase?: "agent" | "gates" | "command" | "panel";
+  phase?: "agent" | "gates" | "command" | "wait" | "panel";
   gatesDone?: number;
   gatesTotal?: number;
+  /** Panel members at work. With the gates phase: the lane is a panel, and they have all ended. */
   members?: number;
   /** The last part of the agent's output file. */
   tail?: string;
@@ -71,9 +72,9 @@ function claudeTool(name: string, input: Loose): string | undefined {
   if (name === "Grep") return text(input.pattern) && `searching for "${clip(text(input.pattern) ?? "", 60)}"`;
   if (name === "Glob")
     return text(input.pattern) && `looking for files like "${clip(text(input.pattern) ?? "", 60)}"`;
-  return FACTOR[name.replace(/^mcp__factor__/, "")] && name.startsWith("mcp__factor__")
-    ? FACTOR[name.slice("mcp__factor__".length)]
-    : `using ${clip(name, 40)}`;
+  const ours = name.startsWith("mcp__factor__") ? name.slice("mcp__factor__".length) : "";
+  // only a name of its own: every object answers to "constructor" too
+  return Object.hasOwn(FACTOR, ours) ? FACTOR[ours] : `using ${clip(name, 40)}`;
 }
 
 function lineSays(line: string): string | undefined {
@@ -102,7 +103,8 @@ function lineSays(line: string): string | undefined {
     if (item?.type === "command_execution") return command(item.command);
     if (item?.type === "file_change") return "changing files";
     if (item?.type === "mcp_tool_call") {
-      return (item.server === "factor" && FACTOR[text(item.tool) ?? ""]) || "using a tool";
+      const tool = text(item.tool) ?? "";
+      return item.server === "factor" && Object.hasOwn(FACTOR, tool) ? FACTOR[tool] : "using a tool";
     }
   }
   return undefined;
@@ -161,14 +163,17 @@ function words(now: Now): string {
   }
   if (!lane) return "Starting.";
   if (now.phase === "command") return `${lane}: its command is running.`;
+  if (now.phase === "wait") return `${lane}: looking whether its condition holds.`;
   if (now.phase === "panel") {
     const n = now.members ?? 0;
     return `${lane}: ${n} ${n === 1 ? "reviewer is" : "reviewers are"} at work.`;
   }
   if (now.phase === "gates") {
+    const [who, whose] =
+      now.members === undefined ? ["the agent has", "its"] : ["its reviewers have", "their"];
     return (now.gatesTotal ?? 0) > 0
-      ? `${lane}: the agent has finished and its gates are running (${now.gatesDone ?? 0} of ${now.gatesTotal} done).`
-      : `${lane}: the agent has finished and the host is checking its work.`;
+      ? `${lane}: ${who} finished and its gates are running (${now.gatesDone ?? 0} of ${now.gatesTotal} done).`
+      : `${lane}: ${who} finished and the host is checking ${whose} work.`;
   }
   if (now.phase === "agent") return `${lane}: the agent is ${activityOf(now.tail ?? "") ?? "working"}.`;
   return `${lane}: working.`;
