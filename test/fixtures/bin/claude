@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+import { standin } from "./standin-core.mjs";
+
+await standin("claude");
