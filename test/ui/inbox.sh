@@ -221,12 +221,14 @@ expect "the page moved to the next item, with the keyboard on it" "$(js "$focuse
 sf runs | grep -A1 "Ship the docs" | grep -q "Stopped" || fail "the rejected run did not stop: $(sf runs)"
 shot inbox-dark-1440
 pw resize 390 844
-narrow "the inbox"
+fits "the inbox"
+walk "the inbox"
 shot inbox-dark-390
 tab_to '^[0-9]+ Ship the hotfix'
 pw press Enter
 expect "Enter shows the decision in place of the list" "$(js "() => getComputedStyle(document.querySelector('.runlist')).display + ' ' + getComputedStyle(document.querySelector('.deciding')).display")" '^none grid$'
-narrow "the decision"
+fits "the decision"
+walk "the decision"
 shot inbox-item-dark-390
 theme Light
 shot inbox-item-light-390
@@ -238,6 +240,7 @@ for name in Accounts Costs Plugins; do
   section "$name"
   sleep 0.4
   fits "$name"
+  walk "$name"
   shot "$(echo "$name" | tr '[:upper:]' '[:lower:]')-light-390"
 done
 theme Dark

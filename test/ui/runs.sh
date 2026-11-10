@@ -240,13 +240,15 @@ shot floor-runs-light-1440
 section Runs
 pw resize 390 844
 wait_for "the list at phone width" "() => document.querySelectorAll('.run').length" '^3$'
-expect "the page does not scroll sideways" "$(js "() => document.documentElement.scrollWidth <= 390")" '^true$'
+fits "the runs"
+walk "the runs"
 expect "only the list shows" "$(js "() => getComputedStyle(document.querySelector('.rundetail')).display")" '^none$'
 shot runs-light-390
 tab_to 'Show the cost of each lane'
 pw press End && pw press Enter
 expect "Enter shows the run in place of the list" "$(js "() => getComputedStyle(document.querySelector('.runlist')).display + ' ' + document.activeElement.textContent")" '^none Add an export button$'
-expect "the run does not scroll sideways" "$(js "() => document.documentElement.scrollWidth <= 390")" '^true$'
+fits "a run"
+walk "a run"
 shot run-light-390
 tab_to '^Before and after'
 pw press Enter
