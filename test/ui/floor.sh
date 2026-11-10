@@ -58,6 +58,7 @@ pw press ArrowRight && pw press ArrowRight
 expect "the arrow keys move along the map" "$(js "$focused")" '^Lane Impact, author$'
 pw press Enter
 expect "Enter opens the station in the inspector" "$(js "$focused")" '^Lane Impact$'
+in_window "the floor with a lane open"
 shot lane-open-light-1440
 
 # 2. add a lane after it, and connect its fail outcome back, with c
@@ -74,6 +75,12 @@ pw type "Imp"
 expect "typing picks the lane to go back to" "$(js "() => document.activeElement.value")" '^impact$'
 expect "a connection that goes back gets a round limit" "$(js "() => [...document.querySelectorAll('.inspector .note')].map((n) => n.textContent).join(' ')")" 'at most 2 times, then stops'
 shot lane-added-and-connected
+# undo takes the last change back, and redo brings it again
+fails='() => document.querySelector("select[aria-label=\"When this lane fails, go to\"]").value'
+pw press Control+z
+expect "undo takes back the connection" "$(js "$fails")" '^@stop$'
+pw press Control+Shift+z
+expect "redo makes it again" "$(js "$fails")" '^impact$'
 
 # 3. the same change is in the JSON view, and a lane typed there shows on the map
 back_to '^JSON$'
@@ -140,6 +147,21 @@ expect "the map scrolls and does not reflow at phone width" "$(js "() => [docume
 tab_to '^Close$'
 pw press Enter
 expect "the sheet closes" "$(js "() => document.querySelector('.inspector').dataset.open")" '^false$'
+# where the inspector is a sheet, one press of the mouse (or a tap) on a station opens it
+# (a station that is in view and is not the one chosen)
+at=$(js "() => { const s = [...document.querySelectorAll('.station.lane')].find((g) => { const b = g.querySelector('.body').getBoundingClientRect(); return b.left > 8 && b.right < innerWidth - 8 && g.getAttribute('aria-pressed') !== 'true'; }); const b = s.querySelector('.body').getBoundingClientRect(); return Math.round(b.x + b.width / 2) + ' ' + Math.round(b.y + b.height / 2) + ' ' + s.getAttribute('aria-label').split(',')[0]; }")
+pressed=${at#* * }
+# shellcheck disable=SC2086
+pw mousemove ${at%% Lane*} && pw mousedown && pw mouseup
+expect "a single press opens the lane" "$(js "() => document.querySelector('.inspector').dataset.open + ' ' + document.querySelector('.inspector h2').textContent")" "^true $pressed$"
+tab_to '^Close$'
+pw press Enter
+# and the workflow's own settings have a way in
+back_to '^Workflow settings$'
+pw press Enter
+expect "the workflow's settings open" "$(js "() => document.querySelector('.inspector').dataset.open + ' ' + document.activeElement.textContent")" '^true Workflow$'
+tab_to '^Close$'
+pw press Enter
 fits "the floor"
 walk "the floor"
 shot floor-dark-390

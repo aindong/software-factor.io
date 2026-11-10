@@ -1,13 +1,14 @@
 // One run: its sentence, the run drawn on the workflow's map with a control that steps through
 // it, what waits for a person, the diff, the files its agents attached, and each lane it went
 // through with its gates, claims and sessions. Every piece of evidence opens in place.
-import { type RefObject, useEffect, useMemo, useState } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { layout } from "../core/floor/layout.ts";
 import { groupEvidence, routeOf, stepOf, trackOf } from "../core/runs/track.ts";
 import type { Workflow } from "../core/schema/workflow.ts";
 import { getRun, type RunDetail, type RunRow } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
 import { DiffView, FileView, PairView, Proof } from "./Evidence.tsx";
+import { go } from "./route.ts";
 import { STATE_WORD } from "./Strip.tsx";
 import { ago, cost, span, tokens } from "./words.ts";
 
@@ -29,8 +30,10 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
   const [detail, setDetail] = useState<RunDetail>();
   const [problem, setProblem] = useState<string>();
   const [at, setAt] = useState<number>(); // the step shown: the latest, until the control is moved
-  const [open, setOpen] = useState<string>();
+  const [open, setOpen] = useState<Set<string>>(new Set()); // the proofs that are open: several, to compare
   const [station, setStation] = useState<string>();
+  const proofs = useRef(new Map<string, HTMLDivElement>());
+  const blocks = useRef(new Map<string, HTMLLIElement>()); // each lane's latest part under "Lane by lane"
   // the row changes whenever the run does: its lanes, its sentence, its cost
   const stamp = JSON.stringify(row);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the stamp stands for the row
@@ -62,8 +65,19 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
     step === 0
       ? "Before the first lane"
       : `Step ${step} of ${total}: ${nameOf(visit?.lane ?? "")} ${STATE_WORD[stateOf(visit?.outcome ?? null)]}`;
-  const toggle = (key: string) => setOpen(open === key ? undefined : key);
-  const proof = (key: string) => ({ open: open === key, onToggle: () => toggle(key) });
+  const toggle = (key: string) => {
+    const next = new Set(open);
+    if (!next.delete(key)) next.add(key);
+    setOpen(next);
+  };
+  const proof = (key: string) => ({
+    open: open.has(key),
+    onToggle: () => toggle(key),
+    at: (node: HTMLDivElement | null) => {
+      if (node) proofs.current.set(key, node);
+      else proofs.current.delete(key);
+    },
+  });
 
   // what agents attached, without the output of gates and commands: that is shown with its lane
   const outputs = new Set(detail?.lanes.flatMap((l) => [...l.gates.map((g) => g.output), l.output]));
@@ -73,11 +87,20 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
     const same = detail?.lanes.filter((l) => l.lane === lane.lane) ?? [];
     times.set(
       lane.id,
-      same.length > 1 ? `${nameOf(lane.lane)}, time ${same.indexOf(lane) + 1}` : nameOf(lane.lane),
+      same.length > 1 ? `${nameOf(lane.lane)}, round ${same.indexOf(lane) + 1}` : nameOf(lane.lane),
     );
   }
   const from = (visit: number | undefined) => times.get(visit ?? 0) ?? "";
   const groups = groupEvidence((detail?.files ?? []).filter((f) => !outputs.has(f.path)));
+  // where a claim's reference leads: the row that shows its file (a pair's row for either of its two)
+  const rowOf = new Map<string, string>();
+  for (const pair of groups.pairs)
+    for (const side of [pair.before, pair.after]) rowOf.set(side.path, pair.before.path);
+  const show = (path: string) => {
+    const key = rowOf.get(path) ?? path;
+    setOpen(new Set(open).add(key));
+    requestAnimationFrame(() => proofs.current.get(key)?.scrollIntoView({ block: "nearest" }));
+  };
   const attached =
     groups.pairs.length +
     groups.recordings.length +
@@ -128,20 +151,36 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
       </header>
 
       {(deciding ? [] : (detail?.inbox ?? [])).map((item) => (
-        <p key={item.id} className="waits">
+        <div key={item.id} className="waits">
           <span className="mark asked" aria-hidden="true" />
-          <span>
-            {item.kind === "question"
-              ? `${nameOf(item.lane)} asks: ${item.body}`
-              : `${nameOf(item.lane)} waits for your approval.`}{" "}
-            From your terminal:{" "}
-            <code>
+          <div>
+            <p>
               {item.kind === "question"
-                ? `softwarefactor answer ${row.id} --note "..."`
-                : `softwarefactor approve ${row.id}`}
-            </code>
-          </span>
-        </p>
+                ? `${nameOf(item.lane)} asks: ${item.body}`
+                : `${nameOf(item.lane)} waits for your approval.`}
+            </p>
+            <p>
+              <a
+                className="button approve"
+                href={`/inbox/${row.id}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  go(`/inbox/${row.id}`);
+                }}
+              >
+                Decide in the inbox
+              </a>{" "}
+              <span className="quiet">
+                or from your terminal:{" "}
+                <code>
+                  {item.kind === "question"
+                    ? `softwarefactor answer ${row.id} --note "..."`
+                    : `softwarefactor approve ${row.id}`}
+                </code>
+              </span>
+            </p>
+          </div>
+        </div>
       ))}
 
       {floor ? (
@@ -150,7 +189,11 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
             <Diagram
               floor={floor}
               selected={station}
-              onSelect={setStation}
+              // a station leads to what the run did there
+              onSelect={(id) => {
+                setStation(id);
+                if (id) blocks.current.get(id)?.scrollIntoView({ block: "nearest" });
+              }}
               states={states}
               route={routeOf(floor.lines, row.visits, step, end)}
               trains={
@@ -225,7 +268,12 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
             <h3>Lane by lane</h3>
             <ol className="visits">
               {detail.lanes.map((lane) => (
-                <li key={lane.id}>
+                <li
+                  key={lane.id}
+                  ref={(node) => {
+                    if (node) blocks.current.set(lane.lane, node);
+                  }}
+                >
                   <div className="visit">
                     <span className={`mark ${stateOf(lane.outcome)}`} aria-hidden="true" />
                     <strong>{nameOf(lane.lane)}</strong>
@@ -246,10 +294,25 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                       {lane.claims.map((claim) => (
                         <li key={claim.text}>
                           {claim.text}{" "}
+                          {claim.evidence.length === 0 ? (
+                            <span className="quiet">no evidence given</span>
+                          ) : null}
                           {claim.evidence.map((e) => (
-                            <code key={e.ref} className="ref">
-                              {e.ref}
-                            </code>
+                            // each reference says whether the host found what it names, and opens it when it is a file
+                            <span key={e.ref} className="ref code">
+                              <span
+                                className={`mark ${e.ok ? "pass" : "fail"}`}
+                                role="img"
+                                aria-label={e.ok ? "The host checked this:" : "The host did not find this:"}
+                              />
+                              {e.path ? (
+                                <button type="button" onClick={() => show(e.path ?? "")}>
+                                  {e.ref}
+                                </button>
+                              ) : (
+                                e.ref
+                              )}
+                            </span>
                           ))}
                         </li>
                       ))}
@@ -269,7 +332,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                       meta={[
                         gate.exitCode === null ? "" : `exit ${gate.exitCode}`,
                         span(gate.durationMs),
-                        gate.attempt > 1 ? `check ${gate.attempt}` : "",
+                        gate.attempt > 1 ? `round ${gate.attempt}` : "",
                       ]
                         .filter(Boolean)
                         .join(", ")}
@@ -293,7 +356,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                       <Proof
                         key={session.transcript}
                         {...proof(session.transcript)}
-                        label={`What the agent printed${lane.sessions.length > 1 ? `, start ${i + 1}` : ""}`}
+                        label={`What the agent printed${lane.sessions.length > 1 ? `, try ${i + 1}` : ""}`}
                         meta={[
                           session.account ?? session.agent,
                           session.model ?? "",

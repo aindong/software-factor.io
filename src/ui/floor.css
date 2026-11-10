@@ -185,6 +185,19 @@
 .legend .end {
   background: var(--end);
 }
+.legend .capsule {
+  width: 22px;
+  height: 12px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--ground);
+}
+.legend .bar {
+  width: 3px;
+  height: 14px;
+  border-radius: 1.5px;
+  background: var(--end);
+}
 .legend .cond {
   height: 0;
   border-top: 6px dotted var(--ink-soft);
@@ -242,7 +255,7 @@
   width: 100%;
   min-height: var(--row);
   padding: 2px var(--sm);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--edge);
   border-radius: var(--control);
   background: var(--ground);
 }

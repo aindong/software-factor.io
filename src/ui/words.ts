@@ -35,3 +35,10 @@ export function ago(iso: string, now = Date.now()): string {
   if (minutes < 60 * 24) return `${Math.floor(minutes / 60)} h ago`;
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
+
+/** A sentence whose `backticked` words are code: its parts, in order, each marked as code or not. */
+export const coded = (sentence: string): { text: string; code: boolean }[] =>
+  sentence
+    .split("`")
+    .map((text, i) => ({ text, code: i % 2 === 1 }))
+    .filter((part) => part.text !== "");

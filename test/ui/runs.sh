@@ -131,7 +131,7 @@ expect "the run that was shown is still the one shown" "$(js "() => document.que
 shot runs-light-1440
 
 # ---- 1. through the list by keyboard
-tab_to '^Add an export button.*Done\.$'
+tab_to '^[0-9]+ Add an export button.*Done\.$'
 expect "the keyboard is on the run that is shown" "$(js "() => document.activeElement.getAttribute('aria-selected')")" '^true$'
 pw press Home
 expect "Home goes to the newest" "$(js "$focused")" 'Show the cost of each lane'
@@ -143,6 +143,8 @@ expect "End goes to the oldest" "$(js "$focused")" 'Add an export button'
 pw press Enter
 expect "Enter goes into the run" "$(js "$focused")" '^Add an export button$'
 expect "the run says how it stands" "$(js "() => document.querySelector('.rundetail .sentence').textContent")" '^Done\.$'
+expect "the run that was entered is in the address" "$(js "() => location.pathname")" "^/runs/$first$"
+in_window "a run"
 shot run-light-1440
 
 # ---- 2. the run on its map, stepped back and forth
@@ -162,6 +164,9 @@ expect "the first step is before any lane" "$(js "() => document.activeElement.g
 pw press End
 
 # ---- 3. the evidence, each piece opened in place
+shown() { # what the open proof with that label shows (several can be open at once)
+  echo "() => [...document.querySelectorAll('.proof')].find((p) => p.querySelector('.what').textContent.startsWith('$1'))?.querySelector('.shown .output')?.textContent ?? ''"
+}
 tab_to '^The diff of the whole run'
 pw press Enter
 wait_for "the diff" "() => document.querySelector('.diff')?.textContent ?? ''" '\+\+\+ b/src/export\.ts'
@@ -171,7 +176,7 @@ tab_to '^Before and after'
 pw press Enter
 wait_for "a screenshot pair, both loaded" "() => [...document.querySelectorAll('.pair-shots img')].map((i) => i.complete && i.naturalWidth > 0).join(' ')" '^true true$'
 expect "the pair is side by side" "$(js "() => { const [a, b] = [...document.querySelectorAll('.pair-shots img')].map((i) => i.getBoundingClientRect()); return a.right <= b.left && Math.abs(a.top - b.top) < 2; }")" '^true$'
-expect "the diff closed when the pair opened" "$(js "() => document.querySelectorAll('.diff').length")" '^0$'
+expect "the diff stays open beside the pair, to compare" "$(js "() => document.querySelectorAll('.diff').length")" '^1$'
 shot run-pair-light-1440
 tab_to '^Recording: walkthrough\.webm'
 pw press Enter
@@ -179,21 +184,33 @@ wait_for "a recording that has decoded" "() => (document.querySelector('video.sh
 shot run-recording-light-1440
 tab_to '^File: notes\.txt'
 pw press Enter
-wait_for "an attached note" "() => document.querySelector('.proof .shown .output')?.textContent ?? ''" 'Checked at 1440 and 390 wide'
+wait_for "an attached note" "$(shown 'File: notes.txt')" 'Checked at 1440 and 390 wide'
 tab_to '^Gate verify passed'
 pw press Enter
-wait_for "a gate's output" "() => document.querySelector('.proof .shown .output')?.textContent ?? ''" '^\$ true'
+wait_for "a gate's output" "$(shown 'Gate verify passed')" '^\$ true'
 expect "its claims name their evidence" "$(js "() => [...document.querySelectorAll('.visits > li:first-child .ref')].map((r) => r.textContent).join(' ')")" '^file:src/export\.ts commit:HEAD attached:before\.png attached:after\.png attached:walkthrough\.webm attached:notes\.txt$'
+# a claim's reference says the host checked it, and leads to the file it names
+expect "each reference says whether the host found it" "$(js "() => [...document.querySelectorAll('.visits > li:first-child .ref .mark')].map((m) => m.getAttribute('aria-label')).join(' | ')")" '^(The host checked this: \| ){5}The host checked this:$'
+back_to '^attached:notes\.txt$'
+pw press Enter
+wait_for "a reference opens the file it names" "() => [...document.querySelectorAll('.proof button[aria-expanded=true] .what')].map((w) => w.textContent).join(' | ')" 'File: notes\.txt'
 tab_to '^Hand-off'
 pw press Enter
-wait_for "a hand-off" "() => document.querySelector('.proof .shown .output')?.textContent ?? ''" 'Added the export button'
+wait_for "a hand-off" "$(shown 'Hand-off')" 'Added the export button'
 shot run-lanes-light-1440
 
 # ---- 4. the run that waits says what to do
-back_to '^Add an export button.*Done\.$'
+back_to '^[0-9]+ Add an export button.*Done\.$'
 pw press Home
 expect "back on the newest run" "$(js "$focused")" 'Show the cost of each lane'
-expect "what waits names the command" "$(js "() => document.querySelector('.waits')?.textContent ?? ''")" 'Ship it waits for your approval\. From your terminal: softwarefactor approve [0-9a-f]+'
+expect "what waits names the command too" "$(js "() => document.querySelector('.waits')?.textContent.replace(/\\s+/g, ' ') ?? ''")" 'Ship it waits for your approval\..*Decide in the inbox.*softwarefactor approve [0-9a-f]+'
+expect "the tab says that one waits" "$(js "() => document.title")" '^\(1\) Runs · Software Factor\.io$'
+# from the run to its decision, and back with the keys for a section: g, then r
+tab_to '^Decide in the inbox$'
+pw press Enter
+wait_for "the run's decision is one key away" "() => location.pathname.replace(/[0-9a-f]{8}/, 'RUN') + ' ' + (document.querySelector('.decide .asks')?.textContent ?? '')" '^/inbox/RUN Ship it waits for your approval before it runs\.$'
+pw press g && pw press r
+wait_for "g then r goes to Runs" "() => document.querySelector('h1').textContent + ' ' + location.pathname" '^Runs /runs$'
 
 # ---- 5. dark, then the floor with the run on its map
 theme Dark
@@ -205,6 +222,12 @@ shot run-dark-1440
 section Floor
 wait_for "the waiting run is on the floor's map" "() => document.querySelector('.map .train')?.closest('.station').getAttribute('aria-label') ?? ''" '^Lane Ship it, command, waits for a person, task 3 is here$'
 expect "it is drawn as waiting for a person" "$(js "() => document.querySelector('.map .train').getAttribute('class')")" 'asks'
+# the train is a way to its run's decision
+tab_to '^Task 3: Show the cost of each lane'
+pw press Enter
+wait_for "a train leads to its decision" "() => location.pathname.replace(/[0-9a-f]{8}/, 'RUN')" '^/inbox/RUN$'
+pw press g && pw press f
+wait_for "g then f goes to the Floor" "() => document.querySelector('h1').textContent" '^Floor$'
 shot floor-runs-dark-1440
 tab_to '^Runs on map$'
 pw press Space

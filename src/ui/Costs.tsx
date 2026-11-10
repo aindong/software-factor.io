@@ -20,6 +20,8 @@ function Table({
   head: string;
   rows: (CostLine & { name: string })[];
 }) {
+  // the column for what is not counted is there only when something is not
+  const rest = rows.some((row) => row.unknown > 0 && row.usd !== null);
   return (
     <section className="block">
       <h2>{title}</h2>
@@ -37,7 +39,9 @@ function Table({
               <th scope="col" className="num">
                 Cost
               </th>
-              <th scope="col">Not counted</th>
+              <th scope="col" className="rest">
+                {rest ? "Cost not known for" : ""}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -49,7 +53,7 @@ function Table({
                 <td className="num data">{amount(row)}</td>
                 <td className="quiet">
                   {row.unknown > 0 && row.usd !== null
-                    ? `${row.unknown} ${row.unknown === 1 ? "session" : "sessions"} of unknown cost`
+                    ? `${row.unknown} ${row.unknown === 1 ? "session" : "sessions"}`
                     : ""}
                 </td>
               </tr>

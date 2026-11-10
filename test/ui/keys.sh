@@ -109,3 +109,9 @@ start_ui() { # start_ui <port>: the interface as a process of its own, so that s
   for _ in $(seq 1 50); do grep -q "#t=" "$work/ui.log" && break; sleep 0.1; done
   address=$(grep -o 'http://127.0.0.1:[0-9]*/#t=[0-9a-f]*' "$work/ui.log") || fail "the interface did not start: $(cat "$work/ui.log")"
 }
+# the tasks of the rows on show, by name (each row also carries its task's number)
+tasks='() => [...document.querySelectorAll(".run .task")].map((t) => t.textContent.replace(/^[0-9]+ /, "")).join(" | ")'
+said='() => document.querySelector(".said")?.textContent ?? ""'
+in_window() { # at desk width the page keeps to the window: the rail and the top bar never scroll away
+  expect "$1 keeps to the window" "$(js "() => document.documentElement.scrollHeight <= innerHeight")" '^true$'
+}

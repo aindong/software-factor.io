@@ -82,7 +82,7 @@ function LineView({ line, lit }: { line: Line; lit: boolean }) {
       {line.conditional ? null : <path className="head" d={headOf(line.points)} />}
       {track?.start ? (
         <text
-          className="tag"
+          className={`tag${lit ? " lit" : ""}`}
           x={track.start[0] + (leftward ? -6 : 6)}
           y={track.start[1] - 7}
           textAnchor={leftward ? "end" : "start"}
@@ -112,13 +112,32 @@ export interface Train {
   title: string;
   /** The run waits for a person here. */
   asks?: boolean;
+  /** Where the train leads: its run, or the inbox when it waits for a person. */
+  href?: string;
 }
+/** A run on the map: a capsule with the task's number, beside the station it is at. */
+function TrainMark({ train, y }: { train: Train; y: number }) {
+  return (
+    <g className={`train${train.asks ? " asks" : ""}`} transform={`translate(0 ${y})`}>
+      <title>{train.title}</title>
+      <rect x="-17" y="-9" width="34" height="18" rx="9" />
+      <text y="4" textAnchor="middle">
+        {train.label}
+      </text>
+    </g>
+  );
+}
+
 export interface DiagramProps {
   floor: Floor;
   selected?: string;
   /** Lanes the checker has something to say about. */
   flagged?: Set<string>;
   onSelect: (id: string | undefined) => void;
+  /** A click or a tap on a station, when it should do more than select: open it, where the inspector is a sheet. */
+  onPick?: (id: string) => void;
+  /** A press on a train. */
+  onGo?: (href: string) => void;
   onOpen?: (id: string) => void;
   onAskConnect?: (id: string) => void;
   /** Left out, the map is read and not changed. */
@@ -142,6 +161,8 @@ export function Diagram({
   selected,
   flagged = NONE,
   onSelect,
+  onPick,
+  onGo,
   onOpen,
   onAskConnect,
   onConnect,
@@ -267,7 +288,7 @@ export function Diagram({
             tabIndex={s.id === tabStop ? 0 : -1}
             aria-pressed={s.id === selected}
             aria-label={about}
-            onClick={() => onSelect(s.id)}
+            onClick={() => (onPick ?? onSelect)(s.id)}
             onDoubleClick={() => onOpen?.(s.id)}
             onKeyDown={(event) => onKey(event, s)}
           >
@@ -283,19 +304,26 @@ export function Diagram({
             )}
             {s.kind === "end" && !s.missing ? <path className="mark" d={END_MARK[s.id] ?? ""} /> : null}
             {ran?.mark ? <path className="mark" d={ran.mark} /> : null}
-            {here.map((train, k) => (
-              <g
-                key={train.label}
-                className={`train${train.asks ? " asks" : ""}`}
-                transform={`translate(0 ${up * (30 + k * 20)})`}
-              >
-                <title>{train.title}</title>
-                <rect x="-17" y="-9" width="34" height="18" rx="9" />
-                <text y="4" textAnchor="middle">
-                  {train.label}
-                </text>
-              </g>
-            ))}
+            {here.map((train, k) =>
+              // a train is a way to its run: a link, so that it can be pressed and reached by Tab
+              train.href && onGo ? (
+                <a
+                  key={train.label}
+                  href={train.href}
+                  aria-label={`Task ${train.label}: ${train.title}`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onGo(train.href ?? "");
+                  }}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <TrainMark train={train} y={up * (30 + k * 20)} />
+                </a>
+              ) : (
+                <TrainMark key={train.label} train={train} y={up * (30 + k * 20)} />
+              ),
+            )}
             {flagged.has(s.id) ? (
               <rect className="flag" x="9" y="-21" width="8" height="8" transform="rotate(45 13 -17)" />
             ) : null}

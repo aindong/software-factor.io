@@ -1,0 +1,22 @@
+// Where the page is: the section, and what is open in it (`/runs/<run>`, `/inbox/<run>`). It is
+// kept in the address, so Back, a reload and a link printed in a terminal all lead to the same.
+import { useSyncExternalStore } from "react";
+
+const tell = (change: () => void) => {
+  addEventListener("popstate", change);
+  return () => removeEventListener("popstate", change);
+};
+export const usePath = (): string => useSyncExternalStore(tell, () => location.pathname);
+
+/** Go somewhere in the page. With `replace`, Back does not stop at where the page was. */
+export function go(to: string, replace = false): void {
+  if (to === location.pathname) return;
+  if (replace) history.replaceState(null, "", to);
+  else history.pushState(null, "", to);
+  dispatchEvent(new PopStateEvent("popstate"));
+}
+/** What is open in a section: the part of the address after the section's own. */
+export const openIn = (path: string, section: string): string | undefined =>
+  path.startsWith(`${section}/`)
+    ? decodeURIComponent(path.slice(section.length + 1)) || undefined
+    : undefined;

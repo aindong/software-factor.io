@@ -9,6 +9,7 @@ import { forgetKey, getWorkflow, getWorkspace, type Json, saveWorkflow, type Wor
 import { Diagram } from "./Diagram.tsx";
 import { Inspector } from "./Inspector.tsx";
 import { useRuns } from "./live.ts";
+import { go } from "./route.ts";
 import { statusOf } from "./status.ts";
 
 const print = (doc: Json) => `${JSON.stringify(doc, null, 2)}\n`;
@@ -28,6 +29,10 @@ export function Floor() {
   const { runs } = useRuns();
   const headRef = useRef<HTMLHeadingElement>(null);
   const connectRef = useRef<HTMLSelectElement>(null);
+  // undo: every document the floor has held since it was read, and those taken back
+  const [past, setPast] = useState<Json[]>([]);
+  const [future, setFuture] = useState<Json[]>([]);
+  const typed = useRef(false);
 
   useEffect(() => {
     getWorkspace().then(({ status, body }) => {
@@ -47,6 +52,10 @@ export function Floor() {
       setBroken(status === 200 && body.workflow ? undefined : why);
       setSelected(undefined);
       setNotice(undefined);
+      // what is read is where undo begins
+      setPast([]);
+      setFuture([]);
+      typed.current = false;
     });
   }, []);
   useEffect(() => {
@@ -68,8 +77,42 @@ export function Floor() {
   const dirty = broken ? text !== saved : doc !== undefined && print(doc) !== saved;
   const canSave = dirty && problems.length === 0 && !broken;
 
+  // Undo: every document the floor has held since it was read, and those taken back. A run of
+  // typing in the JSON view is one step.
+  const keep = () => {
+    if (doc) setPast((before) => [...before.slice(-99), doc]);
+    setFuture([]);
+  };
+  const show = (to: Json) => {
+    setDoc(to);
+    setText(print(to));
+    setBroken(undefined);
+    setNotice(undefined);
+    typed.current = false;
+  };
+  const undo = () => {
+    const to = past.at(-1);
+    if (!to || !doc) return;
+    setPast(past.slice(0, -1));
+    setFuture([...future, doc]);
+    show(to);
+  };
+  const redo = () => {
+    const to = future.at(-1);
+    if (!to || !doc) return;
+    setFuture(future.slice(0, -1));
+    setPast([...past, doc]);
+    show(to);
+  };
+  const [discarding, setDiscarding] = useState(false); // Revert asks first when more than one change would go
+  // the keys reach the latest undo and redo without being bound again at every change
+  const steps = useRef({ undo, redo });
+  steps.current = { undo, redo };
+
   /** A change made on the map or in the inspector: the JSON view follows. */
   const change = (next: Json) => {
+    keep();
+    typed.current = false;
     setDoc(next);
     setText(print(next));
     setBroken(undefined);
@@ -83,6 +126,8 @@ export function Floor() {
       const parsed: unknown = JSON.parse(value);
       if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
         throw new Error("A workflow is a JSON object.");
+      if (!typed.current) keep(); // the document as it was when the typing began
+      typed.current = true;
       setDoc(parsed as Json);
       setBroken(undefined);
     } catch (error) {
@@ -94,7 +139,7 @@ export function Floor() {
     const { status, body } = await saveWorkflow(name, doc);
     if (status === 200) {
       setSaved(print(doc));
-      setNotice({ text: "Saved.", bad: false });
+      setNotice({ text: "Saved", bad: false });
     } else {
       // the server refused: say why, though the workflow is still not saved
       const why =
@@ -107,9 +152,18 @@ export function Floor() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === "s") {
+      if (!(event.metaKey || event.ctrlKey)) return;
+      if (event.key === "s") {
         event.preventDefault();
         save();
+      } else if (
+        event.key.toLowerCase() === "z" &&
+        !(event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLInputElement)
+      ) {
+        // in a text field the key is the field's own undo
+        event.preventDefault();
+        if (event.shiftKey) steps.current.redo();
+        else steps.current.undo();
       }
     };
     const onLeave = (event: BeforeUnloadEvent) => dirty && event.preventDefault();
@@ -143,6 +197,8 @@ export function Floor() {
       label: String(r.taskId),
       title: `${r.task}. ${r.sentence}`,
       asks: r.stopCode === "awaiting_approval" || r.stopCode === "needs_person",
+      // a train leads to its run, and to the inbox when the run waits for a person
+      href: `${r.stopCode === "awaiting_approval" || r.stopCode === "needs_person" ? "/inbox" : "/runs"}/${r.id}`,
     }));
   const status = statusOf({ broken, problems: problems.length, dirty, notice });
   return (
@@ -157,6 +213,7 @@ export function Floor() {
               value={name}
               onChange={(event) => setName(event.target.value)}
               disabled={dirty}
+              title={dirty ? "Save or revert before changing to another workflow" : undefined}
             >
               {workspace.workflows.map((w) => (
                 <option key={w}>{w}</option>
@@ -166,6 +223,17 @@ export function Floor() {
             <span className="code">{name}</span>
           )}
         </div>
+        <button
+          type="button"
+          className="button narrow-only"
+          onClick={() => {
+            setSelected(undefined);
+            setSheet(true);
+            requestAnimationFrame(() => headRef.current?.focus());
+          }}
+        >
+          Workflow settings
+        </button>
         <fieldset className="segmented">
           <legend className="sr">View</legend>
           <button type="button" aria-pressed={view === "diagram"} onClick={() => setView("diagram")}>
@@ -199,9 +267,43 @@ export function Floor() {
           <span className={`status${status.bad ? " bad" : ""}`} role="status">
             {status.text}
           </span>
-          <button type="button" className="button" disabled={!dirty} onClick={() => name && load(name)}>
-            Revert
+          <button
+            type="button"
+            className="button"
+            disabled={past.length === 0}
+            onClick={undo}
+            title="Undo: Ctrl or Cmd and Z"
+          >
+            Undo
           </button>
+          {discarding ? (
+            <>
+              <span className="status bad">Discard {past.length} changes?</span>
+              <button
+                type="button"
+                className="button"
+                onClick={() => {
+                  setDiscarding(false);
+                  if (name) load(name);
+                }}
+              >
+                Discard
+              </button>
+              <button type="button" className="button" onClick={() => setDiscarding(false)}>
+                Keep
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="button"
+              disabled={!dirty}
+              // one change is undone as easily as it was made: more than one is asked about first
+              onClick={() => (past.length > 1 ? setDiscarding(true) : name && load(name))}
+            >
+              Revert
+            </button>
+          )}
           <button type="button" className="button primary" disabled={!canSave} onClick={save}>
             Save
           </button>
@@ -223,7 +325,10 @@ export function Floor() {
                   selected={selected}
                   flagged={flagged}
                   trains={trains}
+                  onGo={go}
                   onSelect={setSelected}
+                  // where the inspector is a sheet, a click or a tap on a station opens it
+                  onPick={(id) => (matchMedia("(max-width: 1000px)").matches ? open(id) : setSelected(id))}
                   onOpen={open}
                   onAskConnect={(id) => {
                     setSelected(id);
@@ -237,7 +342,7 @@ export function Floor() {
                     // a drag gives no chance to read a warning first: say what it did
                     if (replaced)
                       setNotice({
-                        text: `The conditions on ${from}.${outcome} were replaced. Revert brings them back.`,
+                        text: `The conditions on ${from}.${outcome} were replaced. Undo brings them back.`,
                         bad: false,
                       });
                   }}
@@ -273,6 +378,13 @@ export function Floor() {
                 <i className="cond" />
                 only on a condition
               </span>
+              <span>
+                <i className="capsule" />a person approves here
+              </span>
+              <span>
+                <i className="bar" />a gate
+              </span>
+              <span>×2: goes back at most twice</span>
               <span>
                 <kbd>←</kbd> <kbd>→</kbd> move, <kbd>Enter</kbd> open, <kbd>c</kbd> connect
               </span>

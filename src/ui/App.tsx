@@ -9,17 +9,24 @@ import { icons } from "./icons.tsx";
 import { useRuns } from "./live.ts";
 import { Plugins } from "./Plugins.tsx";
 import { Runs } from "./Runs.tsx";
+import { go, usePath } from "./route.ts";
+import { showInTab } from "./tab.ts";
 import { standing } from "./words.ts";
 import "./sections.css";
 
+// each section has a key: g, then its letter, from anywhere but a text field
 const SECTIONS = [
-  { path: "/", name: "Floor", icon: "floor" },
-  { path: "/runs", name: "Runs", icon: "runs" },
-  { path: "/inbox", name: "Inbox", icon: "inbox" },
-  { path: "/accounts", name: "Accounts", icon: "accounts" },
-  { path: "/plugins", name: "Plugins", icon: "plugins" },
-  { path: "/costs", name: "Costs", icon: "costs" },
+  { path: "/", name: "Floor", icon: "floor", key: "f" },
+  { path: "/runs", name: "Runs", icon: "runs", key: "r" },
+  { path: "/inbox", name: "Inbox", icon: "inbox", key: "i" },
+  { path: "/accounts", name: "Accounts", icon: "accounts", key: "a" },
+  { path: "/plugins", name: "Plugins", icon: "plugins", key: "p" },
+  { path: "/costs", name: "Costs", icon: "costs", key: "c" },
 ] as const;
+const typing = (target: EventTarget | null) =>
+  target instanceof HTMLTextAreaElement ||
+  target instanceof HTMLInputElement ||
+  target instanceof HTMLSelectElement;
 
 const THEMES = ["auto", "light", "dark"] as const;
 type Theme = (typeof THEMES)[number];
@@ -33,13 +40,24 @@ function storedTheme(): Theme {
 }
 
 export function App() {
-  const [path, setPath] = useState(location.pathname);
+  const path = usePath();
   const [theme, setTheme] = useState<Theme>(storedTheme);
 
+  // g, then a section's letter. The g is held for a moment only, and a screen's own keys (the
+  // inbox's a and r) are not taken: the second key is caught before the screen sees it.
   useEffect(() => {
-    const back = () => setPath(location.pathname);
-    addEventListener("popstate", back);
-    return () => removeEventListener("popstate", back);
+    let armed = 0;
+    const onKey = (event: KeyboardEvent) => {
+      if (typing(event.target) || event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
+      const to = Date.now() < armed ? SECTIONS.find((s) => s.key === event.key) : undefined;
+      armed = event.key === "g" ? Date.now() + 1500 : 0;
+      if (!to) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      go(to.path);
+    };
+    addEventListener("keydown", onKey, true);
+    return () => removeEventListener("keydown", onKey, true);
   }, []);
   useEffect(() => {
     if (theme === "auto") document.documentElement.removeAttribute("data-theme");
@@ -51,15 +69,14 @@ export function App() {
     }
   }, [theme]);
 
-  const go = (to: string) => {
-    history.pushState(null, "", to);
-    setPath(to);
-  };
-  const section = SECTIONS.find((s) => s.path === path) ?? SECTIONS[0];
+  // a section owns its address and what is open under it
+  const section =
+    SECTIONS.find((s) => s.path === path || (s.path !== "/" && path.startsWith(`${s.path}/`))) ?? SECTIONS[0];
   // how many runs wait for a person: shown on the rail, in the colour of what a person can act on
   const { runs } = useRuns();
   const waits = hasKey ? (runs ?? []).filter((r) => standing(r).mark === "asked").length : 0;
   const nextTheme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? "auto";
+  useEffect(() => showInTab(section.name, waits), [section.name, waits]);
 
   return (
     <div className="shell">
@@ -69,6 +86,8 @@ export function App() {
             key={s.path}
             href={s.path}
             aria-current={s.path === section.path ? "page" : undefined}
+            aria-keyshortcuts={`g ${s.key}`}
+            title={`${s.name}: g then ${s.key}`}
             onClick={(event) => {
               event.preventDefault();
               go(s.path);

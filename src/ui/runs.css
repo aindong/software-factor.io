@@ -35,6 +35,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* the task's number: the same number its train carries on the map */
+.run .number {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-right: 2px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--ground);
+  font-weight: 600;
+  text-align: center;
+}
 .run .when,
 .run .spent {
   color: var(--ink-soft);
@@ -169,6 +181,15 @@
   gap: var(--sm);
   max-width: 80ch;
 }
+.waits > div {
+  display: grid;
+  gap: var(--sm);
+}
+a.button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
 .runmap {
   border: 1px solid var(--rule);
   border-radius: var(--control);
@@ -199,7 +220,7 @@
 .map.overlaid .line:not(.lit),
 .map.overlaid .casing:not(.lit),
 .map.overlaid .station.far,
-.map.overlaid .tag {
+.map.overlaid .tag:not(.lit) {
   opacity: 0.28;
 }
 .map .station.ran-pass .body {
@@ -249,7 +270,7 @@
   width: 100%;
   min-height: var(--row);
   padding: 2px var(--sm);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--edge);
   border-radius: var(--control);
   background: var(--ground);
   text-align: left;
@@ -317,7 +338,16 @@
   white-space: pre;
   overflow-wrap: normal;
 }
+/* a diff is read by shape: what was put in stands on a band, what was taken out is outlined.
+   Blue and vermilion mean passed and failed, so they are not used here. */
+.diff span {
+  display: block;
+  padding: 0 var(--xs);
+}
 .diff .file {
+  margin-top: var(--sm);
+  padding-top: var(--xs);
+  border-top: 1px solid var(--edge);
   font-weight: 700;
 }
 .diff .hunk {
@@ -325,11 +355,11 @@
 }
 .diff .add {
   font-weight: 600;
-  background: color-mix(in oklch, var(--ink) 9%, transparent);
+  background: color-mix(in oklch, var(--ink) 16%, transparent);
 }
 .diff .del {
-  color: var(--ink-soft);
-  text-decoration: line-through;
+  outline: 1px dashed var(--ink-soft);
+  outline-offset: -1px;
 }
 .shot {
   display: block;
@@ -390,6 +420,9 @@
   max-width: 90ch;
 }
 .ref {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xs);
   margin-right: var(--xs);
   padding: 0 var(--xs);
   border: 1px solid var(--rule);
@@ -419,7 +452,32 @@
   .pair-shots {
     grid-template-columns: minmax(0, 1fr);
   }
-  .proof .meta {
-    display: none;
+  .proof > button {
+    flex-wrap: wrap;
   }
+  .proof .meta {
+    width: 100%;
+    margin-left: 0;
+    padding-left: 18px;
+    white-space: normal;
+  }
+}
+.ref button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ref .mark {
+  width: 8px;
+  height: 8px;
+}
+.shot-link {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
 }

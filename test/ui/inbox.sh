@@ -83,39 +83,42 @@ pw resize 1440 900
 # ---- 1. the rail counts what waits, and the inbox lists it with the run beside it
 wait_for "the rail counts what waits" "() => document.querySelector('.rail .count')?.textContent ?? ''" '^3 wait for you$'
 section Inbox
-wait_for "the inbox lists what waits" "() => [...document.querySelectorAll('.run .task')].map((t) => t.textContent).join(' | ')" '^Add an export button \| Publish the release \| Pick a database$'
+wait_for "the inbox lists what waits" "$tasks" '^Add an export button \| Publish the release \| Pick a database$'
 expect "an approval and a question are told apart" "$(js "() => [...document.querySelectorAll('.run .mark')].map((m) => m.getAttribute('aria-label')).join(' | ')")" '^An approval \| An approval \| A question$'
 wait_for "the run's map is beside the item" "() => document.querySelectorAll('.deciding .runmap .station.lane').length" '^5$'
 wait_for "and its evidence" "() => [...document.querySelectorAll('.deciding .proof .what')].map((w) => w.textContent).join(' | ')" '^The diff of the whole run \| .*Gate verify passed \| Hand-off'
 expect "the decisions the first item takes" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve a \| Reject r \| Send back s$'
+in_window "the inbox"
+expect "the tab says how many wait" "$(js "() => document.title")" '^\(3\) Inbox · Software Factor\.io$'
+expect "the address holds no item until one is entered" "$(js "() => location.pathname")" '^/inbox$'
 shot inbox-light-1440
 
 # ---- 2. s: a note first, and nothing is sent while it is empty
-tab_to '^Add an export button'
+tab_to '^[0-9]+ Add an export button'
 pw press s
 expect "s puts the keyboard in the note" "$(js "() => document.activeElement.tagName + ' ' + document.activeElement.labels[0].textContent")" '^TEXTAREA What should change'
 pw press Enter
-expect "an empty note sends nothing and says why" "$(js "() => document.querySelector('.topbar .status').textContent")" '^Say what the lane should do differently\. Nothing was sent\.$'
+expect "an empty note sends nothing and says why, at the note" "$(js "() => document.querySelector('.decide .hint.bad')?.textContent ?? ''")" '^Say what the lane should do differently\. Nothing was sent\.$'
 [ "$(ls .factor/runs/*/prompts/*build* | wc -l | tr -d ' ')" = "1" ] || fail "something was sent with an empty note"
 pw type "use tabs, not spaces"
 pw press Enter
-wait_for "the work is sent back" "() => document.querySelector('.topbar .status').textContent" '^Sent back\.'
+wait_for "the work is sent back, and the answer names the task" "$said" '^Sent back: Add an export button\.'
 for _ in $(seq 1 40); do [ "$(ls .factor/runs/*/prompts/*build* | wc -l | tr -d ' ')" = "2" ] && break; sleep 0.2; done
 grep -lq "use tabs, not spaces" .factor/runs/*/prompts/*build* || fail "the lane did not get the note"
-wait_for "the lane ran again and waits again, as the newest item" "() => [...document.querySelectorAll('.run .task')].map((t) => t.textContent).join(' | ') + ' ' + (document.querySelector('.rail .count')?.textContent ?? '')" '^Publish the release \| Pick a database \| Add an export button 3 wait'
+wait_for "the lane ran again and waits again, as the newest item" "() => [...document.querySelectorAll('.run .task')].map((t) => t.textContent.replace(/^[0-9]+ /, '')).join(' | ') + ' ' + (document.querySelector('.rail .count')?.textContent ?? '')" '^Publish the release \| Pick a database \| Add an export button 3 wait'
 shot inbox-sent-back-light-1440
 
 # ---- 3. a command that has not run: no work to send back, and a approves it
-tab_to '^Publish the release'
+tab_to '^[0-9]+ Publish the release'
 pw press ArrowDown
-expect "the arrow keys move through the inbox" "$(js "$focused")" '^Pick a database'
+expect "the arrow keys move through the inbox" "$(js "$focused")" '^[0-9]+ Pick a database'
 pw press ArrowUp
-expect "and back" "$(js "$focused")" '^Publish the release'
+expect "and back" "$(js "$focused")" '^[0-9]+ Publish the release'
 expect "work that is not done cannot be sent back" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve a \| Reject r$'
 pw press s
-expect "s says why not" "$(js "() => document.querySelector('.topbar .status').textContent")" 'has not run yet'
+expect "s says why not" "$(js "$said")" 'has not run yet'
 pw press a
-wait_for "a approves, and the item leaves the list" "() => [...document.querySelectorAll('.run .task')].map((t) => t.textContent).join(' | ')" '^Pick a database \| Add an export button$'
+wait_for "a approves, and the item leaves the list" "$tasks" '^Pick a database \| Add an export button$'
 wait_for "the rail counts one fewer" "() => document.querySelector('.rail .count')?.textContent ?? ''" '^2 wait for you$'
 sf runs | grep -A1 "Publish the release" | grep -q "Done\." || fail "the approved run did not go on to Done: $(sf runs)"
 
@@ -125,12 +128,12 @@ node "$here/dist/cli.js" run > "$work/slow.log" 2>&1 & # a process of its own: s
 slow=$!
 for _ in $(seq 1 40); do sf runs | grep -q "Reindex: its command is running" && break; sleep 0.2; done
 sf runs | grep -q "Reindex: its command is running" || fail "the long run did not start: $(sf runs)"
-tab_to '^Pick a database'
+tab_to '^[0-9]+ Pick a database'
 pw press ArrowDown
-expect "the approval is chosen" "$(js "$focused")" '^Add an export button'
+expect "the approval is chosen" "$(js "$focused")" '^[0-9]+ Add an export button'
 pw press a
-wait_for "a refusal is shown in the factory's words, with what to do" "() => document.querySelector('.topbar .status').textContent" '^Every slot is busy, so run [0-9a-f]+ cannot continue yet\. Decide again when a run has finished'
-expect "the refusal is marked as one" "$(js "() => document.querySelector('.topbar .status').className")" 'bad'
+wait_for "a refusal is shown where the decision was made, in the factory's words, with what to do" "$said" '^Not approved: Add an export button\. Every slot is busy, so run [0-9a-f]+ cannot continue yet\. Decide again when a run has finished'
+expect "the refusal is marked as one, in the decision bar" "$(js "() => document.querySelector('.decide .said').className")" 'bad'
 expect "the item is still there" "$(js "() => document.querySelectorAll('.run').length")" '^2$'
 shot inbox-refused-light-1440
 sf stop "$(run_of 'Rebuild the index')" > /dev/null 2>&1
@@ -138,26 +141,26 @@ wait "$slow" 2> /dev/null
 slow=""
 
 # ---- 5. a question: a typed answer and Enter, and letters typed into it decide nothing
-tab_to '^Add an export button'
+tab_to '^[0-9]+ Add an export button'
 pw press ArrowUp
-expect "the question is chosen" "$(js "$focused")" '^Pick a database'
+expect "the question is chosen" "$(js "$focused")" '^[0-9]+ Pick a database'
 expect "the question is shown" "$(js "() => document.querySelector('.decide .asks').textContent")" '^Which database should the export read from\?$'
 pw press Enter
 expect "Enter puts the keyboard in the answer" "$(js "() => document.activeElement.tagName + ' ' + document.activeElement.labels[0].textContent")" '^TEXTAREA Your answer'
 pw type "as"
-expect "letters typed into the answer decide nothing" "$(js "() => document.activeElement.value + ' ' + document.querySelectorAll('.run').length + ' ' + document.querySelector('.topbar .status').textContent.startsWith('Approved')")" '^as 2 false$'
+expect "letters typed into the answer decide nothing" "$(js "() => document.activeElement.value + ' ' + document.querySelectorAll('.run').length + ' ' + (document.querySelector('.said')?.textContent ?? '').startsWith('Approved')")" '^as 2 false$'
 shot inbox-question-light-1440
 pw type " Postgres, the one we already run"
 pw press Enter
-wait_for "the answer is sent" "() => document.querySelector('.topbar .status').textContent" '^Answered\.'
-wait_for "the question leaves the list" "() => [...document.querySelectorAll('.run .task')].map((t) => t.textContent).join(' | ')" '^Add an export button$'
+wait_for "the answer is sent" "$said" '^Answered: Pick a database\.'
+wait_for "the question leaves the list" "$tasks" '^Add an export button$'
 for _ in $(seq 1 40); do grep -lq "as Postgres, the one we already run" .factor/runs/*/prompts/*ask* 2> /dev/null && break; sleep 0.2; done
 grep -lq "as Postgres, the one we already run" .factor/runs/*/prompts/*ask* || fail "the lane did not get the answer"
 
 # ---- 6. the last approval, with a slot free again: nothing waits
-tab_to '^Add an export button'
+tab_to '^[0-9]+ Add an export button'
 pw press a
-wait_for "nothing waits" "() => document.querySelector('.plain')?.textContent ?? ''" '^Nothing waits for you\.'
+wait_for "nothing waits, and the last answer is still said" "() => document.querySelector('.plain')?.textContent ?? ''" '^Approved: Add an export button\. .*Nothing waits for you\.'
 # the item left the page at once; the rail follows the record, within a second
 wait_for "the rail's count is gone" "() => document.querySelectorAll('.rail .count').length" '^0$'
 shot inbox-empty-light-1440
@@ -207,20 +210,20 @@ for n in 5 6; do
   sf run > "$work/run$n.log" 2>&1; [ $? -eq 3 ] || fail "run $n should wait: $(cat "$work/run$n.log")"
 done
 section Inbox
-wait_for "the new items appear" "() => [...document.querySelectorAll('.run .task')].map((t) => t.textContent).join(' | ')" '^Ship the docs \| Ship the hotfix$'
+wait_for "the new items appear" "$tasks" '^Ship the docs \| Ship the hotfix$'
 # r: a box for why, which may stay empty, and Enter rejects
-tab_to '^Ship the docs'
+tab_to '^[0-9]+ Ship the docs'
 pw press r
 expect "r puts the keyboard in a note that may stay empty" "$(js "() => document.activeElement.tagName + ' ' + document.activeElement.labels[0].textContent")" '^TEXTAREA Why \(optional\)'
 pw press Enter
-wait_for "the item is rejected and leaves the list" "() => document.querySelector('.topbar .status').textContent + ' | ' + [...document.querySelectorAll('.run .task')].map((t) => t.textContent).join(' | ')" '^Rejected\..* \| Ship the hotfix$'
-expect "the page moved to the next item, with the keyboard on it" "$(js "$focused")" '^Ship the hotfix'
+wait_for "the item is rejected and leaves the list" "() => (document.querySelector('.said')?.textContent ?? '') + ' | ' + [...document.querySelectorAll('.run .task')].map((t) => t.textContent.replace(/^[0-9]+ /, '')).join(' | ')" '^Rejected: Ship the docs\..* \| Ship the hotfix$'
+expect "the page moved to the next item, with the keyboard on it" "$(js "$focused")" '^[0-9]+ Ship the hotfix'
 sf runs | grep -A1 "Ship the docs" | grep -q "Stopped" || fail "the rejected run did not stop: $(sf runs)"
 shot inbox-dark-1440
 pw resize 390 844
 narrow "the inbox"
 shot inbox-dark-390
-tab_to '^Ship the hotfix'
+tab_to '^[0-9]+ Ship the hotfix'
 pw press Enter
 expect "Enter shows the decision in place of the list" "$(js "() => getComputedStyle(document.querySelector('.runlist')).display + ' ' + getComputedStyle(document.querySelector('.deciding')).display")" '^none grid$'
 narrow "the decision"
