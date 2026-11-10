@@ -1,24 +1,21 @@
 // A run from claim to end. The engine owns the state machine: it decides which lane is next, counts
 // rounds, parks a run that waits for a person or a clock, and names every way a run can end (ADR 0013).
-import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { MINUTE_MS, nowMs } from "../clock.ts";
 import { collectFile } from "../collectors/file.ts";
-import { type Db, openDb } from "../db.ts";
+import type { Db } from "../db.ts";
 import { UserError } from "../errors.ts";
-import { hostEnv, sh, wasInterrupted } from "../exec.ts";
+import { hostEnv, sh } from "../exec.ts";
 import { resolveCommand } from "../gates/command.ts";
-import { addWorktree, branchTip, git, headOf, removeWorktree } from "../git.ts";
+import { branchTip, git, removeWorktree } from "../git.ts";
 import type { WaitSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
 import * as store from "../store.ts";
 import type { Workspace } from "../workspace.ts";
 import { type Ctx, halted, runLane } from "./lane.ts";
-import { preflight } from "./preflight.ts";
-import { recoverOrphans } from "./recover.ts";
-import { maxSlots, slotEnv } from "./slots.ts";
-import { addNote, newState, type Parked, type RunState, type StopCode } from "./state.ts";
+import { slotEnv } from "./slots.ts";
+import { addNote, type Parked, type RunState, type StopCode } from "./state.ts";
 import { tierOf } from "./tier.ts";
 import { choose, type Facts } from "./transition.ts";
 
@@ -73,7 +70,7 @@ export function contextFor(ws: Workspace, db: Db, run: store.Run, log: string[])
   return ctx;
 }
 
-function finish(
+export function finish(
   ctx: Ctx,
   status: store.RunStatus,
   code: StopCode,
@@ -327,128 +324,4 @@ export function crashed(ctx: Ctx, error: unknown): RunSummary {
   );
   if (error instanceof UserError) throw error;
   return summary;
-}
-
-export interface RunOptions {
-  /** Keep going until nothing is queued and no wait is due. Without it, one new task is started. */
-  all?: boolean;
-  /** How many runs may work at once in this call. Never more than the workspace's slots. */
-  parallel?: number;
-}
-
-/**
- * Pick up runs a dead process left, wake the waits that are due, and take queued tasks through the
- * workflow, as many at once as there are free slots.
- */
-export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<RunSummary> {
-  preflight(ws);
-  const db = openDb(ws.dbPath);
-  const log: string[] = [];
-  try {
-    const slots = maxSlots(ws);
-    // one run at a time unless the call asks for more
-    const cap = Math.max(1, Math.min(slots, options.parallel ?? (options.all ? slots : 1)));
-    // one call can move several runs: report the worst outcome among them
-    const rank = { none: 0, running: 0, done: 1, dropped: 1, waiting: 2, stopped: 3 } as const;
-    let worst: RunSummary | undefined;
-    const seen = (summary: RunSummary) => {
-      if (!worst || rank[summary.status] > rank[worst.status]) worst = summary;
-    };
-
-    const orphans = recoverOrphans(ws, db, log);
-    const added = collect(ws, db);
-    if (added > 0) log.push(`collected ${added} new task${added === 1 ? "" : "s"}`);
-    let started = 0;
-    let busy = false;
-
-    /** The next run this call can move, with a slot claimed for it, or nothing. */
-    const next = (): Ctx | undefined => {
-      for (const run of orphans.splice(0, 1)) {
-        if (store.claimSlot(db, run.id, slots) === undefined) {
-          orphans.unshift(run);
-          busy = true;
-          return undefined;
-        }
-        return contextFor(ws, db, run, log);
-      }
-      for (const due of store.dueRuns(db)) {
-        if (!store.takeWaitingRun(db, due.id)) continue; // another process woke it first
-        if (store.claimSlot(db, due.id, slots) === undefined) {
-          store.endRun(db, due.id, "waiting", "waiting", due.stop_reason ?? "waiting", due.wake_at); // park it again, as it was
-          busy = true;
-          return undefined;
-        }
-        store.setTaskStatus(db, due.task_id, "running");
-        log.push(`run ${due.id}: waking`);
-        return contextFor(ws, db, { ...due, status: "running" }, log);
-      }
-      if (!options.all && started >= 1) return undefined;
-      const runId = randomBytes(4).toString("hex");
-      // the slot is claimed first, so a task is never taken by a run that cannot start
-      const queued = db.prepare("select count(*) as n from tasks where status = 'queued'").get() as {
-        n: number;
-      };
-      if (queued.n === 0) return undefined;
-      const task = store.claimNextTask(db);
-      if (!task) return undefined;
-      const branch = `factor/${task.key}-${runId}`;
-      const worktree = join(ws.workDir, runId);
-      const first = ws.workflow.lanes[0]?.id ?? "";
-      let base: string;
-      try {
-        base = headOf(ws.root);
-        store.createRun(db, {
-          id: runId,
-          task_id: task.id,
-          workflow: ws.workflow.name,
-          base_commit: base,
-          branch,
-          worktree,
-          state: JSON.stringify(newState(first)),
-        });
-      } catch (error) {
-        store.setTaskStatus(db, task.id, "queued"); // nothing started: the task goes back in the queue
-        throw error;
-      }
-      if (store.claimSlot(db, runId, slots) === undefined) {
-        db.prepare("delete from runs where id = ?").run(runId);
-        store.setTaskStatus(db, task.id, "queued");
-        busy = true;
-        return undefined;
-      }
-      started += 1;
-      store.addEvent(db, runId, "run.started", { task: task.title });
-      log.push(`run ${runId}: ${task.title}`);
-      const run = store.getRun(db, runId);
-      if (!run) throw new Error("the run was not recorded");
-      const ctx = contextFor(ws, db, run, log);
-      try {
-        addWorktree(ws.root, worktree, branch, base);
-      } catch (error) {
-        seen(finish(ctx, "stopped", "crashed", `the run could not start: ${(error as Error).message}`));
-        return next();
-      }
-      return ctx;
-    };
-
-    const active = new Set<Promise<void>>();
-    for (;;) {
-      while (active.size < cap && !wasInterrupted()) {
-        const ctx = next();
-        if (!ctx) break;
-        const moving: Promise<void> = advance(ctx)
-          .then(seen)
-          .finally(() => active.delete(moving));
-        active.add(moving);
-      }
-      if (active.size === 0) break;
-      await Promise.race(active);
-    }
-    if (busy && !worst) log.push(`every slot is busy (${slots} in all): nothing was started`);
-    return worst
-      ? { ...(worst as RunSummary), log }
-      : { status: "none", log: busy ? log : [...log, "no queued task"] };
-  } finally {
-    db.close();
-  }
 }
