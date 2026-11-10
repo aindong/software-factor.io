@@ -390,3 +390,25 @@ export function promptsByRun(repo: Repo, lane: string): string[][] {
       .map((f) => readFileSync(join(dir, f), "utf8"));
   });
 }
+
+// ---- panels
+
+/** A read-only lane worked by a panel of the reviewer role. Anything in `extra` wins. */
+export function panelLane(members: Json[], extra: Json = {}): Json {
+  const { join: joinBy = "all", ...rest } = extra as { join?: string };
+  return agentLane("review", {
+    agent: { role: "reviewer", access: "read", prompt: "Review the change." },
+    panel: { join: joinBy, members },
+    ...rest,
+  });
+}
+/** Change the workflow a test built, before the first run. */
+export function editWorkflow(repo: Repo, change: (workflow: Record<string, Json>) => void): void {
+  const path = ".factor/workflows/starter.json";
+  const workflow = repo.json<Record<string, Json>>(path);
+  change(workflow);
+  repo.write(path, `${JSON.stringify(workflow, null, 2)}\n`);
+}
+/** The sessions of the workspace, oldest first. */
+export const sessionRows = (repo: Repo, columns = "lane, tokens") =>
+  repo.rows<Record<string, unknown>>(`select ${columns} from sessions order by id`);
