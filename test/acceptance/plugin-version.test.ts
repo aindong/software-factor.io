@@ -26,3 +26,22 @@ it.each(["^1.0.0", "^1.2.0", "1.x", "1", "~1.2.0", "1.2.x", "1.2.0"])("accepts %
   });
   expect(repo.sf("collect").stdout).toContain("collected 1 new task");
 });
+
+it("keeps the minor version for a caret range below 1.0.0, as semver does", () => {
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
+  expect(
+    repo.sf(
+      "add",
+      makePlugin((m) => {
+        m.version = "0.9.0";
+      }).dir,
+      "--yes",
+    ).status,
+  ).toBe(0);
+  useFlow(repo, (w) => {
+    w.plugins = { acme: "^0.2.0" };
+  });
+  const r = repo.sf("run");
+  expect(r.status).toBe(1);
+  expect(r.stderr).toMatch(/\^0\.2\.0.*0\.9\.0/);
+});

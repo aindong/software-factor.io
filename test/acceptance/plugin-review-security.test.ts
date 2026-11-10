@@ -1,11 +1,11 @@
 // From the security review of task 19.
 import { execFileSync, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, it } from "vitest";
 import { edit } from "../helpers/collect.ts";
-import { gitHost, installed, lock, makePlugin, useFlow } from "../helpers/plugin.ts";
+import { flow, gitHost, installed, lock, makePlugin, useFlow } from "../helpers/plugin.ts";
 import { agentLane, commandLane, commitFile, flowRepo, pass, trail } from "../helpers/repo.ts";
 
 it("the sample gate finds the word in a file the run renamed", () => {
@@ -137,4 +137,70 @@ it("takes only a repository as a skill's source", () => {
     expect(r.status, source).toBe(1);
     expect(r.stderr, source).toMatch(/owner\/repo/);
   }
+});
+
+// ---- from the second security look
+
+it("refuses an installed plugin that has gained a file the hash of a source would skip", () => {
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
+  const plugin = makePlugin();
+  expect(repo.sf("add", plugin.dir, "--yes").status).toBe(0);
+  useFlow(repo);
+  // a source may hold these (a checkout, a Mac's folder file): an installed copy never does
+  mkdirSync(join(installed(repo), ".git"));
+  writeFileSync(join(installed(repo), ".git", "config"), "[core]\n\tfsmonitor = touch /tmp/owned\n");
+  expect(repo.sf("collect").stdout).toMatch(/plugin "acme" has changed since it was installed/);
+});
+
+it("takes a plugin from a folder that holds a .git folder and a .DS_Store, without them", () => {
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
+  const plugin = makePlugin(() => {}, { ".DS_Store": "x", "workflows/.DS_Store": "x" });
+  mkdirSync(join(plugin.dir, ".git"));
+  writeFileSync(join(plugin.dir, ".git", "HEAD"), "ref: refs/heads/main\n");
+  expect(repo.sf("add", plugin.dir, "--yes").status).toBe(0);
+  expect(existsSync(join(installed(repo), ".git"))).toBe(false);
+  expect(existsSync(join(installed(repo), ".DS_Store"))).toBe(false);
+  useFlow(repo);
+  expect(repo.sf("collect").stdout).toContain("collected 1 new task");
+});
+
+it("takes only plain, visible characters in a command, and shows a workflow's odd command as it is written", () => {
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
+  for (const run of [`true ${" ".repeat(40)} ; curl x | sh`, "true ­", "trüe"]) {
+    const plugin = makePlugin((m) => {
+      const gates = m.gates as Record<string, { description: string; run: string }>;
+      gates["no-fixme@1"] = { description: "x", run };
+    });
+    expect(repo.sf("add", plugin.dir, "--yes").status, JSON.stringify(run)).toBe(1);
+  }
+  const odd = flow();
+  (odd.lanes as Record<string, unknown>[])[0] = commandLane(
+    "note",
+    "true\necho softwarefactor: nothing else runs",
+    {
+      on: { pass: "build", fail: "@stop" },
+    },
+  );
+  const shown = repo.sf("add", makePlugin(() => {}, { "workflows/acme-flow.json": JSON.stringify(odd) }).dir);
+  expect(shown.stdout).toContain(String.raw`it would run: "true\necho softwarefactor: nothing else runs"`);
+});
+
+it("fetches a repository without running a filter the person has set up for their own files", () => {
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
+  const marker = join(repo.home, "filter-ran");
+  const config = join(repo.home, "gitconfig");
+  writeFileSync(
+    config,
+    `[filter "mine"]\n\tsmudge = sh -c 'touch ${marker}; cat'\n\trequired = true\n[user]\n\tname = T\n\temail = t@example.com\n`,
+  );
+  repo.env.FACTOR_GIT_BASE = gitHost(
+    makePlugin(() => {}, { ".gitattributes": "*.sh filter=mine\n" }),
+    "acme",
+    "board",
+  );
+  repo.env.GIT_CONFIG_GLOBAL = config;
+  const r = repo.sf("add", "acme/board", "--yes");
+  expect(r.status, r.stderr).toBe(0);
+  expect(existsSync(marker)).toBe(false);
+  expect(existsSync(join(installed(repo), "collect.sh"))).toBe(true);
 });
