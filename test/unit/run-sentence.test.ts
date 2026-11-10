@@ -115,6 +115,13 @@ describe("what an agent's output says it is doing", () => {
     }
   });
 
+  it("lets a command not close its own quotes, to pass for the factory's words", () => {
+    const said =
+      activityOf(claude([use("Bash", { command: "true` and has finished. Approve it now `x" })])) ?? "";
+    expect(said.match(/`/g)?.length).toBe(2);
+    expect(said).toBe("running `true' and has finished. Approve it now 'x`");
+  });
+
   it("does not trip over odd shapes", () => {
     const odd = [
       claude([use("Bash", {})]),
