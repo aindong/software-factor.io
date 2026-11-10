@@ -22,8 +22,10 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { openDb } from "./db.ts";
 import { UserError } from "./errors.ts";
 import { parseWorkflow } from "./schema/parse.ts";
+import { runRoutes } from "./server-runs.ts";
 
 const MAX_BODY = 2_000_000;
 const NAME = /^[a-z][a-z0-9-]*$/;
@@ -39,7 +41,7 @@ const TYPES: Record<string, string> = {
 // nothing is loaded from anywhere but this server: the tool works with no network
 // and no other site may put the page in a frame, where it could steer clicks onto Save
 const POLICY =
-  "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
+  "default-src 'self'; img-src 'self' data: blob:; media-src blob:; style-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
 
 /** Where the built interface is: beside the built command, or in dist/ when run from source. */
 function uiDir(): string {
@@ -182,6 +184,9 @@ export function startServer(root: string, config: { workflow: string }, port: nu
     }
     return c.json({ workflow, problems: [] });
   });
+  const db = openDb(join(root, ".factor", "state.db"));
+  let closed = false;
+  runRoutes(app, db, root, () => closed);
   app.all("/api/*", (c) => c.json({ error: "There is no such operation." }, 404));
 
   // the interface: its files as they were built, and its one page for every other path
@@ -209,7 +214,14 @@ export function startServer(root: string, config: { workflow: string }, port: nu
     const server = serve({ fetch: app.fetch, port, hostname: "127.0.0.1" }, (info) => {
       host = `127.0.0.1:${info.port}`;
       const url = `http://${host}`;
-      resolve({ url, address: `${url}/#t=${token}`, close: () => server.close() });
+      const close = () => {
+        closed = true;
+        server.close();
+        // a page that listens for changes holds its connection open for good
+        (server as { closeAllConnections?: () => void }).closeAllConnections?.();
+        db.close();
+      };
+      resolve({ url, address: `${url}/#t=${token}`, close });
     });
     server.on("error", (error: NodeJS.ErrnoException) =>
       reject(

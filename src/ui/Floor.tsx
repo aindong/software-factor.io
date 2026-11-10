@@ -8,6 +8,7 @@ import { parseWorkflow } from "../core/schema/parse.ts";
 import { forgetKey, getWorkflow, getWorkspace, type Json, saveWorkflow, type WorkspaceInfo } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
 import { Inspector } from "./Inspector.tsx";
+import { useRuns } from "./live.ts";
 import { statusOf } from "./status.ts";
 
 const print = (doc: Json) => `${JSON.stringify(doc, null, 2)}\n`;
@@ -23,6 +24,8 @@ export function Floor() {
   const [selected, setSelected] = useState<string>();
   const [sheet, setSheet] = useState(false);
   const [notice, setNotice] = useState<{ text: string; bad: boolean }>();
+  const [onMap, setOnMap] = useState(true);
+  const { runs } = useRuns();
   const headRef = useRef<HTMLHeadingElement>(null);
   const connectRef = useRef<HTMLSelectElement>(null);
 
@@ -132,6 +135,15 @@ export function Floor() {
     if (added) open(added.id);
   };
 
+  // the runs of this workflow that are moving or waiting, each as a train at its lane
+  const trains = (onMap ? (runs ?? []) : [])
+    .filter((r) => (r.status === "running" || r.status === "waiting") && r.workflow === name && r.at)
+    .map((r) => ({
+      lane: r.at ?? "",
+      label: String(r.taskId),
+      title: `${r.task}. ${r.sentence}`,
+      asks: r.stopCode === "awaiting_approval" || r.stopCode === "needs_person",
+    }));
   const status = statusOf({ broken, problems: problems.length, dirty, notice });
   return (
     <main className="work">
@@ -163,6 +175,12 @@ export function Floor() {
             JSON
           </button>
         </fieldset>
+        {view === "diagram" ? (
+          <label className="check">
+            <input type="checkbox" checked={onMap} onChange={(event) => setOnMap(event.target.checked)} />
+            Runs on map
+          </label>
+        ) : null}
         {view === "diagram" ? (
           <div className="group">
             <span className="label">Add a lane</span>
@@ -204,6 +222,7 @@ export function Floor() {
                   floor={floor}
                   selected={selected}
                   flagged={flagged}
+                  trains={trains}
                   onSelect={setSelected}
                   onOpen={open}
                   onAskConnect={(id) => {

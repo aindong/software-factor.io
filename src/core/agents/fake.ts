@@ -66,7 +66,11 @@ export function fakeAgent(binding: FakeBinding): AgentAdapter {
             throw new Error(`fake agent: "${action.attach.name}" is not a plain file name`);
           }
           mkdirSync(job.evidenceDir, { recursive: true });
-          writeFileSync(join(job.evidenceDir, action.attach.name), action.attach.content);
+          const { content, base64 } = action.attach;
+          writeFileSync(
+            join(job.evidenceDir, action.attach.name),
+            base64 ? Buffer.from(content, "base64") : content,
+          );
         } else if ("sleep" in action) {
           await nap(action.sleep, job.signal);
         } else if ("usage" in action) {

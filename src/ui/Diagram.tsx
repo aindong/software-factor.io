@@ -1,8 +1,11 @@
 // The workflow drawn as a line diagram, from the layout: stations, lines at 0, 45 and 90 degrees,
 // gates as bars before a station's exit. A station is a button: the arrow keys move along the
 // map, Enter opens a station, `c` connects it. Dragging from a station's handle draws a line.
+// Runs are drawn over it and never change it: what a run did at each station, the lines it
+// took, and a train where each run is. Without `onConnect` the map is only read.
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from "react";
 import type { Floor, Line, Outcome, Point, Station } from "../core/floor/layout.ts";
+import type { StopState } from "../core/runs/track.ts";
 
 const BEND = 12;
 const WORD: Record<Outcome, string> = { pass: "pass", fail: "fail", needsPerson: "asks" };
@@ -59,7 +62,7 @@ function headOf(points: Point[]): string {
   return `M${cx + ux * 3} ${cy + uy * 3}L${cx - ux * 2 - uy * 2.5} ${cy - uy * 2 + ux * 2.5}L${cx - ux * 2 + uy * 2.5} ${cy - uy * 2 - ux * 2.5}Z`;
 }
 
-function LineView({ line }: { line: Line }) {
+function LineView({ line, lit }: { line: Line; lit: boolean }) {
   const d = pathOf(line.points);
   const toEnd = line.to === "@stop" || line.to === "@drop";
   const track = line.points.length > 2 ? { start: line.points[2], end: line.points[3] } : undefined;
@@ -69,9 +72,11 @@ function LineView({ line }: { line: Line }) {
     .join(" ");
   return (
     <g>
-      {line.outcome === "needsPerson" && !toEnd ? <path className="casing" d={d} /> : null}
+      {line.outcome === "needsPerson" && !toEnd ? (
+        <path className={`casing${lit ? " lit" : ""}`} d={d} />
+      ) : null}
       <path
-        className={`line ${line.outcome}${toEnd ? " to-end" : ""}${line.conditional ? " conditional" : ""}`}
+        className={`line ${line.outcome}${toEnd ? " to-end" : ""}${line.conditional ? " conditional" : ""}${lit ? " lit" : ""}`}
         d={d}
       />
       {line.conditional ? null : <path className="head" d={headOf(line.points)} />}
@@ -100,25 +105,49 @@ const subOf = (s: Station) =>
           ? "wait"
           : (s.uses ?? "");
 
+export interface Train {
+  lane: string;
+  /** What the train carries: the task's number. */
+  label: string;
+  title: string;
+  /** The run waits for a person here. */
+  asks?: boolean;
+}
 export interface DiagramProps {
   floor: Floor;
   selected?: string;
   /** Lanes the checker has something to say about. */
-  flagged: Set<string>;
+  flagged?: Set<string>;
   onSelect: (id: string | undefined) => void;
-  onOpen: (id: string) => void;
-  onAskConnect: (id: string) => void;
-  onConnect: (from: string, outcome: "pass" | "fail", to: string) => void;
+  onOpen?: (id: string) => void;
+  onAskConnect?: (id: string) => void;
+  /** Left out, the map is read and not changed. */
+  onConnect?: (from: string, outcome: "pass" | "fail", to: string) => void;
+  /** One run drawn over the map: what it did at each station, and the keys of the lines it took. */
+  states?: Record<string, StopState>;
+  route?: Set<string>;
+  /** Where runs are. */
+  trains?: Train[];
 }
+const NONE = new Set<string>();
+const RAN: Partial<Record<StopState, { word: string; mark: string }>> = {
+  pass: { word: "passed in this run", mark: "M-4.500 0l3 3 6-6" },
+  fail: { word: "failed in this run", mark: "M-3.500-3.500l7 7M3.500-3.500l-7 7" },
+  asked: { word: "asked a person in this run", mark: "M0-4.500v5M0 4v.01" },
+  here: { word: "at work in this run", mark: "" },
+};
 
 export function Diagram({
   floor,
   selected,
-  flagged,
+  flagged = NONE,
   onSelect,
   onOpen,
   onAskConnect,
   onConnect,
+  states,
+  route,
+  trains = [],
 }: DiagramProps) {
   const svg = useRef<SVGSVGElement>(null);
   const nodes = useRef(new Map<string, SVGGElement>());
@@ -142,8 +171,8 @@ export function Diagram({
         byKeys.current = true;
         onSelect(next.id);
       }
-    } else if (event.key === "Enter" || event.key === " ") onOpen(station.id);
-    else if (event.key === "c" && !event.metaKey && !event.ctrlKey && station.kind === "lane")
+    } else if (event.key === "Enter" || event.key === " ") onOpen?.(station.id);
+    else if (event.key === "c" && !event.metaKey && !event.ctrlKey && station.kind === "lane" && onAskConnect)
       onAskConnect(station.id);
     else if (event.key === "Escape") onSelect(undefined);
     else return;
@@ -159,29 +188,33 @@ export function Diagram({
     const { x, y } = pointOf(event);
     const target = floor.stations.find((s) => Math.hypot(s.x - x, s.y - y) <= 26);
     // a press on the handle with no drag ends on the lane's own station: that is not a connection
-    if (target && !target.missing && target.id !== drag.from) onConnect(drag.from, drag.outcome, target.id);
+    if (target && !target.missing && target.id !== drag.from) onConnect?.(drag.from, drag.outcome, target.id);
     setDrag(undefined);
   };
   const from = drag ? floor.stations.find((s) => s.id === drag.from) : undefined;
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: the map takes pointer moves only while a line is being dragged; every action is also on a station, which is a button
+    // the map takes pointer moves only while a line is being dragged: every action is also on a station, which is a button
     // biome-ignore lint/a11y/useKeyWithClickEvents: a click on empty map clears the selection; by keyboard that is Escape on a station
     // biome-ignore lint/a11y/useSemanticElements: an SVG cannot be a fieldset
     <svg
       ref={svg}
-      className="map"
+      className={`map${states ? " overlaid" : ""}`}
       width={floor.width}
       height={floor.height}
       role="group"
-      aria-label="The workflow as a line diagram. Arrow keys move between stations, Enter opens one, c connects it."
+      aria-label={
+        onConnect
+          ? "The workflow as a line diagram. Arrow keys move between stations, Enter opens one, c connects it."
+          : "The run on the workflow's line diagram. Arrow keys move between stations."
+      }
       onPointerMove={(event) => drag && setDrag({ ...drag, ...pointOf(event) })}
       onPointerUp={drop}
       onPointerLeave={() => setDrag(undefined)}
       onClick={(event) => event.target === svg.current && onSelect(undefined)}
     >
       {floor.lines.map((line) => (
-        <LineView key={line.key} line={line} />
+        <LineView key={line.key} line={line} lit={route?.has(line.key) ?? false} />
       ))}
       {floor.stations.flatMap((s) =>
         s.gates.map((gate, k) => (
@@ -209,10 +242,17 @@ export function Diagram({
         const nameX = beside ? -18 : 0;
         const anchor = beside ? "end" : "middle";
         const sub = subOf(s);
+        const ran = RAN[states?.[s.id] ?? "none"];
+        // with a run over the map, an end the run did not come to steps back like the lines to it
+        const far =
+          states && s.kind === "end" && !floor.lines.some((l) => l.to === s.id && route?.has(l.key));
+        const here = trains.filter((t) => t.lane === s.id);
+        // trains wait on the side of the station its name is not on
+        const up = s.labelSide === "below" ? -1 : 1;
         const about =
           s.kind === "end"
             ? `${s.label}, an end of the run`
-            : `Lane ${s.label}${sub ? `, ${sub}` : ""}${capsule ? ", waits for a person" : ""}${flagged.has(s.id) ? ", has problems" : ""}`;
+            : `Lane ${s.label}${sub ? `, ${sub}` : ""}${capsule ? ", waits for a person" : ""}${flagged.has(s.id) ? ", has problems" : ""}${ran ? `, ${ran.word}` : ""}${here.map((t) => `, task ${t.label} is here`).join("")}`;
         return (
           // biome-ignore lint/a11y/useSemanticElements: a station is drawn in SVG, where there is no button element
           <g
@@ -221,14 +261,14 @@ export function Diagram({
               if (node) nodes.current.set(s.id, node);
               else nodes.current.delete(s.id);
             }}
-            className={`station ${s.kind}${s.kind === "end" ? ` ${END_CLASS[s.id] ?? ""}` : ""}${s.missing ? " missing" : ""}${flagged.has(s.id) ? " bad" : ""}`}
+            className={`station ${s.kind}${s.kind === "end" ? ` ${END_CLASS[s.id] ?? ""}` : ""}${s.missing ? " missing" : ""}${flagged.has(s.id) ? " bad" : ""}${ran ? ` ran-${states?.[s.id]}` : ""}${far ? " far" : ""}`}
             transform={`translate(${s.x} ${s.y})`}
             role="button"
             tabIndex={s.id === tabStop ? 0 : -1}
             aria-pressed={s.id === selected}
             aria-label={about}
             onClick={() => onSelect(s.id)}
-            onDoubleClick={() => onOpen(s.id)}
+            onDoubleClick={() => onOpen?.(s.id)}
             onKeyDown={(event) => onKey(event, s)}
           >
             {capsule ? (
@@ -242,6 +282,20 @@ export function Diagram({
               <circle className="body" r="11" />
             )}
             {s.kind === "end" && !s.missing ? <path className="mark" d={END_MARK[s.id] ?? ""} /> : null}
+            {ran?.mark ? <path className="mark" d={ran.mark} /> : null}
+            {here.map((train, k) => (
+              <g
+                key={train.label}
+                className={`train${train.asks ? " asks" : ""}`}
+                transform={`translate(0 ${up * (30 + k * 20)})`}
+              >
+                <title>{train.title}</title>
+                <rect x="-17" y="-9" width="34" height="18" rx="9" />
+                <text y="4" textAnchor="middle">
+                  {train.label}
+                </text>
+              </g>
+            ))}
             {flagged.has(s.id) ? (
               <rect className="flag" x="9" y="-21" width="8" height="8" transform="rotate(45 13 -17)" />
             ) : null}
@@ -253,7 +307,7 @@ export function Diagram({
                 {sub}
               </text>
             ) : null}
-            {s.kind === "lane"
+            {s.kind === "lane" && onConnect
               ? (["pass", "fail"] as const).map((outcome) => (
                   <circle
                     key={outcome}

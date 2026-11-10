@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { hasKey } from "./api.ts";
 import { Floor } from "./Floor.tsx";
 import { icons } from "./icons.tsx";
+import { Runs } from "./Runs.tsx";
 
 const SECTIONS = [
   { path: "/", name: "Floor", icon: "floor" },
@@ -15,10 +16,6 @@ const SECTIONS = [
 
 // What each section that is not built yet will hold, and how to get the same today.
 const LATER: Record<string, { what: string; today: string }> = {
-  "/runs": {
-    what: "Where each task is, what each agent is doing, and the evidence for every gate and claim.",
-    today: "softwarefactor status",
-  },
   "/inbox": {
     what: "Approvals and questions that wait for you, each answerable with one key.",
     today: "softwarefactor inbox",
@@ -131,6 +128,8 @@ export function App() {
             </p>
           </div>
         </main>
+      ) : section.path === "/runs" ? (
+        <Runs />
       ) : (
         <Floor />
       )}
