@@ -1,4 +1,4 @@
-import { appendFileSync } from "node:fs";
+import { appendFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { op, tool } from "../helpers/operator.ts";
@@ -53,7 +53,17 @@ standinAccount(repo, "work", "claude", {}, [
 standinAccount(repo, "spare", "claude", {});
 standinAccount(repo, "other", "codex", {});
 bind(repo, "author", "work", "--medium", "sonnet", "--effort", "high");
+writeFileSync(join(repo.home, "profiles", "work", "auth.json"), '{"token":"MARKER-1"}');
+if (
+  repo.sf("account", "add", "script", "--agent", "command", "--command", "my-agent --key MARKER-2").status !==
+  0
+) {
+  throw new Error("account add failed");
+}
 const usage = join(repo.home, "usage.jsonl");
+// what "spare" used before it was removed and added again does not count
+appendFileSync(usage, `${JSON.stringify({ at: Date.now() - 120_000, account: "spare", tokens: 9000 })}\n`);
+appendFileSync(usage, `${JSON.stringify({ at: Date.now() - 100_000, account: "spare", reset: true })}\n`);
 appendFileSync(usage, `${JSON.stringify({ at: Date.now() - 60_000, account: "work", tokens: 400 })}\n`);
 appendFileSync(
   usage,
@@ -78,6 +88,7 @@ describe("accounts and roles", () => {
       "work:claude",
       "spare:claude",
       "other:codex",
+      "script:command",
     ]);
     expect(accounts[0]).toMatchObject({
       limits: [
@@ -88,6 +99,7 @@ describe("accounts and roles", () => {
       heldUntil: null,
     });
     expect(accounts[1]?.limits).toEqual([]);
+    expect(accounts[1]?.heldUntil).toBeNull();
     expect(Date.parse(accounts[2]?.heldUntil ?? "")).toBeGreaterThan(Date.now() + 3_000_000);
   });
 
@@ -109,7 +121,8 @@ describe("accounts and roles", () => {
   it("tells nothing of where a login is kept", async () => {
     const text = JSON.stringify(await view());
     expect(text).not.toContain(repo.home);
-    expect(text).not.toMatch(/profile|"bin"|standin/);
+    expect(text).not.toMatch(/profile|"bin"|standin|MARKER|my-agent/);
+    expect(tool(repo, "accounts_list").text).not.toMatch(/MARKER|my-agent/);
     expect(tool(repo, "accounts_list").text).not.toContain(repo.home);
   });
 
@@ -123,6 +136,10 @@ describe("accounts and roles", () => {
     expect(bound.status, JSON.stringify(bound.body)).toBe(200);
     expect(local().reviewer).toEqual({ account: "spare", models: { large: "opus" }, effort: "low" });
     expect(local().author).toEqual({ account: "work", models: { medium: "sonnet" }, effort: "high" });
+    // byte for byte what the command line's own command writes
+    const mine = repo.read(".factor/local.json");
+    bind(repo, "reviewer", "spare", "--large", "opus", "--effort", "low");
+    expect(repo.read(".factor/local.json")).toBe(mine);
     expect((await view()).roles[1]).toMatchObject({
       works: { account: "spare", agent: "claude" },
       sameVendorAs: ["author"],

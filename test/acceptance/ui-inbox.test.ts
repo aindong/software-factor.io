@@ -52,7 +52,7 @@ const finished = () => {
   return repo;
 };
 /** A run that waits before a command it has not run. */
-const before = () => {
+const unrun = () => {
   const repo = flowRepo({
     lanes: [
       agentLane("build", { on: { pass: "ship", fail: "@stop" } }),
@@ -80,7 +80,7 @@ const ended = (repo: Repo, status: string) => until(() => runRow(repo)?.status =
 
 describe("the inbox", () => {
   it("lists what waits, with the decisions each item takes", async () => {
-    const [a, b, q] = [finished(), before(), asked()];
+    const [a, b, q] = [finished(), unrun(), asked()];
     expect(await items(await open(a))).toMatchObject([
       {
         run: runRow(a)?.id,
@@ -108,16 +108,23 @@ describe("the inbox", () => {
     const repo = finished();
     const ui = await open(repo);
     const run = runRow(repo)?.id ?? "";
-    const { status, body } = await op<{ state: string }>(ui, "inbox_decide", { run, decision: "approve" });
+    const { status, body } = await op<{ state: string; run?: string }>(ui, "inbox_decide", {
+      run,
+      decision: "approve",
+    });
     expect(status).toBe(200);
-    expect(["ended", "going"]).toContain(body.state);
+    // either the command had ended when the answer was made, and it says how, or the run was going on
+    expect(
+      body.state === "going" || (body.state === "ended" && body.run === "done"),
+      JSON.stringify(body),
+    ).toBe(true);
     expect(await ended(repo, "done")).toBe(true);
     expect(await items(ui)).toEqual([]);
     expect(repo.rows("select status from inbox")).toEqual([{ status: "approved" }]);
   }, 120_000);
 
   it("approve through the MCP server: a command that waited is run", async () => {
-    const repo = before();
+    const repo = unrun();
     const flag = join(repo.home, "shipped");
     expect(existsSync(flag)).toBe(false);
     const said = tool<{ state: string }>(repo, "inbox_decide", {
@@ -186,6 +193,106 @@ describe("the inbox", () => {
     const late = await op(ui, "inbox_decide", { run, decision: "approve" });
     expect(late.status).toBe(409);
     expect(late.body.error).toMatch(/is not waiting for a person/);
+  }, 120_000);
+
+  it("refuses in the very words and fix of the command line", async () => {
+    const [mine, twin] = [finished(), finished()];
+    const ui = await open(mine);
+    const cases: [string, string[]][] = [
+      ["send-back", []],
+      ["answer", ["--note", "x"]],
+    ];
+    for (const [decision, flags] of cases) {
+      const said = twin
+        .sf(decision, runRow(twin)?.id ?? "", ...flags)
+        .stderr.replaceAll(runRow(twin)?.id ?? "", "RUN");
+      const [, error = "", fix = ""] = /^error: (.*)\n {2}fix: (.*)$/m.exec(said) ?? [];
+      const api = await op(ui, "inbox_decide", {
+        run: runRow(mine)?.id,
+        decision,
+        ...(flags[1] ? { note: flags[1] } : {}),
+      });
+      expect(api.body.error?.replaceAll(runRow(mine)?.id ?? "", "RUN")).toBe(error);
+      expect(api.body.fix).toBe(fix);
+      expect(error.length * fix.length).toBeGreaterThan(0);
+    }
+    // approve to a question, and work sent back that has not been done
+    const q = asked();
+    const refusedQ = await op(await open(q), "inbox_decide", { run: runRow(q)?.id, decision: "approve" });
+    expect(refusedQ.status).toBe(409);
+    expect(refusedQ.body.error).toMatch(/asked a question/);
+    const b = unrun();
+    const refusedB = await op(await open(b), "inbox_decide", {
+      run: runRow(b)?.id,
+      decision: "send-back",
+      note: "again",
+    });
+    expect(refusedB.status).toBe(409);
+    expect(refusedB.body.error).toMatch(/has not run yet/);
+    for (const repo of [q, b]) expect(runRow(repo)?.status).toBe("waiting");
+  }, 120_000);
+
+  it("leaves the record as the command line's own command leaves it", async () => {
+    const [mine, twin] = [finished(), finished()];
+    const ui = await open(mine);
+    await op(ui, "inbox_decide", { run: runRow(mine)?.id, decision: "send-back", note: "use tabs" });
+    twin.sf("send-back", runRow(twin)?.id ?? "", "--note", "use tabs");
+    await until(() => runRow(mine)?.status === "waiting" && promptsOf(mine, "work").length === 2, 8000);
+    await op(ui, "inbox_decide", { run: runRow(mine)?.id, decision: "approve" });
+    twin.sf("approve", runRow(twin)?.id ?? "");
+    await ended(mine, "done");
+    const record = (repo: Repo) => ({
+      run: repo.rows("select status, stop_code from runs"),
+      lanes: repo.rows("select lane, outcome from lane_runs order by id"),
+      inbox: repo.rows("select kind, status, answer from inbox order by id"),
+      task: repo.rows("select status from tasks"),
+    });
+    expect(record(mine)).toEqual(record(twin));
+  }, 120_000);
+
+  it("says how a run ended at once: waiting again at the next checkpoint", async () => {
+    const repo = flowRepo({
+      lanes: [
+        agentLane("work", { checkpoint: "in", on: { pass: "ship", fail: "@stop" } }),
+        commandLane("ship", "true", { checkpoint: "in" }),
+      ],
+    });
+    repo.sf("run");
+    const ui = await open(repo);
+    const run = runRow(repo)?.id ?? "";
+    await op(ui, "inbox_decide", { run, decision: "approve" });
+    expect(
+      await until(
+        () => repo.rows("select 1 from inbox where status = 'open' and lane = 'ship'").length === 1,
+        8000,
+      ),
+    ).toBe(true);
+    expect((await items(ui))[0]).toMatchObject({ run, lane: "ship", decisions: ["approve", "reject"] });
+    const last = await op<{ state: string; run?: string }>(ui, "inbox_decide", { run, decision: "reject" });
+    expect(last.status).toBe(200); // a run that stops is not a refusal
+    expect(await ended(repo, "stopped")).toBe(true);
+  }, 120_000);
+
+  it("answers at once when the run goes on for long, and the run outlives the interface", async () => {
+    const repo = flowRepo({
+      lanes: [
+        agentLane("work", { checkpoint: "in", on: { pass: "slow", fail: "@stop" } }),
+        commandLane("slow", "sleep 4"),
+      ],
+    });
+    repo.sf("run");
+    const ui = await startUi(repo);
+    const asked = Date.now();
+    const { status, body } = await op<{ state: string }>(ui, "inbox_decide", {
+      run: runRow(repo)?.id,
+      decision: "approve",
+    });
+    expect(Date.now() - asked).toBeLessThan(3000);
+    expect(status).toBe(200);
+    expect(body.state).toBe("going");
+    await ui.stop();
+    expect(runRow(repo)?.status).toBe("running");
+    expect(await until(() => runRow(repo)?.status === "done", 15_000)).toBe(true);
   }, 120_000);
 
   it("takes one of two decisions given at the same moment", async () => {

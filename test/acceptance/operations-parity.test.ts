@@ -2,10 +2,11 @@
 // table of operations, and each layer serves all of it.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
+import { FACTOR_TOOLS } from "../../src/core/agents/factor-tools.ts";
 import { OPERATIONS } from "../../src/core/operations.ts";
 import { ROUTE_OPS, startServer } from "../../src/core/server.ts";
 import { op, operator, tool } from "../helpers/operator.ts";
-import { agentLane, ensureUi, flowRepo, startUi, type Ui } from "../helpers/repo.ts";
+import { agentLane, ensureUi, flowRepo, mcp, startUi, type Ui } from "../helpers/repo.ts";
 
 const repo = flowRepo({ lanes: [agentLane("build")] });
 let ui: Ui;
@@ -38,7 +39,11 @@ describe("the factory's operations", () => {
       const { status } = await op(ui, name, {});
       expect([200, 409, 422], `${name}: ${status}`).toContain(status);
     }
-    expect((await op(ui, "no_such_thing")).status).toBe(404);
+    const none = await op(ui, "no_such_thing");
+    expect(none.status).toBe(404);
+    expect(none.body.error).toBe("There is no such operation.");
+    for (const name of names)
+      expect((await op(ui, name, {})).body.error, name).not.toBe("There is no such operation.");
     expect((await op(ui, "constructor")).status).toBe(404);
     expect((await fetch(`${ui.url}/api/op/runs_list`, { method: "POST" })).status).toBe(401);
   });
@@ -64,6 +69,14 @@ describe("the factory's operations", () => {
       expect(served?.description, o.name).toBe(o.description);
       expect(served?.inputSchema, o.name).toEqual(JSON.parse(JSON.stringify(z.toJSONSchema(o.input))));
     }
+  });
+
+  it("are not given to an agent inside a lane: its server still has its five tools and no other", () => {
+    const { answers } = mcp(repo, { run: "r1", lane: "build" }, [
+      { jsonrpc: "2.0", id: 2, method: "tools/list" },
+    ]);
+    const tools = (answers.find((a) => a.id === 2)?.result?.tools ?? []) as { name: string }[];
+    expect(tools.map((t) => t.name)).toEqual([...FACTOR_TOOLS]);
   });
 
   it("each name a command the command line really has", () => {
@@ -115,6 +128,15 @@ describe("the factory's operations", () => {
       expect(served.refused, `${name} ${JSON.stringify(input)}`).toBe(true);
       expect(served.text, name).toMatch(where);
     }
+    // every operation, given a key it does not know: refused at the same place, in the same words
+    for (const name of names) {
+      const api = await op(ui, name, { nope: 1 });
+      expect(api.status, name).toBe(422);
+      const served = tool(repo, name, { nope: 1 });
+      expect(served.refused, name).toBe(true);
+      expect(served.text, name).toContain(String(api.body.error));
+      expect(served.text, name).toContain(String(api.body.path));
+    }
     // an input that is no object at all
     for (const input of [null, [], "x", 3]) expect((await op(ui, "runs_list", input)).status).toBe(422);
     expect(tool(repo, "no_such_thing").refused).toBe(true);
@@ -132,6 +154,9 @@ describe("the factory's operations", () => {
     expect(inside.status).not.toBe(0);
     expect(inside.answers).toEqual([]);
     expect(inside.stderr).toMatch(/inside a run/);
+    const lane = operator(repo, list, { FACTOR_LANE: "build" });
+    expect(lane.status).not.toBe(0);
+    expect(lane.answers).toEqual([]);
     // and the guard denies an agent the command, with or without the variable
     expect(operator(repo, list).status).toBe(0);
   });
