@@ -177,6 +177,7 @@ pw press Control+s
 wait_for "Save says the file was changed elsewhere" "() => document.querySelector('.topbar .status').textContent" "^Not saved: the workflow's file was changed since this copy of it was read\\."
 grep -q '"name": "Twice"' "$file" || fail "the change made elsewhere was written over"
 grep -q 'Handbook' "$file" && fail "the save went through over a file changed elsewhere"
+expect "Save is off while the choice is open" "$(js "() => String(document.querySelector('.button.primary').disabled)")" '^true$'
 shot save-over-a-changed-file
 tab_to '^Save over it$'
 pw press Enter

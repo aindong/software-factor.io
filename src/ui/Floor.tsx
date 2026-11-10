@@ -385,7 +385,13 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
               Revert
             </button>
           )}
-          <button type="button" className="button primary" disabled={!canSave} onClick={() => save()}>
+          {/* while the file is changed elsewhere, the two choices beside it are the ways on */}
+          <button
+            type="button"
+            className="button primary"
+            disabled={!canSave || theirs !== undefined}
+            onClick={() => save()}
+          >
             Save
           </button>
         </div>
