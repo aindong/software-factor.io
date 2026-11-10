@@ -2,7 +2,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { lock, makePlugin } from "../helpers/plugin.ts";
+import { gitHost, lock, makePlugin } from "../helpers/plugin.ts";
 import { commandLane, flowRepo } from "../helpers/repo.ts";
 
 it("lists what the index holds, and adds a plugin by its name", () => {
@@ -14,12 +14,13 @@ it("lists what the index holds, and adds a plugin by its name", () => {
     JSON.stringify({
       version: 1,
       plugins: [
-        { name: "acme", description: "A board, a gate and a lane.", source: plugin.dir },
+        { name: "acme", description: "A board, a gate and a lane.", source: "acme/factor-board" },
         { name: "other", description: "Something else.", source: "someone/other" },
       ],
     }),
   );
   repo.env.FACTOR_DIRECTORY = index;
+  repo.env.FACTOR_GIT_BASE = gitHost(plugin, "acme", "factor-board");
   const listed = repo.sf("plugins", "--available");
   expect(listed.status, listed.stderr).toBe(0);
   expect(listed.stdout).toMatch(/acme\s+A board, a gate and a lane\./);
@@ -28,7 +29,7 @@ it("lists what the index holds, and adds a plugin by its name", () => {
 
   const r = repo.sf("add", "acme", "--yes");
   expect(r.status, r.stderr).toBe(0);
-  expect(lock(repo).acme).toMatchObject({ version: "1.2.0", source: plugin.dir });
+  expect(lock(repo).acme).toMatchObject({ version: "1.2.0", source: "acme/factor-board" });
 
   const missing = repo.sf("add", "nothing-like-it", "--yes");
   expect(missing.status).toBe(1);
@@ -45,4 +46,18 @@ it("says so when the index cannot be read or is not an index", () => {
   const r = repo.sf("add", "acme", "--yes");
   expect(r.status).toBe(1);
   expect(r.stderr).toMatch(/index/);
+});
+
+it("does not take a folder on this machine from an index: an index names repositories", () => {
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
+  const index = join(repo.home, "index.json");
+  writeFileSync(
+    index,
+    JSON.stringify({ version: 1, plugins: [{ name: "acme", description: "x", source: makePlugin().dir }] }),
+  );
+  repo.env.FACTOR_DIRECTORY = index;
+  const r = repo.sf("add", "acme", "--yes");
+  expect(r.status).toBe(1);
+  expect(r.stderr).toMatch(/index/);
+  expect(lock(repo)).toEqual({});
 });
