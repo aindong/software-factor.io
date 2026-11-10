@@ -4,29 +4,43 @@ import { parseWorkflow } from "../../src/core/schema/parse.ts";
 
 const dir = "test/fixtures/workflows/hard-cases";
 const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
+const lanesOf = (path: string) => JSON.stringify(JSON.parse(readFileSync(path, "utf8")).lanes);
+
+// Every data row of the table under "## Processes a skeptic tried":
+// | process | supported or known limit | fixture or reason |
 const doc = existsSync("docs/workflow-schema.md") ? readFileSync("docs/workflow-schema.md", "utf8") : "";
-// rows of the "Processes a skeptic tried" table: | process | supported or known limit | fixture or reason |
-const rows = doc
+const section = doc.split(/^## Processes a skeptic tried.*$/m)[1]?.split(/^## /m)[0] ?? "";
+const rows = section
   .split("\n")
-  .filter((l) => /^\|.*\|\s*(supported|known limit)\s*\|/i.test(l))
+  .filter((l) => l.startsWith("|") && !/^\|\s*-+/.test(l))
+  .slice(1)
   .map((l) => l.split("|").map((c) => c.trim()));
+const supported = rows.filter((r) => /^supported$/i.test(r[2] ?? ""));
+const fixtureOf = (r: string[]) => /`([a-z0-9-]+\.json)`/.exec(r[3] ?? "")?.[1];
 
 describe("processes a skeptic said the schema could not hold", () => {
-  it("are listed in the docs, at least four of them supported", () => {
-    const supported = rows.filter((r) => /supported/i.test(r[2] ?? ""));
+  it("are all marked supported or a known limit, at least four supported", () => {
+    expect(rows.length).toBeGreaterThanOrEqual(4);
+    for (const r of rows) expect(r[2], `row "${r[1]}"`).toMatch(/^(supported|known limit)$/i);
     expect(supported.length).toBeGreaterThanOrEqual(4);
   });
 
-  it("each supported process names a fixture that exists", () => {
-    for (const r of rows.filter((r) => /supported/i.test(r[2] ?? ""))) {
-      const fixture = /`([a-z0-9-]+\.json)`/.exec(r[3] ?? "")?.[1];
-      expect(fixture, `row "${r[1]}" names no fixture`).toBeDefined();
-      expect(files).toContain(fixture);
+  it("each supported process has its own fixture, unlike the examples and each other", () => {
+    const fixtures = supported.map(fixtureOf);
+    for (const [i, f] of fixtures.entries()) {
+      expect(f, `row "${supported[i]?.[1]}" names no fixture`).toBeDefined();
+      expect(files).toContain(f);
     }
+    expect(new Set(fixtures).size).toBe(supported.length);
+    const shapes = [
+      ...fixtures.map((f) => lanesOf(`${dir}/${f}`)),
+      ...["alleo-loop", "bugfix-fast", "research-only"].map((n) => lanesOf(`workflows/${n}.json`)),
+    ];
+    expect(new Set(shapes).size).toBe(shapes.length);
   });
 
   it("each known limit gives its reason", () => {
-    for (const r of rows.filter((r) => /known limit/i.test(r[2] ?? ""))) {
+    for (const r of rows.filter((r) => /^known limit$/i.test(r[2] ?? ""))) {
       expect((r[3] ?? "").length, `row "${r[1]}" gives no reason`).toBeGreaterThan(20);
     }
   });

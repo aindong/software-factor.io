@@ -1,0 +1,1021 @@
+{
+  "$id": "https://softwarefactor.io/schema/workflow/v1.json",
+  "title": "Software Factor.io workflow",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "https://softwarefactor.io/schema/workflow/v1.json",
+      "description": "Lets editors check and complete the file."
+    },
+    "version": {
+      "type": "number",
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 40,
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "plugins": {
+      "description": "Plugin namespace to semver range.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 40,
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "roles": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 40,
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "description"
+        ],
+        "additionalProperties": false
+      },
+      "description": "Every role a lane names. A workflow never names an account."
+    },
+    "mcp": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 40,
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "const": "profile"
+              }
+            },
+            "required": [
+              "from"
+            ],
+            "additionalProperties": false,
+            "description": "Already set up in the agent's profile."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "const": "command"
+              },
+              "command": {
+                "type": "string",
+                "minLength": 1
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "env": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Z_][A-Z0-9_]*$",
+                  "description": "The NAME of an environment variable on the machine. Never a value."
+                }
+              }
+            },
+            "required": [
+              "from",
+              "command"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "const": "url"
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              },
+              "headersEnv": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^[A-Z_][A-Z0-9_]*$",
+                  "description": "The NAME of an environment variable on the machine. Never a value."
+                }
+              }
+            },
+            "required": [
+              "from",
+              "url"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "skills": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "const": "profile"
+              }
+            },
+            "required": [
+              "from"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "const": "repo"
+              },
+              "source": {
+                "type": "string",
+                "minLength": 1
+              },
+              "skill": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "from",
+              "source"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "minutes": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "tokens": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "usd": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "minutes",
+        "tokens"
+      ],
+      "additionalProperties": false,
+      "description": "Budget for one run. A lane can only lower it."
+    },
+    "collectors": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+          },
+          "uses": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*\\/[a-z][a-z0-9-]*@[1-9][0-9]*$",
+            "description": "What this is, as namespace/type@major. The namespace `core` is built in."
+          },
+          "with": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "id",
+          "uses"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "gates": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "maxLength": 40,
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "uses": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*\\/[a-z][a-z0-9-]*@[1-9][0-9]*$",
+            "description": "What this is, as namespace/type@major. The namespace `core` is built in."
+          },
+          "with": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "onFail": {
+            "type": "string",
+            "enum": [
+              "repair",
+              "fail",
+              "stop",
+              "inform"
+            ],
+            "description": "repair: send the output back to the agent. fail: the lane fails. stop: the run stops, nothing is sent back. inform: recorded only."
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uses",
+          "onFail"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "lanes": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "uses": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*\\/[a-z][a-z0-9-]*@[1-9][0-9]*$",
+            "description": "What this is, as namespace/type@major. The namespace `core` is built in."
+          },
+          "agent": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z][a-z0-9-]*$",
+                "description": "A role declared in `roles`. Each machine binds roles to accounts."
+              },
+              "access": {
+                "type": "string",
+                "enum": [
+                  "read",
+                  "write"
+                ],
+                "description": "Whether this lane may change files in the worktree."
+              },
+              "prompt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "file": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "file"
+                    ],
+                    "additionalProperties": false
+                  }
+                ],
+                "description": "The instructions, inline or as a file path beside the workflow."
+              },
+              "tier": {
+                "description": "Model size, resolved to a real model by the role's binding.",
+                "type": "string",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ]
+              },
+              "effort": {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high",
+                  "max"
+                ]
+              },
+              "skills": {
+                "description": "Names declared in `skills`.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "mcp": {
+                "description": "Names declared in `mcp`.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z][a-z0-9-]*$",
+                  "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+                }
+              },
+              "session": {
+                "description": "Start fresh (the default), or continue the session another lane left.",
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "new"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "continue": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9-]*$",
+                        "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+                      }
+                    },
+                    "required": [
+                      "continue"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "role",
+              "access",
+              "prompt"
+            ],
+            "additionalProperties": false
+          },
+          "panel": {
+            "type": "object",
+            "properties": {
+              "members": {
+                "minItems": 2,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+                    },
+                    "role": {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+                    },
+                    "prompt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "file": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "file"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "tier": {
+                      "type": "string",
+                      "enum": [
+                        "small",
+                        "medium",
+                        "large"
+                      ]
+                    },
+                    "effort": {
+                      "type": "string",
+                      "enum": [
+                        "low",
+                        "medium",
+                        "high",
+                        "max"
+                      ]
+                    },
+                    "when": {
+                      "description": "Only include this member when the condition holds.",
+                      "type": "object",
+                      "properties": {
+                        "ref": {
+                          "type": "string",
+                          "pattern": "^(task\\.(source|labels)|change\\.tier|[a-z][a-z0-9-]*\\.(outputs\\.[a-zA-Z][a-zA-Z0-9]*|gates\\.[a-z][a-z0-9-]*))$",
+                          "description": "task.source, task.labels, change.tier, <lane>.outputs.<name>, or <lane>.gates.<gate> (pass or fail)."
+                        },
+                        "in": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          }
+                        },
+                        "notIn": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "ref"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "advisory": {
+                      "description": "Reported, but never decides the outcome.",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "id"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "join": {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "any"
+                ],
+                "description": "Pass when all deciding members pass, or when any does."
+              }
+            },
+            "required": [
+              "members",
+              "join"
+            ],
+            "additionalProperties": false
+          },
+          "with": {
+            "description": "Settings for this lane type.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "inputs": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^(task\\.(source|labels)|change\\.tier|[a-z][a-z0-9-]*\\.(outputs\\.[a-zA-Z][a-zA-Z0-9]*|gates\\.[a-z][a-z0-9-]*))$",
+              "description": "task.source, task.labels, change.tier, <lane>.outputs.<name>, or <lane>.gates.<gate> (pass or fail)."
+            }
+          },
+          "outputs": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "array",
+                    "object"
+                  ]
+                },
+                "enum": {
+                  "minItems": 1,
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "description": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "gates": {
+            "description": "Gate ids from `gates`, run by the host in this order.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9-]*$",
+              "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+            }
+          },
+          "checkpoint": {
+            "type": "string",
+            "enum": [
+              "in",
+              "near",
+              "out"
+            ],
+            "description": "in: wait for a person. near: tell a person and go on. out: no notice, audited later."
+          },
+          "oneWay": {
+            "description": "This lane does something that cannot be undone.",
+            "type": "boolean"
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "minutes": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "tokens": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "usd": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "turns": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "repairRounds": {
+                "description": "How many times a failed `repair` gate may send its output back to the same session.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5
+              }
+            },
+            "additionalProperties": false
+          },
+          "retry": {
+            "description": "Restarts after a crash. A retry is not a round.",
+            "type": "object",
+            "properties": {
+              "max": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 3
+              }
+            },
+            "required": [
+              "max"
+            ],
+            "additionalProperties": false
+          },
+          "on": {
+            "type": "object",
+            "properties": {
+              "pass": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9-]*$",
+                        "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "@done",
+                          "@stop",
+                          "@inbox"
+                        ]
+                      }
+                    ],
+                    "description": "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person)."
+                  },
+                  {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "to": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40,
+                              "pattern": "^[a-z][a-z0-9-]*$",
+                              "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "@done",
+                                "@stop",
+                                "@inbox"
+                              ]
+                            }
+                          ],
+                          "description": "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person)."
+                        },
+                        "when": {
+                          "type": "object",
+                          "properties": {
+                            "ref": {
+                              "type": "string",
+                              "pattern": "^(task\\.(source|labels)|change\\.tier|[a-z][a-z0-9-]*\\.(outputs\\.[a-zA-Z][a-zA-Z0-9]*|gates\\.[a-z][a-z0-9-]*))$",
+                              "description": "task.source, task.labels, change.tier, <lane>.outputs.<name>, or <lane>.gates.<gate> (pass or fail)."
+                            },
+                            "in": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            },
+                            "notIn": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "ref"
+                          ],
+                          "additionalProperties": false,
+                          "description": "True when the value at `ref` is (or, for a list, contains) one of `in`, or none of `notIn`."
+                        },
+                        "maxRounds": {
+                          "description": "How many times this transition may be taken in one run. Required when it points back.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10
+                        }
+                      },
+                      "required": [
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "description": "A target, or a list tried in order: the first entry that applies wins, the last is a plain default."
+              },
+              "fail": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9-]*$",
+                        "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "@done",
+                          "@stop",
+                          "@inbox"
+                        ]
+                      }
+                    ],
+                    "description": "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person)."
+                  },
+                  {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "to": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40,
+                              "pattern": "^[a-z][a-z0-9-]*$",
+                              "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "@done",
+                                "@stop",
+                                "@inbox"
+                              ]
+                            }
+                          ],
+                          "description": "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person)."
+                        },
+                        "when": {
+                          "type": "object",
+                          "properties": {
+                            "ref": {
+                              "type": "string",
+                              "pattern": "^(task\\.(source|labels)|change\\.tier|[a-z][a-z0-9-]*\\.(outputs\\.[a-zA-Z][a-zA-Z0-9]*|gates\\.[a-z][a-z0-9-]*))$",
+                              "description": "task.source, task.labels, change.tier, <lane>.outputs.<name>, or <lane>.gates.<gate> (pass or fail)."
+                            },
+                            "in": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            },
+                            "notIn": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "ref"
+                          ],
+                          "additionalProperties": false,
+                          "description": "True when the value at `ref` is (or, for a list, contains) one of `in`, or none of `notIn`."
+                        },
+                        "maxRounds": {
+                          "description": "How many times this transition may be taken in one run. Required when it points back.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10
+                        }
+                      },
+                      "required": [
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "description": "A target, or a list tried in order: the first entry that applies wins, the last is a plain default."
+              },
+              "needsPerson": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z][a-z0-9-]*$",
+                        "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "@done",
+                          "@stop",
+                          "@inbox"
+                        ]
+                      }
+                    ],
+                    "description": "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person)."
+                  },
+                  {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "to": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40,
+                              "pattern": "^[a-z][a-z0-9-]*$",
+                              "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "@done",
+                                "@stop",
+                                "@inbox"
+                              ]
+                            }
+                          ],
+                          "description": "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person)."
+                        },
+                        "when": {
+                          "type": "object",
+                          "properties": {
+                            "ref": {
+                              "type": "string",
+                              "pattern": "^(task\\.(source|labels)|change\\.tier|[a-z][a-z0-9-]*\\.(outputs\\.[a-zA-Z][a-zA-Z0-9]*|gates\\.[a-z][a-z0-9-]*))$",
+                              "description": "task.source, task.labels, change.tier, <lane>.outputs.<name>, or <lane>.gates.<gate> (pass or fail)."
+                            },
+                            "in": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            },
+                            "notIn": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "ref"
+                          ],
+                          "additionalProperties": false,
+                          "description": "True when the value at `ref` is (or, for a list, contains) one of `in`, or none of `notIn`."
+                        },
+                        "maxRounds": {
+                          "description": "How many times this transition may be taken in one run. Required when it points back.",
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10
+                        }
+                      },
+                      "required": [
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                ],
+                "description": "A target, or a list tried in order: the first entry that applies wins, the last is a plain default."
+              }
+            },
+            "required": [
+              "pass",
+              "fail"
+            ],
+            "additionalProperties": false,
+            "description": "Where the task goes for each outcome. needsPerson defaults to @inbox."
+          },
+          "meta": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "id",
+          "uses",
+          "checkpoint",
+          "on"
+        ],
+        "additionalProperties": false
+      },
+      "description": "In order. The first lane is where a run starts."
+    },
+    "meta": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "$schema",
+    "version",
+    "name",
+    "description",
+    "roles",
+    "limits",
+    "collectors",
+    "lanes"
+  ],
+  "additionalProperties": false
+}

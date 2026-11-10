@@ -13,6 +13,14 @@ describe("the three example workflows", () => {
     expect(result.problems).toEqual([]);
     expect(result.workflow?.name).toBe(name);
   });
+
+  it("are three different processes", () => {
+    const loop = JSON.stringify(load("workflows/alleo-loop.json"));
+    expect(loop).toContain('"maxRounds"');
+    expect(loop).toContain('"panel"');
+    expect(JSON.stringify(load("workflows/research-only.json"))).not.toContain("core/test-floor@1");
+    expect(load("workflows/bugfix-fast.json").lanes).toHaveLength(2);
+  });
 });
 
 describe("the published JSON Schema", () => {
@@ -31,5 +39,14 @@ describe("the published JSON Schema", () => {
   it("rejects a workflow with an unknown key", () => {
     const broken = { ...load("workflows/bugfix-fast.json"), surprise: true };
     expect(validate(broken)).toBe(false);
+  });
+
+  it("rejects an unknown key inside a lane and inside its agent settings", () => {
+    const inLane = load("workflows/bugfix-fast.json");
+    inLane.lanes[0].surprise = true;
+    expect(validate(inLane)).toBe(false);
+    const inAgent = load("workflows/bugfix-fast.json");
+    inAgent.lanes[0].agent.surprise = true;
+    expect(validate(inAgent)).toBe(false);
   });
 });

@@ -1,0 +1,179 @@
+{
+  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
+  "version": 1,
+  "name": "alleo-loop",
+  "description": "The owner's daily loop as lanes: plan with a verification contract, build with tests first, state the impact, review with a panel from another vendor, check the interface in a browser, ship. A person approves the plan and the ship.",
+  "roles": {
+    "author": { "description": "Plans and writes the change." },
+    "reviewer": {
+      "description": "Reads the change and tries to break it. Bind to a different vendor from the author when you can."
+    }
+  },
+  "skills": {
+    "alleo-loop:loop-plan": { "from": "profile" },
+    "alleo-loop:loop-build": { "from": "profile" },
+    "alleo-loop:loop-impact": { "from": "profile" },
+    "playwright-cli": { "from": "profile" }
+  },
+  "limits": { "minutes": 240, "tokens": 20000000 },
+  "collectors": [{ "id": "tasks", "uses": "core/file@1", "with": { "path": ".factor/tasks.md" } }],
+  "gates": {
+    "contract": {
+      "uses": "core/command@1",
+      "with": { "run": "alleo-plan-check \"$FACTOR_OUTPUT_PLAN\"" },
+      "onFail": "repair",
+      "description": "Every acceptance criterion in the plan names the check that proves it."
+    },
+    "protected": { "uses": "core/protected-paths@1", "onFail": "stop" },
+    "tests-kept": { "uses": "core/tests-not-weakened@1", "onFail": "stop" },
+    "verify": { "uses": "core/command@1", "with": { "command": "verify" }, "onFail": "repair" },
+    "floor": { "uses": "core/test-floor@1", "onFail": "repair" },
+    "proves-change": { "uses": "core/new-tests-fail-on-base@1", "onFail": "repair" }
+  },
+  "lanes": [
+    {
+      "id": "plan",
+      "name": "Plan",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "author",
+        "access": "write",
+        "tier": "large",
+        "effort": "high",
+        "skills": ["alleo-loop:loop-plan"],
+        "prompt": "Plan the task with the loop-plan skill. Write the plan with numbered acceptance criteria and a verification contract, and write the acceptance tests so they fail for the right reason. Do not ask the person: where the task is unclear, choose, and write the choice in the plan."
+      },
+      "outputs": { "plan": { "type": "string", "required": true, "description": "Path of the plan file." } },
+      "gates": ["contract"],
+      "checkpoint": "in",
+      "limits": { "minutes": 30, "repairRounds": 2 },
+      "on": { "pass": "build", "fail": "@stop" }
+    },
+    {
+      "id": "build",
+      "name": "Build",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "author",
+        "access": "write",
+        "tier": "large",
+        "effort": "high",
+        "skills": ["alleo-loop:loop-build"],
+        "session": { "continue": "plan" },
+        "prompt": "Build the approved plan with the loop-build skill: commit the acceptance tests first, then make them pass in small commits. If you are here because a later lane failed, fix what its hand-off lists and nothing else."
+      },
+      "inputs": { "plan": "plan.outputs.plan" },
+      "gates": ["protected", "tests-kept", "verify", "floor", "proves-change"],
+      "checkpoint": "near",
+      "limits": { "minutes": 90, "repairRounds": 2 },
+      "retry": { "max": 1 },
+      "on": { "pass": "impact", "fail": "@stop" }
+    },
+    {
+      "id": "impact",
+      "name": "Impact",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "author",
+        "access": "read",
+        "tier": "medium",
+        "effort": "high",
+        "skills": ["alleo-loop:loop-impact"],
+        "prompt": "Find what this change could break outside its own diff. Name the one fact its safety rests on and prove that fact by running real code. Fail the lane if the fact does not hold."
+      },
+      "outputs": {
+        "fact": {
+          "type": "string",
+          "required": true,
+          "description": "The fact the change's safety rests on."
+        },
+        "proof": {
+          "type": "string",
+          "enum": ["claimed", "cited", "argued", "run", "reproduced"],
+          "required": true
+        }
+      },
+      "checkpoint": "near",
+      "limits": { "minutes": 20 },
+      "on": {
+        "pass": "review",
+        "fail": [{ "to": "build", "maxRounds": 1 }, { "to": "@stop" }]
+      }
+    },
+    {
+      "id": "review",
+      "name": "Review",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "reviewer",
+        "access": "read",
+        "tier": "large",
+        "effort": "high",
+        "prompt": "Review the change against the plan's acceptance criteria. Report each finding as file and line, severity, the failing input, and a command that reproduces it. Only a finding you reproduced may fail the lane."
+      },
+      "panel": {
+        "join": "all",
+        "members": [
+          {
+            "id": "correctness",
+            "prompt": "Look only for logic errors, edge cases, error handling and concurrency bugs."
+          },
+          {
+            "id": "requirements",
+            "prompt": "Check each acceptance criterion: met, partial or not met, with the evidence."
+          },
+          {
+            "id": "skeptic",
+            "prompt": "Argue that the change is not done. Give your one strongest objection with a proof."
+          },
+          {
+            "id": "security",
+            "prompt": "Look only for security issues a real attacker could use.",
+            "when": { "ref": "change.tier", "in": ["sensitive", "api", "ui"] }
+          },
+          {
+            "id": "maintainability",
+            "prompt": "Look for duplication, dead code and needless complexity.",
+            "advisory": true
+          }
+        ]
+      },
+      "inputs": { "plan": "plan.outputs.plan", "impact": "impact.outputs.fact" },
+      "outputs": { "findings": { "type": "array", "description": "Every finding, with its proof." } },
+      "checkpoint": "near",
+      "limits": { "minutes": 30 },
+      "on": {
+        "pass": [{ "to": "verify-ui", "when": { "ref": "change.tier", "in": ["ui"] } }, { "to": "ship" }],
+        "fail": [{ "to": "build", "maxRounds": 2 }, { "to": "@stop" }]
+      }
+    },
+    {
+      "id": "verify-ui",
+      "name": "Check in a browser",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "reviewer",
+        "access": "read",
+        "tier": "medium",
+        "effort": "medium",
+        "skills": ["playwright-cli"],
+        "prompt": "Run the app and check each interface criterion of the plan in a real browser with playwright-cli. Attach a screenshot for each criterion as evidence. Fail the lane if any criterion does not hold on screen."
+      },
+      "inputs": { "plan": "plan.outputs.plan" },
+      "checkpoint": "near",
+      "limits": { "minutes": 30 },
+      "on": {
+        "pass": "ship",
+        "fail": [{ "to": "build", "maxRounds": 1 }, { "to": "@stop" }]
+      }
+    },
+    {
+      "id": "ship",
+      "name": "Ship",
+      "uses": "core/command@1",
+      "with": { "command": "ship" },
+      "checkpoint": "in",
+      "on": { "pass": "@done", "fail": "@stop" }
+    }
+  ]
+}
