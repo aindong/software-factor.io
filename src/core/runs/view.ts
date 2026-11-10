@@ -23,6 +23,8 @@ const COMMIT = /^[0-9a-f]{7,64}$/;
 
 export interface RunRow {
   id: string;
+  /** The task's number in this workspace: what its train carries on the map. */
+  taskId: number;
   task: string;
   workflow: string;
   status: Run["status"];
@@ -76,6 +78,8 @@ export interface RunDetail extends RunRow {
       transcript: string | null;
     }[];
     handoff: string | null;
+    /** What a command lane printed, when it is one. */
+    output: string | null;
   }[];
   inbox: { id: number; lane: string; kind: string; body: string }[];
   files: { path: string; name: string; size: number; visit: number }[];
@@ -84,6 +88,7 @@ export interface RunDetail extends RunRow {
 type Row = Run & { title: string | null; started_at: string; ended_at: string | null };
 type LaneRow = {
   id: number;
+  seq: number;
   lane: string;
   outcome: Outcome | null;
   note: string | null;
@@ -182,6 +187,7 @@ function rowOf(db: Db, run: Row, lanesOf: (workflow: string) => LaneDef[]): RunR
     .get(run.id) as { n: number };
   return {
     id: run.id,
+    taskId: run.task_id,
     task: run.title ?? "",
     workflow: run.workflow,
     status: run.status,
@@ -238,6 +244,7 @@ export function runDetail(db: Db, root: string, id: string): RunDetail | undefin
   const run = db.prepare(`${RUNS} where runs.id = ?`).get(id) as Row | undefined;
   if (!run) return undefined;
   const named = new Map<string, { name: string; visit: number }>();
+  const files = evidenceFiles(root, id);
   const lanes = all<LaneRow>(db, "select * from lane_runs where run_id = ? order by seq, id", id).map((l) => {
     const gates = all<GateRecord>(db, "select * from gate_results where lane_run_id = ? order by id", l.id);
     const claims = all<{ text: string; evidence: string }>(
@@ -246,6 +253,9 @@ export function runDetail(db: Db, root: string, id: string): RunDetail | undefin
       l.id,
     ).map((c) => ({ text: c.text, evidence: parsed<Evidence[]>(c.evidence, []) }));
     for (const g of gates) named.set(g.output_path, { name: basename(g.output_path), visit: l.id });
+    // a command lane's own output is kept under the lane's tag
+    const output = files.find((f) => f.file === `${String(l.seq).padStart(2, "0")}-${l.lane}.log`)?.path;
+    if (output) named.set(output, { name: basename(output), visit: l.id });
     for (const e of claims.flatMap((c) => c.evidence)) {
       if (e.path && e.ref?.startsWith("attached:")) named.set(e.path, { name: e.ref.slice(9), visit: l.id });
     }
@@ -281,6 +291,7 @@ export function runDetail(db: Db, root: string, id: string): RunDetail | undefin
         }),
       ),
       handoff: l.handoff_path,
+      output: output ?? null,
     };
   });
   return {
@@ -290,7 +301,7 @@ export function runDetail(db: Db, root: string, id: string): RunDetail | undefin
     inbox: all<InboxItem>(db, "select * from inbox where run_id = ? and status = 'open' order by id", id).map(
       (i) => ({ id: i.id, lane: i.lane, kind: i.kind, body: i.body }),
     ),
-    files: evidenceFiles(root, id).map((f) => ({
+    files: files.map((f) => ({
       path: f.path,
       name: named.get(f.path)?.name ?? f.file,
       size: f.size,

@@ -76,10 +76,41 @@ other process on the machine, a coding agent included.
 What this does not stop: a process running as you can read your terminal's output or the workflow files
 themselves. Only a sandbox for the agents stops that.
 
+## Runs
+
+Runs lists every task the factory has taken, the newest first: every run that is moving or waiting, and the
+latest ended ones up to 50 in all. Each row has the task, a strip map (one stop for each lane: a blue disc
+passed, a vermilion diamond failed, a yellow square asked a person, a ring is not reached, and the train is on
+the lane the run is at) and one sentence about what is happening now. The list follows the record by itself:
+the server sends it again whenever it changes, so a run started in your terminal appears without a reload.
+
+The sentence comes from the record. For an agent at work it is read from the last lines of its CLI's output:
+"Build: the agent is running `npm test`." It holds no clock, so it changes only when something happens.
+
+The arrow keys move through the list and Enter goes into a run. A run shows:
+
+- **Its map.** The workflow's diagram, read only, with what the run did at each station and the lines it took
+  lit. The Replay control steps through the run with the arrow keys: at each step the map shows the run as it
+  was then.
+- **What waits for you**, with the command that answers it. Answering from the interface comes with the inbox.
+- **The diff** of the whole run, from its base commit to its head. A line taken out is struck through.
+- **What its agents attached.** Two images of one lane whose names differ only in the word `before` or `after`
+  (`list-before.png`, `list-after.png`) are shown side by side. A `.webm`, `.mp4` or `.mov` plays as a
+  recording. Anything else is shown as text or offered as a download.
+- **Lane by lane**: the outcome, time, tokens and cost of each visit, its claims with the evidence each names,
+  each gate with its command, exit code and output, the hand-off, and what the agent printed.
+
+On the floor, "Runs on map" puts a numbered train on the lane of each run that is moving or waiting. A train
+that waits for a person is yellow.
+
+A file of a run is served only when it is a plain file inside that run's own folder under `.factor/runs/`, with
+no link on the way, and only as an image, a video, plain text or a download. An `.html` or `.svg` file an agent
+attached is shown as its text. It is never run as a page.
+
 ## Not built yet
 
-Runs on the map, the inbox, accounts, plugins and costs. Each section says so and names the command that gives
-the same today. There is no undo beyond Revert, which reloads the file.
+The inbox, accounts, plugins and costs. Each section says so and names the command that gives the same today.
+There is no undo on the floor beyond Revert, which reloads the file. A diff is the whole run's, not one lane's.
 
 ## How it is checked
 
@@ -87,3 +118,6 @@ the same today. There is no undo beyond Revert, which reloads the file.
 `bash test/ui/floor.sh` (it needs `playwright-cli` and `pnpm run build`): by keyboard it opens a station, adds a
 lane, connects it, follows the change into the JSON view and back, has a save refused, saves, and reads the file.
 Give it a folder as its argument and it leaves screenshots there in both themes.
+`bash test/ui/runs.sh` does the same for Runs: it makes three runs with the scripted agent (one done, one
+stopped, one waiting), and by key presses alone moves through the list, steps a run back and forth on its map,
+and opens the diff, a screenshot pair, a recording, a gate's output and a hand-off.

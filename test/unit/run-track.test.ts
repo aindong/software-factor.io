@@ -1,6 +1,6 @@
 // Where a run has been, as the strip map, the big map and the scrubber all draw it.
 import { describe, expect, it } from "vitest";
-import { trackOf, type Visit } from "../../src/core/runs/track.ts";
+import { routeOf, trackOf, type Visit } from "../../src/core/runs/track.ts";
 
 const order = ["plan", "build", "review", "merge"];
 const v = (lane: string, outcome: Visit["outcome"] = "pass"): Visit => ({ lane, outcome });
@@ -104,5 +104,46 @@ describe("the track of a run", () => {
     const given = JSON.stringify([order, visits]);
     trackOf(order, visits, 1, "build");
     expect(JSON.stringify([order, visits])).toBe(given);
+  });
+});
+
+describe("the lines a run took", () => {
+  const leg = (from: string, outcome: "pass" | "fail", to: string, key = `${from}.${outcome}`) => ({
+    key,
+    from,
+    to,
+    outcome,
+  });
+  const lines = [
+    leg("plan", "pass", "build"),
+    leg("build", "pass", "review"),
+    leg("build", "fail", "@stop"),
+    leg("review", "pass", "@done"),
+    leg("review", "fail", "build", "review.fail[0]"),
+    leg("review", "fail", "@stop", "review.fail[1]"),
+  ];
+  const visits = [v("plan"), v("build"), v("review", "fail"), v("build"), v("review")];
+  const route = (n?: number, ended?: boolean) => [...routeOf(lines, visits, n, ended)].sort().join(" ");
+
+  it("are those between one visit and the next, up to the step", () => {
+    expect(route(0)).toBe("");
+    expect(route(1)).toBe("");
+    expect(route(2)).toBe("plan.pass");
+    expect(route(3)).toBe("build.pass plan.pass");
+    expect(route(4)).toBe("build.pass plan.pass review.fail[0]");
+    expect(route()).toBe("build.pass plan.pass review.fail[0]");
+  });
+
+  it("reach the end of the run only when it has ended, and only at the last step", () => {
+    expect(route(undefined, true)).toBe("build.pass plan.pass review.fail[0] review.pass");
+    expect(route(3, true)).toBe("build.pass plan.pass");
+    // two lines could have been the way out: neither is claimed
+    expect([...routeOf(lines, [v("review", "fail")], undefined, true)]).toEqual([]);
+    expect([...routeOf(lines, [v("build", "fail")], undefined, true)]).toEqual(["build.fail"]);
+  });
+
+  it("leave out a step the map has no line for", () => {
+    expect([...routeOf(lines, [v("plan"), v("review"), v("lint")])]).toEqual([]);
+    expect([...routeOf([], visits)]).toEqual([]);
   });
 });

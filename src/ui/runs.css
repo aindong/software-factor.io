@@ -1,0 +1,418 @@
+/* Runs: the list with its strip maps, one run with its map, and the evidence viewer. */
+.runs {
+  display: grid;
+  grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+  min-height: 0;
+}
+.runlist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  border-right: 1px solid var(--rule);
+}
+.run {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px var(--sm);
+  padding: var(--sm) var(--lg);
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+}
+.run:hover {
+  background: color-mix(in oklch, var(--panel) 50%, var(--ground));
+}
+.run[aria-selected="true"] {
+  background: var(--panel);
+}
+.run:focus-visible {
+  outline-offset: -2px;
+}
+.run .task {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.run .when,
+.run .spent {
+  color: var(--ink-soft);
+  white-space: nowrap;
+  text-align: right;
+}
+.run .strip {
+  grid-column: 2;
+}
+.run .sentence {
+  grid-column: 2 / -1;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+/* how a run, a lane or a gate stands: a shape and a colour, never the colour alone */
+.mark {
+  flex: none;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--end);
+}
+.mark.pass {
+  border: 0;
+  background: var(--through);
+}
+.mark.fail {
+  border: 0;
+  border-radius: 0;
+  background: var(--return);
+  transform: rotate(45deg) scale(0.86);
+}
+.mark.asked {
+  border: 1.5px solid var(--ink);
+  border-radius: 1px;
+  background: var(--signal);
+}
+.mark.moving,
+.mark.here {
+  border-color: var(--ink);
+}
+
+.strip {
+  display: block;
+  overflow: visible;
+}
+.strip .way {
+  stroke: var(--rule);
+  stroke-width: 2;
+}
+.strip .stop {
+  fill: var(--ground);
+  stroke: var(--end);
+  stroke-width: 1.5;
+}
+.strip .stop.pass {
+  fill: var(--through);
+  stroke: none;
+}
+.strip .stop.fail {
+  fill: var(--return);
+  stroke: none;
+}
+.strip .stop.asked {
+  fill: var(--signal);
+  stroke: var(--ink);
+}
+.strip .stop.here {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.strip .train {
+  fill: var(--ground);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+/* ---- one run */
+.rundetail {
+  display: grid;
+  align-content: start;
+  gap: var(--xl);
+  padding: var(--lg) var(--xl) var(--xl);
+  overflow-y: auto;
+  min-width: 0;
+  min-height: 0;
+}
+.rundetail header {
+  display: grid;
+  gap: var(--sm);
+  justify-items: start;
+}
+.rundetail h2:focus {
+  outline: none;
+}
+.rundetail h3 {
+  margin: 0;
+  font: 600 var(--text-label) / 1.2 var(--font-tight);
+  color: var(--ink-soft);
+}
+.rundetail .sentence {
+  max-width: 70ch;
+}
+.rundetail .back {
+  display: none;
+}
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xs) var(--lg);
+  margin: 0;
+  color: var(--ink-soft);
+}
+.facts > div {
+  display: flex;
+  gap: var(--sm);
+  min-width: 0;
+}
+.facts dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.quiet {
+  color: var(--ink-soft);
+}
+.waits {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sm);
+  max-width: 80ch;
+}
+.runmap {
+  border: 1px solid var(--rule);
+  border-radius: var(--control);
+  min-width: 0;
+}
+.runmap .map-scroll {
+  overflow: auto;
+}
+.scrub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sm) var(--md);
+  padding: var(--sm) var(--md);
+  border-top: 1px solid var(--rule);
+  background: var(--panel);
+}
+.scrub input {
+  flex: 1 1 160px;
+  max-width: 360px;
+  accent-color: var(--ink);
+}
+.scrub output {
+  flex: 1 1 200px;
+}
+
+/* a run over the map: what it took stays, the rest steps back */
+.map.overlaid .line:not(.lit),
+.map.overlaid .casing:not(.lit),
+.map.overlaid .station.far,
+.map.overlaid .tag {
+  opacity: 0.28;
+}
+.map .station.ran-pass .body {
+  fill: var(--through);
+}
+.map .station.ran-fail .body {
+  fill: var(--return);
+}
+.map .station.ran-asked .body {
+  fill: var(--signal);
+}
+.map .station.ran-asked .mark {
+  stroke: var(--signal-ink);
+}
+.map .train rect {
+  fill: var(--ink);
+  stroke: var(--ground);
+  stroke-width: 2;
+}
+.map .train text {
+  fill: var(--ground);
+  font: 600 var(--text-label) / 1 var(--font-tight);
+  font-variant-numeric: tabular-nums;
+}
+.map .train.asks rect {
+  fill: var(--signal);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+.map .train.asks text {
+  fill: var(--signal-ink);
+}
+
+/* ---- evidence */
+.block {
+  display: grid;
+  gap: var(--sm);
+  min-width: 0;
+}
+.proof {
+  min-width: 0;
+}
+.proof > button {
+  display: flex;
+  align-items: center;
+  gap: var(--sm);
+  width: 100%;
+  min-height: var(--row);
+  padding: 2px var(--sm);
+  border: 1px solid var(--rule);
+  border-radius: var(--control);
+  background: var(--ground);
+  text-align: left;
+  cursor: pointer;
+}
+.proof > button:hover {
+  border-color: var(--ink-soft);
+}
+.proof > button[aria-expanded="true"] {
+  border-color: var(--ink);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.proof .caret {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.proof > button[aria-expanded="true"] .caret {
+  transform: rotate(90deg);
+}
+.proof .what {
+  font-weight: 500;
+}
+.proof .meta {
+  margin-left: auto;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proof .shown {
+  display: grid;
+  gap: var(--sm);
+  padding: var(--md);
+  border: 1px solid var(--ink);
+  border-top: 0;
+  border-radius: 0 0 var(--control) var(--control);
+  min-width: 0;
+}
+.output {
+  margin: 0;
+  max-height: 60vh;
+  padding: var(--sm) var(--md);
+  overflow: auto;
+  background: var(--panel);
+  border-radius: var(--control);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+.diff {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+.diff .file {
+  font-weight: 700;
+}
+.diff .hunk {
+  color: var(--ink-soft);
+}
+.diff .add {
+  font-weight: 600;
+  background: color-mix(in oklch, var(--ink) 9%, transparent);
+}
+.diff .del {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+}
+.shot {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  border: 1px solid var(--rule);
+  /* a checker behind, so a see-through picture still shows its edges */
+  background: repeating-conic-gradient(var(--panel) 0 25%, var(--ground) 0 50%) 0 0 / 16px 16px;
+}
+.pair-shots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--md);
+}
+.pair-shots figure {
+  display: grid;
+  gap: var(--xs);
+  align-content: start;
+  margin: 0;
+  min-width: 0;
+}
+.visits {
+  display: grid;
+  gap: var(--lg);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.visits > li {
+  display: grid;
+  gap: var(--sm);
+  min-width: 0;
+}
+.visits > li + li {
+  padding-top: var(--lg);
+  border-top: 1px solid var(--rule);
+}
+.visit {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--xs) var(--sm);
+}
+.visit .spent {
+  margin-left: auto;
+  color: var(--ink-soft);
+}
+.visits .note {
+  color: var(--ink-soft);
+  max-width: 80ch;
+  overflow-wrap: anywhere;
+}
+.claims {
+  display: grid;
+  gap: var(--xs);
+  margin: 0;
+  padding-left: var(--lg);
+  max-width: 90ch;
+}
+.ref {
+  margin-right: var(--xs);
+  padding: 0 var(--xs);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+@media (max-width: 1000px) {
+  .runs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* one at a time: the list, or the run that was entered */
+  .runs[data-inside="true"] .runlist,
+  .runs[data-inside="false"] .rundetail {
+    display: none;
+  }
+  .runlist {
+    border-right: 0;
+  }
+  .rundetail {
+    padding: var(--md);
+  }
+  .rundetail .back {
+    display: inline-block;
+  }
+  .pair-shots {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .proof .meta {
+    display: none;
+  }
+}

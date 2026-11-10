@@ -1,4 +1,5 @@
 // The interface's calls to its own server. Every call carries the token the served page holds.
+import type { RunDetail, RunRow } from "../core/runs/view.ts";
 import type { Problem } from "../core/schema/parse.ts";
 
 // The session's key comes in the address the command printed, after the "#", where the browser
@@ -65,3 +66,65 @@ export const getWorkspace = () => call<WorkspaceInfo>("/api/workspace");
 export const getWorkflow = (name: string) => call<Loaded>(`/api/workflows/${encodeURIComponent(name)}`);
 export const saveWorkflow = (name: string, workflow: Json) =>
   call<Loaded>(`/api/workflows/${encodeURIComponent(name)}`, "PUT", { workflow });
+
+// ---- runs
+
+export type { RunDetail, RunRow };
+
+const runPath = (id: string) => `/api/runs/${encodeURIComponent(id)}`;
+export const getRun = (id: string) => call<{ run?: RunDetail; error?: string }>(runPath(id));
+export const getDiff = (id: string) =>
+  call<{ diff?: string; cut?: boolean; note?: string; error?: string }>(`${runPath(id)}/diff`);
+/** A file of a run, by the path the record gives. Nothing when the server has no such file. */
+export async function getFile(id: string, path: string): Promise<Blob | undefined> {
+  try {
+    const answer = await fetch(`${runPath(id)}/file?path=${encodeURIComponent(path)}`, {
+      headers: { "x-factor-token": token },
+    });
+    return answer.ok ? await answer.blob() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Listen to the list of runs: the server sends it on connecting and whenever it changes. The
+ * browser's own event source cannot carry the token, so the stream is read by hand. When the
+ * connection drops it is made again. Returns what stops the listening.
+ */
+export function listen(onRuns: (runs: RunRow[]) => void, onState: (live: boolean) => void): () => void {
+  const control = new AbortController();
+  const stream = async () => {
+    const answer = await fetch("/api/live", { headers: { "x-factor-token": token }, signal: control.signal });
+    if (answer.status === 401) return forgetKey();
+    const reader = answer.body?.getReader();
+    if (!answer.ok || !reader) throw new Error("no stream");
+    onState(true);
+    const decoder = new TextDecoder();
+    let pending = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) return;
+      pending += decoder.decode(value, { stream: true });
+      for (let end = pending.indexOf("\n\n"); end >= 0; end = pending.indexOf("\n\n")) {
+        const data = pending
+          .slice(0, end)
+          .split("\n")
+          .filter((l) => l.startsWith("data:"))
+          .map((l) => l.slice(5).trim())
+          .join("\n");
+        pending = pending.slice(end + 2);
+        if (data) onRuns((JSON.parse(data) as { runs: RunRow[] }).runs);
+      }
+    }
+  };
+  (async () => {
+    while (!control.signal.aborted) {
+      await stream().catch(() => {}); // the server went away, or the listening was stopped
+      if (control.signal.aborted) return;
+      onState(false);
+      await new Promise((again) => setTimeout(again, 2000));
+    }
+  })();
+  return () => control.abort();
+}

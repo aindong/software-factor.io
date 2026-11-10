@@ -21,7 +21,7 @@ const STATE = { pass: "pass", fail: "fail", needsPerson: "asked" } as const;
  */
 export function trackOf(order: string[], visits: Visit[], n?: number, at?: string | null): Track {
   const total = visits.length;
-  const step = n === undefined || Number.isNaN(n) ? total : Math.max(0, Math.min(total, Math.floor(n)));
+  const step = stepOf(total, n);
   const here = step < total ? visits[step - 1]?.lane : (at ?? undefined);
   const latest = new Map<string, Visit>();
   for (const visit of visits.slice(0, step)) latest.set(visit.lane, visit);
@@ -40,6 +40,35 @@ export function trackOf(order: string[], visits: Visit[], n?: number, at?: strin
     ],
     here,
   };
+}
+
+/** `n` as a whole step of a run of `total` visits: all of them when it is left out or no number. */
+export const stepOf = (total: number, n?: number) =>
+  n === undefined || Number.isNaN(n) ? total : Math.max(0, Math.min(total, Math.floor(n)));
+
+export interface Leg {
+  key: string;
+  from: string;
+  to: string;
+  outcome: "pass" | "fail" | "needsPerson";
+}
+/**
+ * The lines of the map a run took in its first `n` visits: from each lane, by its outcome, to the
+ * lane it entered next. With `ended`, also the line from the last lane to the end of the run, when
+ * that outcome has one way out of the lane and it is an end.
+ */
+export function routeOf(lines: Leg[], visits: Visit[], n?: number, ended = false): Set<string> {
+  const step = stepOf(visits.length, n);
+  const taken = new Set<string>();
+  const from = (visit: Visit | undefined) =>
+    lines.filter((l) => l.from === visit?.lane && l.outcome === visit.outcome);
+  for (let i = 0; i + 1 < step; i++) {
+    const line = from(visits[i]).find((l) => l.to === visits[i + 1]?.lane);
+    if (line) taken.add(line.key);
+  }
+  const [way, other] = from(visits[step - 1]);
+  if (ended && step === visits.length && way?.to.startsWith("@") && !other) taken.add(way.key);
+  return taken;
 }
 
 export type Kind = "image" | "recording" | "text" | "other";

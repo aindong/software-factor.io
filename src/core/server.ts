@@ -41,7 +41,7 @@ const TYPES: Record<string, string> = {
 // nothing is loaded from anywhere but this server: the tool works with no network
 // and no other site may put the page in a frame, where it could steer clicks onto Save
 const POLICY =
-  "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
+  "default-src 'self'; img-src 'self' data: blob:; media-src blob:; style-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
 
 /** Where the built interface is: beside the built command, or in dist/ when run from source. */
 function uiDir(): string {
