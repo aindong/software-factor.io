@@ -129,6 +129,14 @@ export function gitConfigFingerprint(root: string): string {
     const file = join(gitDir, name);
     hash.update(`${name}\0${existsSync(file) ? readFileSync(file, "utf8") : ""}\0`);
   }
+  // every setting git will use, from the system, the user and the repository, with where it is set:
+  // a filter or a signing program the agent adds to the user's own file would run in the host's git
+  hash.update(git(root, "config", "--list", "--show-origin"));
+  const worktrees = join(gitDir, "worktrees");
+  for (const id of existsSync(worktrees) ? readdirSync(worktrees).sort() : []) {
+    const file = join(worktrees, id, "config.worktree");
+    if (existsSync(file)) hash.update(`${id}\0${readFileSync(file, "utf8")}\0`);
+  }
   const hooks = join(gitDir, "hooks");
   for (const name of existsSync(hooks) ? readdirSync(hooks).sort() : []) {
     const file = join(hooks, name);

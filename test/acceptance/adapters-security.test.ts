@@ -95,11 +95,9 @@ describe("the hook Claude Code is given", () => {
   });
 
   it("turns a guard that cannot start into a denial: a broken hook must not let the call through", () => {
-    const cli = process.argv[1] ?? "";
     expect(command).toContain("src/cli.ts");
     const broken = command.replace(/'[^']*src\/cli\.ts'/, "'/nonexistent/cli.ts'");
     expect(spawnSync("sh", ["-c", broken], { input: JSON.stringify(ls) }).status).toBe(2);
-    expect(cli).toBeTruthy();
   });
 
   it("runs with an empty environment, so nothing the CLI passes it can change what it loads", () => {

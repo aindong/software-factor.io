@@ -3,7 +3,7 @@
 // told which git folder to use, and nothing is reset, cleaned or committed unless the worktree is
 // still on the run's own branch.
 import { existsSync, lstatSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { branchTip, commitAll, git, worktreeGit, worktreeGitDir } from "../git.ts";
 import type { Lane } from "../schema/workflow.ts";
 import type { Run } from "../store.ts";
@@ -23,13 +23,20 @@ function gitFileIntact(root: string, worktree: string): boolean {
   try {
     if (lstatSync(file).isFile()) {
       const named = /^gitdir: (.+)$/m.exec(readFileSync(file, "utf8"))?.[1]?.trim() ?? "";
-      if (existsSync(named) && realpathSync(named) === realpathSync(gitDir)) return true;
+      // the git folder must also still lead to this repository's shared folder, not to one the agent made
+      const common = resolve(gitDir, readFileSync(join(gitDir, "commondir"), "utf8").trim());
+      const leadsHome = realpathSync(common) === realpathSync(resolve(gitDir, "../.."));
+      if (leadsHome && existsSync(named) && realpathSync(named) === realpathSync(gitDir)) return true;
     }
   } catch {
     // missing or unreadable: not intact
   }
-  rmSync(file, { recursive: true, force: true });
-  writeFileSync(file, `gitdir: ${gitDir}\n`);
+  try {
+    rmSync(file, { force: true }); // never with what is below it: a folder here is not the host's to delete
+    writeFileSync(file, `gitdir: ${gitDir}\n`);
+  } catch {
+    // it stays as it is, and the run stops
+  }
   return false;
 }
 
@@ -37,10 +44,11 @@ export function settleTree(
   ws: Workspace,
   run: Run,
   lane: Lane,
-  tipBefore: string,
+  before: { tip: string; path: string },
   message: string,
   log: string[],
 ): Settled {
+  const tipBefore = before.tip;
   const readOnly = lane.agent?.access !== "write";
   const moved = () => branchTip(ws.root, run.branch) !== tipBefore;
   /** A lane that only reads may not leave a commit: the run's branch goes back to where it was. */
@@ -48,6 +56,17 @@ export function settleTree(
     if (readOnly && moved()) git(ws.root, "update-ref", `refs/heads/${run.branch}`, tipBefore);
   };
   try {
+    // a worktree that was moved, or swapped for a link, is somewhere else now: nothing is done there
+    let inPlace = false;
+    try {
+      inPlace = !lstatSync(run.worktree).isSymbolicLink() && realpathSync(run.worktree) === before.path;
+    } catch {
+      // gone
+    }
+    if (!inPlace) {
+      putBack();
+      return { stop: true, fail: `the run's worktree was moved or replaced while lane "${lane.id}" worked` };
+    }
     if (!gitFileIntact(ws.root, run.worktree)) {
       putBack();
       return { stop: true, fail: `the worktree's .git file was changed while lane "${lane.id}" worked` };

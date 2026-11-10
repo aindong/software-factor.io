@@ -11,7 +11,7 @@ export const SECRET_FILE = new RegExp(
   [
     "(^|/)(\\.env(\\.(?!(example|sample|template)$)[^/]*)?|\\.netrc|\\.npmrc|\\.pypirc|\\.git-credentials)$",
     "(^|/)(id_(rsa|dsa|ecdsa|ed25519)[^/]*|[^/]*\\.(pem|key|p12|pfx)|\\.credentials\\.json)$",
-    "(^|/)(\\.ssh|\\.aws|\\.gnupg|\\.azure|\\.config/(gh|gcloud))/",
+    "(^|/)(\\.ssh|\\.aws|\\.gnupg|\\.azure|\\.config/(gh|gcloud))(/|$)",
     "\\.codex/auth\\.json$|\\.kimi-code/credentials(/|$)|\\.docker/config\\.json$|\\.kube/config$",
   ].join("|"),
 );
@@ -32,8 +32,8 @@ export const SECRET_IN_SHELL = [
 export const OWNED_IN_SHELL = [
   new RegExp(`${BEFORE}\\.git(/|${AFTER})`), // .git itself or anything in it, not .gitignore or .github
   /--git-common-dir|--git-dir|--absolute-git-dir/,
-  new RegExp(`${BEFORE}(\\.claude|\\.codex|\\.kimi-code)/|\\.mcp\\.json\\b`),
-  /\busage\.jsonl\b|\baccounts\.json\b/,
+  new RegExp(`${BEFORE}(\\.claude|\\.codex|\\.kimi-code)(/|${AFTER})|\\.mcp\\.json\\b`),
+  /\b(CLAUDE_CONFIG_DIR|CODEX_HOME|KIMI_CODE_HOME)\b/, // the CLI's profile folder, by its variable
 ];
 
 export const PIPE_TO_SHELL = /\b(curl|wget)\b[^;&\n]*\|\s*(sudo\s+)?(env\s+)?(ba|z|da|k)?sh\b/;

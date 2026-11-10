@@ -1,8 +1,20 @@
 // Claude Code, run for one lane: print mode with a JSON stream, the account's profile folder, and
 // the factory's guard as a hook before every tool call (docs/research/agent-clis.md).
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { Account } from "../accounts.ts";
 import { type Choice, handoffFromText, LIMIT, profileEnv, quote, runCli } from "./cli.ts";
 import type { AgentAdapter } from "./types.ts";
+
+/** The settings files of a profile folder, as one text. */
+function settingsOf(profile: string | undefined): string {
+  return ["settings.json", "settings.local.json"]
+    .map((name) => {
+      const file = join(profile ?? "", name);
+      return existsSync(file) ? readFileSync(file, "utf8") : "";
+    })
+    .join("\0");
+}
 
 // A lane that only reads has no tool that writes files: it gives its hand-off in its last message.
 const READ_TOOLS = ["Read", "Glob", "Grep", "Bash"];
@@ -21,8 +33,10 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
         ...["--access", canWrite ? "write" : "read"],
         ...(job.protect ?? []).flatMap((branch) => ["--protect", branch]),
       ];
-      const self = [process.execPath, process.argv[1] ?? "", "guard", ...lane].map(quote).join(" ");
-      const guard = `${self} || exit 2`;
+      // with an empty environment: the CLI's settings can set variables for hooks, and one such as
+      // NODE_OPTIONS would decide what the guard loads
+      const self = ["/usr/bin/env", "-i", process.execPath, process.argv[1] ?? "", "guard", ...lane];
+      const guard = `${self.map(quote).join(" ")} || exit 2`;
       const hooks = { PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: guard }] }] };
       const tools = [...READ_TOOLS, ...(canWrite ? WRITE_TOOLS : [])].join(",");
       const args = [
@@ -46,7 +60,13 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
         tools,
       ]; // never --bare: it skips hooks, so the guard would not run. And no permission mode that skips checks.
       const env = profileEnv("CLAUDE_CONFIG_DIR", account.profile, ".claude");
+      const settingsBefore = settingsOf(account.profile);
       const out = await runCli(job, account.bin ?? "claude", args, env, true);
+      // the profile's settings are loaded by every later lane, and can turn hooks off
+      const tampered =
+        settingsOf(account.profile) === settingsBefore
+          ? undefined
+          : `the settings in the profile folder of this account changed while lane "${job.lane.id}" worked: look at ${account.profile}/settings.json before the next run`;
 
       const result = out.events.findLast((e) => e.type === "result");
       const text = typeof result?.result === "string" ? result.result : "";
@@ -70,6 +90,7 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
         error,
         limit: error !== undefined && LIMIT.test(error),
         streamPath: out.streamPath,
+        tampered,
       };
     },
   };

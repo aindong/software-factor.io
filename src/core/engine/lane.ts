@@ -1,6 +1,6 @@
 // Runs one lane: an agent (with retries after a crash and repairs after a failed gate) or a host
 // command, then the lane's gates. Only the host's gates can pass a lane (ADR 0005).
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { holdAccount, recordUsage } from "../accounts.ts";
 import { adapterFor } from "../agents/index.ts";
@@ -171,6 +171,7 @@ export async function runLane(
       }
       const gitBefore = gitConfigFingerprint(ws.root);
       const tipBefore = branchTip(ws.root, run.branch);
+      const treeBefore = realpathSync(run.worktree);
       const limit = new AbortController();
       const remaining = laneMs - (Date.now() - started);
       const timer = setTimeout(() => limit.abort(), Math.max(1, remaining));
@@ -217,12 +218,14 @@ export async function runLane(
           sessionId: exit.sessionId ?? null,
         });
       }
-      if (gitConfigFingerprint(ws.root) !== gitBefore) {
-        stop = {
-          code: "git_config_changed",
-          reason: `git's configuration or hooks changed while lane "${lane.id}" worked: look at .git/config and .git/hooks before you commit`,
-        };
-        failWith(stop.reason);
+      // what decides which programs the host and the agent's CLI run must be as it was
+      const tampered =
+        gitConfigFingerprint(ws.root) !== gitBefore
+          ? `git's configuration or hooks changed while lane "${lane.id}" worked: look at .git/config, .git/hooks and your own git configuration before you commit`
+          : exit.tampered;
+      if (tampered) {
+        stop = { code: "git_config_changed", reason: tampered };
+        failWith(tampered);
         return done();
       }
       const halt = halted(ctx);
@@ -241,7 +244,7 @@ export async function runLane(
           ws,
           run,
           lane,
-          tipBefore,
+          { tip: tipBefore, path: treeBefore },
           `${lane.id}: ${oneLine(ctx.task.title, 72)}`,
           ctx.log,
         );

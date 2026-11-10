@@ -81,6 +81,7 @@ const GIT_ELSEWHERE = /^--(git-dir|work-tree|namespace|config-env)(=|$)/;
 const GIT_DENIED = new Set(["update-ref", "filter-branch", "credential", "replace"]);
 const MOVES_BRANCH = /^(-[a-zA-Z]*[fBCMDdm][a-zA-Z]*|--force|--delete|--move)$/;
 const FACTOR_PATH = /(^|\/)\.factor(\/|$)/;
+const MAX_COMMAND = 64_000; // a hook that runs too long is skipped by the CLI
 /** A command by its name, however its path was spelled. */
 const nameOf = (word: string) => word.slice(word.lastIndexOf("/") + 1);
 /** A branch as git will read it: with or without refs/ and heads/ in front. */
@@ -228,6 +229,9 @@ function judgeGit(rest: string[], where: Where): Verdict | undefined {
 
 function judgeShell(command: unknown, where: Where): Verdict {
   if (typeof command !== "string") return deny("This shell command is not text, so it is denied.");
+  if (command.length > MAX_COMMAND) {
+    return deny("This shell command is too long to check in time, so it is denied. Put it in a script file.");
+  }
   if (PIPE_TO_SHELL.test(command) || DOWNLOAD_AS_COMMAND.test(command)) {
     return deny("A download piped into a shell is not allowed. Save the file and read it first.");
   }
@@ -243,6 +247,7 @@ function judgeShell(command: unknown, where: Where): Verdict {
   // command. That denies too much now and then, never too little.
   let moved = false;
   const laneDir = real(where.laneDir);
+  const worktree = real(where.worktree);
   for (const part of command.split(/\|\||&&|[;|&\n]/)) {
     const words = part
       .trim()
@@ -251,9 +256,14 @@ function judgeShell(command: unknown, where: Where): Verdict {
       .filter(Boolean);
     for (const word of words) {
       if (/^GIT_[A-Z_0-9]+=/.test(word)) return deny("Setting git's environment is not allowed.");
-      // the factory's folders are off limits, except this lane's own folder under the factor home
-      if (FACTOR_PATH.test(word) && !within(laneDir, real(resolve(where.worktree, word)))) {
-        return deny("The factory's own folders may not be read or changed from the shell.");
+      // The factory's folders are off limits. The worktree and the lane's folder are under the
+      // factor home themselves, so a path into them is fine, but not the worktree's own .factor.
+      if (FACTOR_PATH.test(word)) {
+        const path = /^~|\$/.test(word) ? undefined : real(resolve(worktree, word));
+        const own =
+          path !== undefined &&
+          (within(laneDir, path) || (within(worktree, path) && partsIn(worktree, path)[0] !== ".factor"));
+        if (!own) return deny("The factory's own folders may not be read or changed from the shell.");
       }
     }
     while (words[0] !== undefined && (WRAPPERS.has(nameOf(words[0])) || /^\w+=/.test(words[0]))) {
