@@ -8,7 +8,8 @@ The words used here are defined in [CONTEXT.md](../CONTEXT.md). The reasons are 
 [ADR 0012](adr/0012-workflow-shape.md). The machine-readable schema is
 [schema/workflow.v1.json](../schema/workflow.v1.json), generated from `src/core/schema/workflow.ts`.
 
-Check a file with `pnpm run schema:check path/to/workflow.json`. Every problem names the place and what to change.
+Check a file with `softwarefactor check path/to/workflow.json`, or every workflow in the workspace with
+`softwarefactor check`. Every problem names the place and what to change.
 
 ## The smallest workflow
 
@@ -80,7 +81,10 @@ inputs in its prompt and reports outputs in its hand-off. A command gets each in
 command gets the lane's outputs as `FACTOR_OUTPUT_<NAME>`. No value is ever pasted into a command line.
 
 **Limits.** `limits` may set `minutes`, `tokens`, `usd`, `turns` and `repairRounds`. A lane can only lower the
-run's limits. `retry: { "max": 1 }` restarts a lane after a crash. A retry is not a round.
+run's limits. When a lane passes its own minutes, its agent is stopped and the lane's outcome is `fail`. When the
+run has used its minutes, tokens or dollars, no further lane starts and the run stops for a person. Time spent
+waiting, for a person or in a wait lane, is not counted. `retry: { "max": 1 }` restarts an agent that crashed
+without a hand-off. A retry is not a round.
 
 Rules the checker keeps:
 
@@ -94,7 +98,8 @@ Rules the checker keeps:
 ### Outcomes and transitions
 
 A lane ends with one of three outcomes: `pass`, `fail` or `needsPerson`. `on` says where the task goes for each.
-`pass` and `fail` are required. `needsPerson` defaults to `@inbox`.
+`pass` and `fail` are required. `needsPerson` defaults to `@inbox`. An agent that asks for a person has not
+finished, so its gates are not run: there is nothing to judge yet.
 
 A transition is a lane id, or one of four ends:
 
@@ -124,6 +129,25 @@ default:
   `change.tier` needs a lane that can write. The checker rejects a value the `ref` can never have: a collector
   that does not exist, a tier that is not one of the five, text against a yes-or-no output.
 - An entry with both `when` and `maxRounds` applies only while both hold.
+- **A round must bring something new.** When a loop goes back to a lane that writes and that lane made no new
+  commit since the last round, the run stops instead of going round again.
+
+### How a run ends
+
+Every run ends, or waits, with a code that can be counted:
+
+| Code | Meaning |
+| --- | --- |
+| `done`, `dropped` | The run reached `@done` or `@drop`. |
+| `lane_failed` | A lane's `fail` led to `@stop`. |
+| `rejected` | A person rejected a lane's work and that led to `@stop`. |
+| `out_of_rounds` | A loop had no rounds left and its default was `@stop`. |
+| `no_progress` | A loop came round with no new commit. |
+| `budget_minutes`, `budget_tokens`, `budget_usd` | The run used its budget. |
+| `gate_stop` | A gate with `onFail: "stop"` failed. |
+| `git_config_changed` | Git's configuration or hooks changed while an agent worked. |
+| `interrupted`, `crashed` | The command was stopped, or the engine hit an error. |
+| `awaiting_approval`, `needs_person`, `waiting` | The run is parked: for an approval, for an answer, or in a wait lane. |
 
 ### Gates
 

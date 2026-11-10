@@ -26,14 +26,27 @@ export const FakeAction = z.union([
   z.strictObject({ commit: z.string().min(1) }),
   z.strictObject({ handoff: z.record(z.string(), z.unknown()) }),
   z.strictObject({ exit: z.number().int() }),
+  z
+    .strictObject({ sleep: z.number().int().positive() })
+    .meta({ description: "Milliseconds of pretend work." }),
+  z.strictObject({
+    usage: z.strictObject({
+      tokens: z.number().int().nonnegative(),
+      usd: z.number().nonnegative().optional(),
+    }),
+  }),
 ]);
 export type FakeAction = z.infer<typeof FakeAction>;
 
 export const RoleBinding = z.strictObject({
   adapter: z.enum(["fake"]),
-  script: z.record(z.string(), z.array(FakeAction)).optional().meta({
-    description: 'For the fake adapter: what to do in each lane, by lane id, with "*" for any lane.',
-  }),
+  script: z
+    .record(z.string(), z.union([z.array(FakeAction), z.array(z.array(FakeAction))]))
+    .optional()
+    .meta({
+      description:
+        'For the fake adapter: what to do in each lane, by lane id, with "*" for any lane. A list of lists gives one list per time the lane is entered, the last one repeating.',
+    }),
 });
 export type RoleBinding = z.infer<typeof RoleBinding>;
 

@@ -66,7 +66,7 @@ const STARTER = {
           "Do the task below. Commit your work. In your hand-off, say what you changed and how it can be checked.",
       },
       gates: ["verify"],
-      checkpoint: "near",
+      checkpoint: "in",
       on: { pass: "@done", fail: "@stop" },
     },
   ],

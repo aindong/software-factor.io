@@ -24,11 +24,28 @@ function inside(cwd: string, rel: string, through: boolean): string {
   return target;
 }
 
+/** Pretend to work, but stop the moment the engine says the time is up. */
+const nap = (ms: number, signal: AbortSignal) =>
+  new Promise<void>((done) => {
+    const timer = setTimeout(done, ms);
+    signal.addEventListener("abort", () => {
+      clearTimeout(timer);
+      done();
+    });
+  });
+
 export function fakeAgent(binding: RoleBinding): AgentAdapter {
   return {
     async run(job: AgentJob) {
-      const script: FakeAction[] = binding.script?.[job.lane.id] ?? binding.script?.["*"] ?? [];
+      const scripted = binding.script?.[job.lane.id] ?? binding.script?.["*"] ?? [];
+      // a list of lists is one script per entry to the lane, the last one repeating
+      const perEntry = scripted.every((s) => Array.isArray(s)) && scripted.length > 0;
+      const script = (
+        perEntry ? scripted[Math.min(job.entry, scripted.length - 1)] : scripted
+      ) as FakeAction[];
+      const usage = { tokens: 0, usd: 0 };
       for (const action of script) {
+        if (job.signal.aborted) return { exitCode: 124, usage };
         if ("write" in action) {
           const target = inside(job.cwd, action.write.path, true);
           mkdirSync(dirname(target), { recursive: true });
@@ -39,11 +56,16 @@ export function fakeAgent(binding: RoleBinding): AgentAdapter {
           commitAll(job.cwd, action.commit);
         } else if ("handoff" in action) {
           writeFileSync(job.handoffPath, `${JSON.stringify(action.handoff, null, 2)}\n`);
+        } else if ("sleep" in action) {
+          await nap(action.sleep, job.signal);
+        } else if ("usage" in action) {
+          usage.tokens += action.usage.tokens;
+          usage.usd += action.usage.usd ?? 0;
         } else if ("exit" in action) {
-          return { exitCode: action.exit };
+          return { exitCode: action.exit, usage };
         }
       }
-      return { exitCode: 0 };
+      return { exitCode: job.signal.aborted ? 124 : 0, usage };
     },
   };
 }

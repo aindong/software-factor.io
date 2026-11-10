@@ -17,7 +17,15 @@ describe("what an agent cannot do to the host", () => {
     mkdirSync(join(root, "victim"));
     const agent = fakeAgent({ adapter: "fake", script: { "*": [{ delete: "../victim" }] } });
     await agent
-      .run({ runId: "r", lane: { id: "w" } as never, cwd, prompt: "", handoffPath: join(root, "h") })
+      .run({
+        runId: "r",
+        lane: { id: "w" } as never,
+        cwd,
+        prompt: "",
+        handoffPath: join(root, "h"),
+        entry: 0,
+        signal: new AbortController().signal,
+      })
       .catch(() => {});
     expect(existsSync(join(root, "victim"))).toBe(true);
   });
@@ -33,7 +41,15 @@ describe("what an agent cannot do to the host", () => {
       script: { "*": [{ write: { path: "out/planted.txt", content: "x" } }] },
     });
     await agent
-      .run({ runId: "r", lane: { id: "w" } as never, cwd, prompt: "", handoffPath: join(root, "h") })
+      .run({
+        runId: "r",
+        lane: { id: "w" } as never,
+        cwd,
+        prompt: "",
+        handoffPath: join(root, "h"),
+        entry: 0,
+        signal: new AbortController().signal,
+      })
       .catch(() => {});
     expect(existsSync(join(root, "outside", "planted.txt"))).toBe(false);
   });

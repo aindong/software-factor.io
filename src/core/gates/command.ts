@@ -2,6 +2,7 @@
 // lane left, never in the agent's worktree (ADR 0005). Uncommitted files do not exist for a gate.
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { MINUTE_MS } from "../clock.ts";
 import { UserError } from "../errors.ts";
 import { saveEvidence } from "../evidence.ts";
 import { hostEnv, sh } from "../exec.ts";
@@ -10,6 +11,7 @@ import type { GateRecord } from "../store.ts";
 import type { Workspace } from "../workspace.ts";
 
 const DEFAULT_TIMEOUT_MINUTES = 10;
+const suffix = (attempt: number) => (attempt > 1 ? `.${attempt}` : "");
 
 /** The shell command behind `run` or behind a workspace command name. */
 export function resolveCommand(
@@ -33,6 +35,8 @@ export async function runCommandGate(args: {
   ws: Workspace;
   runId: string;
   seq: number;
+  /** 1 for the first check, higher after a repair. */
+  attempt: number;
   lane: string;
   gateId: string;
   uses: string;
@@ -42,7 +46,7 @@ export async function runCommandGate(args: {
 }): Promise<GateRecord> {
   const { ws, runId, gateId, commit } = args;
   const command = resolveCommand(ws, args.settings, `Gate "${gateId}"`);
-  const checkout = join(ws.workDir, `${runId}-gate-${args.seq}-${gateId}`);
+  const checkout = join(ws.workDir, `${runId}-gate-${args.seq}-${gateId}-${args.attempt}`);
   mkdirSync(ws.workDir, { recursive: true });
   addCheckout(ws.root, checkout, commit);
   try {
@@ -53,14 +57,14 @@ export async function runCommandGate(args: {
     const result = await sh(command, {
       cwd: checkout,
       env: hostEnv(ws.config.gateEnv, args.env),
-      timeoutMs: minutes * 60_000,
+      timeoutMs: minutes * MINUTE_MS,
     });
     const tree = treeOf(ws.root, commit);
     const header = `$ ${command}\n# gate ${gateId} on commit ${commit} (tree ${tree}), exit ${result.exitCode}\n\n`;
     const evidence = saveEvidence(
       ws,
       runId,
-      `${String(args.seq).padStart(2, "0")}-${args.lane}-${gateId}.log`,
+      `${String(args.seq).padStart(2, "0")}-${args.lane}-${gateId}${suffix(args.attempt)}.log`,
       header + result.output,
     );
     return {
@@ -73,6 +77,7 @@ export async function runCommandGate(args: {
       output_path: evidence.path,
       output_sha256: evidence.sha256,
       duration_ms: result.durationMs,
+      attempt: args.attempt,
     };
   } finally {
     removeWorktree(ws.root, checkout);

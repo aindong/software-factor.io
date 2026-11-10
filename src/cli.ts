@@ -1,25 +1,36 @@
 #!/usr/bin/env node
+import { existsSync, readdirSync } from "node:fs";
+import { join, relative } from "node:path";
 // The command line. Every command is a thin layer over a core operation, so the interface and the
 // MCP server can offer the same ones (ADR 0008).
 import { parseArgs } from "node:util";
 import { openDb } from "./core/db.ts";
+import { decide } from "./core/engine/inbox.ts";
 import { collect, runNext } from "./core/engine/run.ts";
 import { UserError } from "./core/errors.ts";
 import { interrupt } from "./core/exec.ts";
+import { repoRoot } from "./core/git.ts";
 import { init } from "./core/init.ts";
-import { readStatus } from "./core/store.ts";
+import { reportFiles } from "./core/schema/check-files.ts";
+import { openInbox, readStatus } from "./core/store.ts";
 import { loadWorkspace } from "./core/workspace.ts";
 
 const HELP = `softwarefactor: a software factory you assemble yourself
 
 Usage: softwarefactor <command>
 
-  init      Set up a factory in this repository (.factor/)
-  collect   Ask the workflow's collectors for new tasks
-  run       Collect, then take the next queued task through the workflow
-  status    Show tasks, runs, lanes, gates and where the evidence is
+  init                     Set up a factory in this repository (.factor/)
+  check [files]            Check workflow files: each problem with its place and fix
+  collect                  Ask the workflow's collectors for new tasks
+  run                      Wake waits that are due, then take the next queued task through the workflow
+  status                   Show tasks, runs, lanes, gates and where the evidence is
+  inbox                    Show what waits for a person
+  approve <run>            Approve a waiting lane
+  reject <run> [--note]    Reject it: the lane's fail transition is taken
+  send-back <run> --note   Run the lane again with your note
+  answer <run> --note      Answer a lane's question and run it again
 
-Exit codes for run: 0 the task is done, 1 it stopped, 3 it waits for a person.
+Exit codes for run and for a decision: 0 the task is done or dropped, 1 it stopped, 3 it waits.
 `;
 
 // Task titles and agent summaries come from outside. Printed raw, a control sequence in one could
@@ -33,7 +44,7 @@ const EXIT = { none: 0, done: 0, dropped: 0, running: 0, stopped: 1, waiting: 3 
 async function main(): Promise<number> {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
-    options: { help: { type: "boolean", short: "h" } },
+    options: { help: { type: "boolean", short: "h" }, note: { type: "string" } },
   });
   const command = positionals[0];
   const cwd = process.cwd();
@@ -73,6 +84,40 @@ async function main(): Promise<number> {
     return 0;
   }
 
+  if (command === "check") {
+    const files = positionals.slice(1);
+    if (files.length === 0) {
+      const dir = join(repoRoot(cwd), ".factor", "workflows");
+      if (existsSync(dir)) {
+        for (const f of readdirSync(dir).sort())
+          if (f.endsWith(".json")) files.push(relative(cwd, join(dir, f)));
+      }
+    }
+    return reportFiles(files, say) > 0 ? 1 : 0;
+  }
+
+  if (command === "inbox") {
+    const ws = loadWorkspace(cwd);
+    const db = openDb(ws.dbPath);
+    try {
+      const items = openInbox(db);
+      if (items.length === 0) say("Nothing waits for you.");
+      for (const i of items) say(`${i.run_id}  ${i.kind.padEnd(8)} ${i.lane}  ${i.title}\n    ${i.body}`);
+    } finally {
+      db.close();
+    }
+    return 0;
+  }
+
+  if (command === "approve" || command === "reject" || command === "send-back" || command === "answer") {
+    const runId = positionals[1];
+    if (!runId)
+      throw new UserError(`"${command}" needs a run id.`, "See what is waiting with `softwarefactor inbox`.");
+    const summary = await decide(loadWorkspace(cwd), runId, command, values.note ?? "");
+    for (const line of summary.log) say(line);
+    return EXIT[summary.status];
+  }
+
   if (command === "run") {
     const summary = await runNext(loadWorkspace(cwd));
     for (const line of summary.log) say(line);
@@ -91,7 +136,7 @@ async function main(): Promise<number> {
       if (view.runs.length === 0) say("  (none)");
       for (const r of view.runs) {
         say(`  ${r.id}  ${r.status.padEnd(8)} ${r.title}  (branch ${r.branch})`);
-        if (r.stop_reason) say(`    ${r.stop_reason}`);
+        if (r.stop_reason) say(`    ${r.stop_code ?? "ended"}: ${r.stop_reason}`);
         for (const l of r.lanes) {
           say(`    ${l.lane}  ${l.outcome ?? "running"}${l.note ? `  ${l.note}` : ""}`);
           for (const g of l.gates) say(`      ${g.gate}  ${g.status}  exit ${g.exit_code}  ${g.output_path}`);
