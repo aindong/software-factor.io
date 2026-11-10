@@ -47,12 +47,21 @@ majors() { # the ids of a report's major findings
   major=$(field major "$file")
   for sev in $major; do grep -E "^### F[0-9]+ \\[$sev\\] " "$file" | sed -E 's/^### (F[0-9]+) .*/\1/'; done
 }
+whole() { # a report may be in parts, to keep each file small: <name>.md, <name>.part2.md, ...
+  local file=$1 part
+  [ -s "$file" ] || return 0
+  cat "$file"
+  for part in "${file%.md}".part*.md; do [ -s "$part" ] && cat "$part"; done
+}
 closed() { # closed <folder>
-  local dir=$1 id line state
-  report "$dir/critique.md" "$dir/before" || return 1
-  report "$dir/critique-after.md" "$dir/screens" || return 1
+  local dir=$1 id line state joined
+  joined=$(mktemp -d)
+  whole "$dir/critique.md" > "$joined/critique.md"
+  whole "$dir/critique-after.md" > "$joined/critique-after.md"
+  report "$joined/critique.md" "$dir/before" || return 1
+  report "$joined/critique-after.md" "$dir/screens" || return 1
   [ -s "$dir/findings.md" ] || { echo "$dir/findings.md is missing"; return 1; }
-  for id in $(majors "$dir/critique.md"); do
+  for id in $(majors "$joined/critique.md"); do
     [ "$(grep -cE "^- $id: " "$dir/findings.md")" = "1" ] || { echo "findings.md must account for $id of the first critique, once"; return 1; }
     line=$(grep -E "^- $id: " "$dir/findings.md")
     state=$(echo "$line" | sed -E "s/^- $id: ([a-z]+).*/\\1/")
@@ -68,9 +77,9 @@ closed() { # closed <folder>
       *) echo "findings.md: $id must be \"fixed (<commit or file>)\" or \"declined: <reason>\""; return 1 ;;
     esac
   done
-  [ -z "$(majors "$dir/critique-after.md")" ] || { echo "the second critique still has major findings: $(majors "$dir/critique-after.md" | tr '\n' ' ')"; return 1; }
+  [ -z "$(majors "$joined/critique-after.md")" ] || { echo "the second critique still has major findings: $(majors "$joined/critique-after.md" | tr '\n' ' ')"; return 1; }
   # the second critique looked at the interface as it is now
-  seen=$(field commit "$dir/critique-after.md")
+  seen=$(field commit "$joined/critique-after.md")
   last=$(git -C "$here" log -1 --format=%H -- src/ui)
   [ -n "$seen" ] && git -C "$here" merge-base --is-ancestor "$last" "$seen" 2> /dev/null || { echo "the second critique (commit \"$seen\") was made before the last change to src/ui ($last)"; return 1; }
   return 0
@@ -113,4 +122,5 @@ fi
 
 dir=${1:-$here/.agent/evidence/2026-11-10-task17}
 closed "$dir" || exit 1
-echo "critique: closed ($(grep -cE '^### F[0-9]+ \[' "$dir/critique.md") findings in the first pass, $(majors "$dir/critique.md" | wc -l | tr -d ' ') major; $(grep -cE '^### F[0-9]+ \[' "$dir/critique-after.md") in the second, none major)"
+first=$(mktemp); whole "$dir/critique.md" > "$first"
+echo "critique: closed ($(grep -cE '^### F[0-9]+ \[' "$first") findings in the first pass, $(majors "$first" | wc -l | tr -d ' ') major; $(whole "$dir/critique-after.md" | grep -cE '^### F[0-9]+ \[') in the second, none major)"
