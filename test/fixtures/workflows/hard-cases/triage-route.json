@@ -1,0 +1,199 @@
+{
+  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
+  "version": 1,
+  "name": "triage-route",
+  "description": "A cheap model sizes each task. Easy work goes to a small model, hard work to a large one. If the small model cannot finish, the task moves up to the large one.",
+  "roles": {
+    "triager": {
+      "description": "Sizes the task. Bind to the cheapest account."
+    },
+    "author": {
+      "description": "Writes the change."
+    },
+    "reviewer": {
+      "description": "Reviews the change.",
+      "differentVendorFrom": ["author"]
+    }
+  },
+  "limits": {
+    "minutes": 180,
+    "tokens": 12000000
+  },
+  "commands": {
+    "open-pr": {
+      "description": "Pushes the run's branch and opens a pull request for it. Exits 0 when the pull request exists."
+    },
+    "verify": {
+      "description": "Runs the project's typecheck, lint and tests on a clean checkout. Exits 0 only when they all pass."
+    }
+  },
+  "collectors": [
+    {
+      "id": "issues",
+      "uses": "core/github-issues@1",
+      "with": {
+        "label": "factory"
+      }
+    }
+  ],
+  "gates": {
+    "protected": {
+      "uses": "core/protected-paths@1",
+      "onFail": "stop"
+    },
+    "tests-kept": {
+      "uses": "core/tests-not-weakened@1",
+      "onFail": "stop"
+    },
+    "verify": {
+      "uses": "core/command@1",
+      "with": {
+        "command": "verify"
+      },
+      "onFail": "repair"
+    }
+  },
+  "lanes": [
+    {
+      "id": "triage",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "triager",
+        "access": "read",
+        "tier": "small",
+        "effort": "low",
+        "prompt": "Read the task and the files it names. Say how hard it is: easy (one file, clear fix), hard (anything else), or unclear (the task cannot be sized)."
+      },
+      "outputs": {
+        "size": {
+          "type": "string",
+          "enum": ["easy", "hard", "unclear"],
+          "required": true
+        }
+      },
+      "checkpoint": "out",
+      "limits": {
+        "minutes": 5,
+        "tokens": 200000
+      },
+      "on": {
+        "pass": [
+          {
+            "to": "build-small",
+            "when": {
+              "ref": "triage.outputs.size",
+              "in": ["easy"]
+            }
+          },
+          {
+            "to": "build-large",
+            "when": {
+              "ref": "triage.outputs.size",
+              "in": ["hard"]
+            }
+          },
+          {
+            "to": "@inbox"
+          }
+        ],
+        "fail": "build-large"
+      }
+    },
+    {
+      "id": "build-small",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "author",
+        "access": "write",
+        "tier": "small",
+        "effort": "medium",
+        "prompt": "Do the task, test first. Commit."
+      },
+      "inputs": {
+        "findings": "review.outputs.findings"
+      },
+      "gates": ["protected", "tests-kept", "verify"],
+      "checkpoint": "near",
+      "limits": {
+        "minutes": 20,
+        "repairRounds": 1
+      },
+      "on": {
+        "pass": "review",
+        "fail": "build-large"
+      }
+    },
+    {
+      "id": "build-large",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "author",
+        "access": "write",
+        "tier": "large",
+        "effort": "high",
+        "prompt": "Do the task, test first. Commit."
+      },
+      "inputs": {
+        "findings": "review.outputs.findings"
+      },
+      "gates": ["protected", "tests-kept", "verify"],
+      "checkpoint": "near",
+      "limits": {
+        "minutes": 90,
+        "repairRounds": 2
+      },
+      "on": {
+        "pass": "review",
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "review",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "reviewer",
+        "access": "read",
+        "tier": "medium",
+        "prompt": "Review the change. Only a finding you reproduced may fail the lane."
+      },
+      "outputs": {
+        "findings": {
+          "type": "array"
+        }
+      },
+      "checkpoint": "near",
+      "on": {
+        "pass": "open-pr",
+        "fail": [
+          {
+            "to": "build-small",
+            "when": {
+              "ref": "triage.outputs.size",
+              "in": ["easy"]
+            },
+            "maxRounds": 1
+          },
+          {
+            "to": "build-large",
+            "maxRounds": 2
+          },
+          {
+            "to": "@stop"
+          }
+        ]
+      }
+    },
+    {
+      "id": "open-pr",
+      "uses": "core/command@1",
+      "with": {
+        "command": "open-pr"
+      },
+      "checkpoint": "in",
+      "on": {
+        "pass": "@done",
+        "fail": "@stop"
+      }
+    }
+  ]
+}

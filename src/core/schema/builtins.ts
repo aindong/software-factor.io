@@ -2,23 +2,35 @@
 // A plugin's types are checked by the plugin. These are checked here, strictly.
 import { z } from "zod";
 
-const name = z.string().regex(/^[a-z][a-z0-9-]*$/);
-const inside = z
+/** A command the workspace defines in .factor/factory.json, such as `verify` or `test:e2e`. */
+export const commandName = z.string().regex(/^[a-zA-Z][\w:.-]*$/, {
+  message:
+    'A command name starts with a letter and uses letters, digits, ".", ":", "_" and "-", such as "test:e2e".',
+});
+
+const serverName = z.string().regex(/^[a-z][a-z0-9-]*$/);
+const outside = (p: string) =>
+  p.startsWith("/") || p.startsWith("~") || /^[A-Za-z]:/.test(p) || p.split(/[\\/]/).includes("..");
+export const insidePath = z
   .string()
   .min(1)
-  .refine((p) => !p.startsWith("/") && !p.startsWith("~") && !p.split(/[\\/]/).includes(".."), {
-    message: 'Use a path inside the workspace, with no leading / and no "..".',
+  .refine((p) => !outside(p), {
+    message:
+      'Use a relative path that stays inside the folder, with no leading /, no drive letter and no "..".',
   });
 
-const commandShape = {
-  run: z.string().min(1).optional(),
-  command: name.optional(),
-  timeoutMinutes: z.number().int().positive().optional(),
-};
-const oneCommand = 'Name exactly one of "run" (a shell command) or "command" (a name from factory.json).';
+const WEEK_MINUTES = 7 * 24 * 60;
+const MONTH_HOURS = 30 * 24;
+
 const command = z
-  .strictObject(commandShape)
-  .refine((v) => (v.run === undefined) !== (v.command === undefined), { message: oneCommand });
+  .strictObject({
+    run: z.string().min(1).optional(),
+    command: commandName.optional(),
+    timeoutMinutes: z.number().int().positive().optional(),
+  })
+  .refine((v) => (v.run === undefined) !== (v.command === undefined), {
+    message: 'Name exactly one of "run" (a shell command) or "command" (a name declared in "commands").',
+  });
 
 const wait = z
   .strictObject({
@@ -31,11 +43,24 @@ const wait = z
     message:
       'Give exactly one of "minutes" (a fixed wait) or "until" (a command that exits 0 when the wait is over).',
   })
-  .refine((v) => v.until === undefined || v.timeoutHours !== undefined, {
-    message: 'Add "timeoutHours": how long to wait for "until" before asking a person.',
+  .refine((v) => v.minutes === undefined || (v.everyMinutes === undefined && v.timeoutHours === undefined), {
+    message: 'A fixed wait takes only "minutes". Remove "everyMinutes" and "timeoutHours", or use "until".',
+  })
+  .refine((v) => v.until === undefined || (v.everyMinutes !== undefined && v.timeoutHours !== undefined), {
+    message:
+      'With "until", add "everyMinutes" (how often to check) and "timeoutHours" (when to ask a person instead).',
+  })
+  .refine((v) => (v.minutes ?? 0) <= WEEK_MINUTES, {
+    path: ["minutes"],
+    message: `A fixed wait can be at most ${WEEK_MINUTES} minutes (one week).`,
+  })
+  .refine((v) => (v.timeoutHours ?? 0) <= MONTH_HOURS, {
+    path: ["timeoutHours"],
+    message: `"timeoutHours" can be at most ${MONTH_HOURS} (30 days).`,
   });
 
 type Kind = "lane" | "gate" | "collector";
+const globs = z.array(z.string().min(1)).min(1).optional();
 
 /** What `with` must look like for each built-in. `null` means the type takes no settings. */
 export const BUILTINS: Record<Kind, Record<string, z.ZodType | null>> = {
@@ -46,19 +71,15 @@ export const BUILTINS: Record<Kind, Record<string, z.ZodType | null>> = {
   },
   gate: {
     "core/command@1": command,
-    "core/protected-paths@1": z
-      .strictObject({ paths: z.array(z.string().min(1)).min(1).optional() })
-      .optional(),
-    "core/tests-not-weakened@1": z
-      .strictObject({ testGlobs: z.array(z.string().min(1)).min(1).optional() })
-      .optional(),
-    "core/test-floor@1": z.strictObject({ command: name.optional() }).optional(),
+    "core/protected-paths@1": z.strictObject({ paths: globs }).optional(),
+    "core/tests-not-weakened@1": z.strictObject({ testGlobs: globs }).optional(),
+    "core/test-floor@1": z.strictObject({ command: commandName.optional() }).optional(),
     "core/new-tests-fail-on-base@1": z
-      .strictObject({ command: name.optional(), testGlobs: z.array(z.string().min(1)).min(1).optional() })
+      .strictObject({ command: commandName.optional(), testGlobs: globs })
       .optional(),
   },
   collector: {
-    "core/file@1": z.strictObject({ path: inside }),
+    "core/file@1": z.strictObject({ path: insidePath }),
     "core/github-issues@1": z.strictObject({
       label: z.string().min(1),
       repo: z
@@ -74,23 +95,57 @@ export const BUILTINS: Record<Kind, Record<string, z.ZodType | null>> = {
       body: z.string().min(1),
     }),
     "core/mcp-query@1": z.strictObject({
-      server: name,
+      server: serverName,
       tool: z.string().min(1),
       args: z.record(z.string(), z.unknown()).optional(),
     }),
   },
 };
 
-// Text that looks like a credential. A shared workflow must never carry one.
-const SECRET =
-  /(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/;
+/** Every workspace command a settings object names. */
+export function commandsIn(settings: unknown): string[] {
+  if (typeof settings !== "object" || settings === null) return [];
+  const s = settings as { command?: unknown; until?: unknown };
+  return [...(typeof s.command === "string" ? [s.command] : []), ...commandsIn(s.until)];
+}
 
-/** Paths of every string in the file that looks like a secret. */
-export function findSecrets(value: unknown, path = ""): string[] {
-  if (typeof value === "string") return SECRET.test(value) ? [path || "(top)"] : [];
-  if (Array.isArray(value)) return value.flatMap((v, i) => findSecrets(v, `${path}[${i}]`));
+// Text that looks like a credential. A shared workflow must never carry one. Token prefixes must
+// start a word and contain a digit, so ordinary words such as "risk-assessment" do not match.
+const START = "(?<![A-Za-z0-9_-])";
+const SECRET = new RegExp(
+  [
+    `${START}gh[pousr]_[A-Za-z0-9]{20,}`,
+    `${START}github_pat_\\w{20,}`,
+    `${START}glpat-[\\w-]{16,}`,
+    `${START}(sk|rk|pk)[-_](live_|test_|ant-|proj-)?(?=[\\w-]*\\d)[\\w-]{20,}`,
+    `${START}AKIA[0-9A-Z]{16}`,
+    `${START}xox[abprs]-[A-Za-z0-9-]{10,}`,
+    "-----BEGIN [A-Z ]*PRIVATE KEY-----",
+    `${START}eyJ[\\w-]{10,}\\.[\\w-]{10,}\\.[\\w-]{10,}`,
+    "[?&;](api[_-]?key|access[_-]?token|token|secret|password|passwd|auth)=[^&\\s]{6,}",
+  ].join("|"),
+  "i",
+);
+const SECRET_KEY =
+  /^(password|passwd|secret|token|api[_-]?key|access[_-]?token|private[_-]?key|client[_-]?secret)$/i;
+
+export interface SecretHit {
+  path: string;
+  /** The start of the text that matched, so a false alarm can be found. */
+  shown: string;
+}
+
+/** Every string in the file that looks like a secret, or sits under a key named like one. */
+export function findSecrets(value: unknown, path = "", key = ""): SecretHit[] {
+  if (typeof value === "string") {
+    const match = SECRET.exec(value);
+    if (match) return [{ path: path || "(top)", shown: `${match[0].slice(0, 8)}...` }];
+    if (SECRET_KEY.test(key) && value.length > 0) return [{ path, shown: `the value of "${key}"` }];
+    return [];
+  }
+  if (Array.isArray(value)) return value.flatMap((v, i) => findSecrets(v, `${path}[${i}]`, key));
   if (typeof value === "object" && value !== null) {
-    return Object.entries(value).flatMap(([k, v]) => findSecrets(v, path ? `${path}.${k}` : k));
+    return Object.entries(value).flatMap(([k, v]) => findSecrets(v, path ? `${path}.${k}` : k, k));
   }
   return [];
 }

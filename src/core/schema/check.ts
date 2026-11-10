@@ -1,6 +1,6 @@
 // Rules a JSON shape cannot express: references that must exist, settings each built-in accepts,
 // who may write and who checks it (ADR 0005, ADR 0012). Every problem names the place and the fix.
-import { BUILTINS, findSecrets } from "./builtins.ts";
+import { BUILTINS, commandsIn, findSecrets } from "./builtins.ts";
 import { checkRef, checkTransitions } from "./transitions.ts";
 import type { Workflow } from "./workflow.ts";
 
@@ -46,6 +46,15 @@ export function checkWorkflow(w: Workflow): Problem[] {
       if (settings !== undefined) add(`${path}.with`, `"${uses}" takes no settings.`, 'Remove "with".');
       return;
     }
+    for (const name of commandsIn(settings)) {
+      if (!w.commands?.[name]) {
+        add(
+          `${path}.with.command`,
+          `The workspace command "${name}" is not declared.`,
+          `Add "${name}": { "description": "what it must do" } to the top-level "commands".`,
+        );
+      }
+    }
     const parsed = schema.safeParse(settings);
     if (parsed.success) return;
     for (const issue of parsed.error.issues) {
@@ -53,7 +62,15 @@ export function checkWorkflow(w: Workflow): Problem[] {
         (p, k) => (typeof k === "number" ? `${p}[${k}]` : `${p}.${String(k)}`),
         `${path}.with`,
       );
-      let fix = `Set "${String(issue.path.at(-1) ?? "with")}" as "${uses}" expects. ${TABLE}`;
+      const key = String(issue.path.at(-1) ?? "with");
+      const missing = issue.path.reduce<unknown>(
+        (v, k) => (v as Record<PropertyKey, unknown>)?.[k],
+        settings,
+      );
+      let fix = `Set "${key}" as "${uses}" expects. ${TABLE}`;
+      if (settings !== undefined && missing === undefined && issue.path.length > 0) {
+        fix = `Add "${key}". ${TABLE}`;
+      }
       if (issue.code === "unrecognized_keys")
         fix = `Remove ${issue.keys.map((k) => `"${k}"`).join(", ")}. ${TABLE}`;
       else if (issue.code === "custom") fix = issue.message;
@@ -104,10 +121,10 @@ export function checkWorkflow(w: Workflow): Problem[] {
       }
     }
   }
-  for (const path of findSecrets(w)) {
+  for (const { path, shown } of findSecrets(w)) {
     add(
       path,
-      "This looks like a secret. A workflow is meant to be shared.",
+      `This looks like a secret (${shown}). A workflow is meant to be shared.`,
       "Remove it. Keep the value in an environment variable on the machine and name the variable instead.",
     );
   }
@@ -157,11 +174,12 @@ export function checkWorkflow(w: Workflow): Problem[] {
     const session = lane.agent?.session;
     if (session && session !== "new") {
       const other = w.lanes[index.get(session.continue) ?? -1];
-      if (!other?.agent || other.id === lane.id || other.agent.role !== lane.agent?.role) {
+      const earlier = (index.get(session.continue) ?? i) < i;
+      if (!other?.agent || !earlier || other.panel || other.agent.role !== lane.agent?.role) {
         add(
           `${at}.agent.session`,
           `Lane "${lane.id}" cannot continue the session of "${session.continue}".`,
-          'Name another agent lane with the same role (a session belongs to one account), or use "new".',
+          'Name an earlier agent lane with the same role that is not a panel (a session belongs to one account), or use "new".',
         );
       }
     }
@@ -183,6 +201,12 @@ export function checkWorkflow(w: Workflow): Problem[] {
           `${at}.panel.members`,
           "Every member is advisory, so nobody decides the outcome.",
           'Remove "advisory" from at least one member.',
+        );
+      } else if (members.every((m) => m.advisory || m.when)) {
+        add(
+          `${at}.panel.members`,
+          "Every deciding member has a condition, so on some changes nobody decides.",
+          'Leave at least one deciding member without "when".',
         );
       }
       members.forEach((m, j) => {
@@ -213,6 +237,18 @@ export function checkWorkflow(w: Workflow): Problem[] {
         `${at}.gates`,
         `Gate "${repairs[0]}" sends its output back for repair, but lane "${lane.id}" has no agent to repair anything.`,
         'Use a gate whose onFail is "fail" or "stop" here: define a second gate without "repair".',
+      );
+    } else if (repairs.length > 0 && lane.panel) {
+      add(
+        `${at}.gates`,
+        `Gate "${repairs[0]}" sends its output back for repair, but lane "${lane.id}" is a panel with several sessions.`,
+        'Use a gate whose onFail is "fail" or "stop" on a panel lane.',
+      );
+    } else if (repairs.length > 0 && lane.oneWay) {
+      add(
+        `${at}.gates`,
+        `Gate "${repairs[0]}" sends work back for repair, which would redo the one-way lane "${lane.id}".`,
+        'Use a gate whose onFail is "fail" or "stop" on a one-way lane.',
       );
     } else if (repairs.length > 0 && lane.limits?.repairRounds === undefined) {
       add(
@@ -254,16 +290,23 @@ export function checkWorkflow(w: Workflow): Problem[] {
       }
     }
     for (const [name, ref] of Object.entries(lane.inputs ?? {})) {
-      if (ref.startsWith(`${lane.id}.`)) {
-        add(
-          `${at}.inputs.${name}`,
-          `Lane "${lane.id}" takes its own value as an input.`,
-          "Point at a value from another lane.",
-        );
-      } else checkRef(w, index, add, `${at}.inputs.${name}`, ref);
+      checkRef(w, index, add, `${at}.inputs.${name}`, ref);
+    }
+    // outputs reach commands as FACTOR_OUTPUT_<NAME>, so two names must not differ only by case
+    const upper = Object.keys(lane.outputs ?? {}).map((n) => n.toUpperCase());
+    if (new Set(upper).size !== upper.length) {
+      add(
+        `${at}.outputs`,
+        `Two outputs of lane "${lane.id}" differ only by capital letters.`,
+        "Rename one: both would become the same FACTOR_OUTPUT_ variable.",
+      );
     }
   });
 
   checkTransitions(w, index, problems);
-  return problems;
+  const seen = new Set<string>();
+  return problems.filter((p) => {
+    const key = `${p.path}\n${p.fix}`;
+    return seen.has(key) ? false : seen.add(key) !== undefined;
+  });
 }

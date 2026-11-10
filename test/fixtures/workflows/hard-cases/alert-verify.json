@@ -1,0 +1,143 @@
+{
+  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
+  "version": 1,
+  "name": "alert-verify",
+  "description": "A monitoring alert is checked by one fresh agent. Only a real alert becomes work. Noise and duplicates are dropped, unclear ones go to a person.",
+  "roles": {
+    "verifier": {
+      "description": "Decides whether an alert is real. Changes nothing."
+    },
+    "author": {
+      "description": "Writes the fix."
+    }
+  },
+  "mcp": {
+    "betterstack": {
+      "from": "profile"
+    }
+  },
+  "limits": {
+    "minutes": 90,
+    "tokens": 6000000
+  },
+  "commands": {
+    "open-pr": {
+      "description": "Pushes the run's branch and opens a pull request for it. Exits 0 when the pull request exists."
+    },
+    "verify": {
+      "description": "Runs the project's typecheck, lint and tests on a clean checkout. Exits 0 only when they all pass."
+    }
+  },
+  "collectors": [
+    {
+      "id": "alerts",
+      "uses": "core/mcp-query@1",
+      "with": {
+        "server": "betterstack",
+        "tool": "list_incidents",
+        "args": {
+          "status": "open"
+        }
+      }
+    }
+  ],
+  "gates": {
+    "protected": {
+      "uses": "core/protected-paths@1",
+      "onFail": "stop"
+    },
+    "tests-kept": {
+      "uses": "core/tests-not-weakened@1",
+      "onFail": "stop"
+    },
+    "verify": {
+      "uses": "core/command@1",
+      "with": {
+        "command": "verify"
+      },
+      "onFail": "repair"
+    },
+    "proves-fix": {
+      "uses": "core/new-tests-fail-on-base@1",
+      "onFail": "repair"
+    }
+  },
+  "lanes": [
+    {
+      "id": "confirm",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "verifier",
+        "access": "read",
+        "tier": "medium",
+        "mcp": ["betterstack"],
+        "prompt": "Reproduce the alert from logs and metrics. Give exactly one verdict. It is a duplicate when an open issue or pull request already covers its cause."
+      },
+      "outputs": {
+        "verdict": {
+          "type": "string",
+          "enum": ["real", "noise", "duplicate", "unclear"],
+          "required": true
+        }
+      },
+      "checkpoint": "out",
+      "limits": {
+        "minutes": 15
+      },
+      "on": {
+        "pass": [
+          {
+            "to": "fix",
+            "when": {
+              "ref": "confirm.outputs.verdict",
+              "in": ["real"]
+            }
+          },
+          {
+            "to": "@inbox",
+            "when": {
+              "ref": "confirm.outputs.verdict",
+              "in": ["unclear"]
+            }
+          },
+          {
+            "to": "@drop"
+          }
+        ],
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "fix",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "author",
+        "access": "write",
+        "tier": "large",
+        "prompt": "Find the root cause. Write a test that fails because of it, then the smallest fix."
+      },
+      "gates": ["protected", "tests-kept", "verify", "proves-fix"],
+      "checkpoint": "near",
+      "limits": {
+        "minutes": 60,
+        "repairRounds": 2
+      },
+      "on": {
+        "pass": "open-pr",
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "open-pr",
+      "uses": "core/command@1",
+      "with": {
+        "command": "open-pr"
+      },
+      "checkpoint": "in",
+      "on": {
+        "pass": "@done",
+        "fail": "@stop"
+      }
+    }
+  ]
+}

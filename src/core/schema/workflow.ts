@@ -1,6 +1,7 @@
 // The workflow file format. This Zod schema is the one source for types, validation and the
 // published JSON Schema (ADR 0001, ADR 0012). Rules a shape cannot express live in check.ts.
 import { z } from "zod";
+import { commandName, insidePath } from "./builtins.ts";
 
 export const SCHEMA_URL = "https://softwarefactor.io/schema/workflow/v1.json";
 export const WORKFLOW_VERSION = 1;
@@ -74,12 +75,6 @@ const Transition = z.union([target, z.array(Step).min(1)]).meta({
     "A target, or a list tried in order: the first entry that applies wins, the last is a plain default.",
 });
 
-const insidePath = z
-  .string()
-  .min(1)
-  .refine((p) => !p.startsWith("/") && !p.startsWith("~") && !p.split(/[\\/]/).includes(".."), {
-    message: 'Use a relative path that stays inside the folder, with no leading / and no "..".',
-  });
 const Prompt = z.union([z.string().min(1), z.strictObject({ file: insidePath })]);
 const Tier = z.enum(["small", "medium", "large"]);
 const Effort = z.enum(["low", "medium", "high", "max"]);
@@ -117,6 +112,11 @@ const Panel = z.strictObject({
     .meta({ description: "Pass when all deciding members pass, or when any does." }),
 });
 
+const valueName = z
+  .string()
+  .regex(/^[a-z][a-zA-Z0-9]*$/)
+  .meta({ description: 'The name of an input or output: letters and digits, such as "planPath".' });
+
 const Output = z.strictObject({
   type: z.enum(["string", "number", "boolean", "array", "object"]),
   enum: z.array(z.string()).min(1).optional(),
@@ -142,8 +142,8 @@ export const Lane = z.strictObject({
   agent: Agent.optional(),
   panel: Panel.optional(),
   with: z.record(z.string(), z.unknown()).optional().meta({ description: "Settings for this lane type." }),
-  inputs: z.record(z.string(), ref).optional(),
-  outputs: z.record(z.string(), Output).optional(),
+  inputs: z.record(valueName, ref).optional(),
+  outputs: z.record(valueName, Output).optional(),
   gates: z
     .array(id)
     .optional()
@@ -236,6 +236,10 @@ export const Workflow = z.strictObject({
       usd: z.number().positive().optional(),
     })
     .meta({ description: "Budget for one run. A lane can only lower it." }),
+  commands: z
+    .record(commandName, z.strictObject({ description: z.string().min(1) }))
+    .optional()
+    .meta({ description: "Every workspace command a lane or gate names, and what it must do." }),
   collectors: z.array(Collector).min(1),
   gates: z.record(id, Gate).optional(),
   lanes: z.array(Lane).min(1).meta({ description: "In order. The first lane is where a run starts." }),

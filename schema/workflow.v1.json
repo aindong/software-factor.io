@@ -230,6 +230,27 @@
       "additionalProperties": false,
       "description": "Budget for one run. A lane can only lower it."
     },
+    "commands": {
+      "description": "Every workspace command a lane or gate names, and what it must do.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-zA-Z][\\w:.-]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    },
     "collectors": {
       "minItems": 1,
       "type": "array",
@@ -569,7 +590,9 @@
           "inputs": {
             "type": "object",
             "propertyNames": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z][a-zA-Z0-9]*$",
+              "description": "The name of an input or output: letters and digits, such as \"planPath\"."
             },
             "additionalProperties": {
               "type": "string",
@@ -580,7 +603,9 @@
           "outputs": {
             "type": "object",
             "propertyNames": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-z][a-zA-Z0-9]*$",
+              "description": "The name of an input or output: letters and digits, such as \"planPath\"."
             },
             "additionalProperties": {
               "type": "object",

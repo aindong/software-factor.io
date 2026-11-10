@@ -4,10 +4,31 @@
   "name": "bugfix-fast",
   "description": "Collect labelled bug reports, fix each one with a test that fails without the fix, and open a pull request for a person to merge.",
   "roles": {
-    "author": { "description": "Writes the fix and the test that proves it." }
+    "author": {
+      "description": "Writes the fix and the test that proves it."
+    }
   },
-  "limits": { "minutes": 60, "tokens": 4000000 },
-  "collectors": [{ "id": "bugs", "uses": "core/github-issues@1", "with": { "label": "factory:bug" } }],
+  "limits": {
+    "minutes": 60,
+    "tokens": 4000000
+  },
+  "commands": {
+    "verify": {
+      "description": "Runs the project's tests on a clean checkout. Exits 0 only when they all pass."
+    },
+    "open-pr": {
+      "description": "Pushes the run's branch and opens a pull request for it. Exits 0 when the pull request exists."
+    }
+  },
+  "collectors": [
+    {
+      "id": "bugs",
+      "uses": "core/github-issues@1",
+      "with": {
+        "label": "factory:bug"
+      }
+    }
+  ],
   "gates": {
     "protected": {
       "uses": "core/protected-paths@1",
@@ -21,7 +42,9 @@
     },
     "verify": {
       "uses": "core/command@1",
-      "with": { "command": "verify" },
+      "with": {
+        "command": "verify"
+      },
       "onFail": "repair",
       "description": "The workspace's own verify command passes on a fresh checkout."
     },
@@ -49,21 +72,38 @@
         "prompt": "Find the root cause of the bug in the task. Write a test that fails because of it, then the smallest fix that makes the test pass. Commit both. In your hand-off, say what the cause was and name the test."
       },
       "outputs": {
-        "cause": { "type": "string", "required": true, "description": "The root cause, in one sentence." }
+        "cause": {
+          "type": "string",
+          "required": true,
+          "description": "The root cause, in one sentence."
+        }
       },
       "gates": ["protected", "tests-kept", "verify", "floor", "proves-fix"],
       "checkpoint": "near",
-      "limits": { "minutes": 40, "repairRounds": 2 },
-      "retry": { "max": 1 },
-      "on": { "pass": "open-pr", "fail": "@stop" }
+      "limits": {
+        "minutes": 40,
+        "repairRounds": 2
+      },
+      "retry": {
+        "max": 1
+      },
+      "on": {
+        "pass": "open-pr",
+        "fail": "@stop"
+      }
     },
     {
       "id": "open-pr",
       "name": "Open pull request",
       "uses": "core/command@1",
-      "with": { "command": "open-pr" },
+      "with": {
+        "command": "open-pr"
+      },
       "checkpoint": "in",
-      "on": { "pass": "@done", "fail": "@stop" }
+      "on": {
+        "pass": "@done",
+        "fail": "@stop"
+      }
     }
   ]
 }

@@ -19,9 +19,25 @@ export const outcomesOf = (lane: Lane): [string, Transition][] =>
   Object.entries(lane.on).filter((e): e is [string, Transition] => e[1] !== undefined);
 
 /** A value a condition or an input points at must exist. Returns the values it can take, when known. */
-export function checkRef(w: Workflow, index: Map<string, number>, add: Add, path: string, ref: string) {
+export function checkRef(
+  w: Workflow,
+  index: Map<string, number>,
+  add: Add,
+  path: string,
+  ref: string,
+): (string | number | boolean)[] | undefined {
   const [head, kind, name] = ref.split(".");
-  if (head === "change") return [...CHANGE_TIERS] as string[];
+  if (head === "change") {
+    if (!w.lanes.some((l) => l.agent?.access === "write")) {
+      add(
+        path,
+        '"change.tier" describes a change to the code, but no lane in this workflow can write.',
+        'Route on something else, or give a lane agent.access "write".',
+      );
+    }
+    return [...CHANGE_TIERS];
+  }
+  if (ref === "task.source") return w.collectors.map((c) => c.id);
   if (head === "task" || !head || !name) return undefined;
   const lane = w.lanes[index.get(head) ?? -1];
   if (!lane) {
@@ -49,8 +65,10 @@ export function checkRef(w: Workflow, index: Map<string, number>, add: Add, path
       `Lane "${head}" declares no output "${name}".`,
       `Add "${name}" to that lane's "outputs", or point at one it declares.`,
     );
+    return undefined;
   }
-  return output?.enum;
+  if (output.type === "boolean") return [true, false];
+  return output.enum;
 }
 
 function checkCondition(w: Workflow, index: Map<string, number>, add: Add, path: string, when: Condition) {
@@ -58,10 +76,10 @@ function checkCondition(w: Workflow, index: Map<string, number>, add: Add, path:
   if (!allowed) return;
   const key = when.in ? "in" : "notIn";
   for (const value of when[key] ?? []) {
-    if (!allowed.includes(String(value))) {
+    if (!allowed.includes(value)) {
       add(
         `${path}.${key}`,
-        `"${value}" is not a value "${when.ref}" can have, so this would never match.`,
+        `${JSON.stringify(value)} is not a value "${when.ref}" can have, so this would never match.`,
         `Use one of: ${allowed.join(", ")}.`,
       );
     }
@@ -74,6 +92,13 @@ export function checkTransitions(w: Workflow, index: Map<string, number>, proble
   w.lanes.forEach((lane, i) => {
     for (const [j, m] of (lane.panel?.members ?? []).entries()) {
       if (m.when) checkCondition(w, index, add, `lanes[${i}].panel.members[${j}].when`, m.when);
+    }
+    if (lane.oneWay && lane.on.needsPerson === undefined) {
+      add(
+        `lanes[${i}].on`,
+        `Lane "${lane.id}" is one-way, and by default "needsPerson" goes to "@inbox", which runs the lane again.`,
+        'Add "needsPerson": "@stop".',
+      );
     }
     for (const [outcome, transition] of outcomesOf(lane)) {
       const path = `lanes[${i}].on.${outcome}`;
@@ -97,6 +122,13 @@ export function checkTransitions(w: Workflow, index: Map<string, number>, proble
           );
         }
         if (step.when) checkCondition(w, index, add, `${here}.when`, step.when);
+        if (lane.oneWay && step.to === "@inbox") {
+          add(
+            here,
+            `"@inbox" runs the lane again after a person answers, but lane "${lane.id}" is one-way.`,
+            'Use "@stop" so a person takes over.',
+          );
+        }
         if (isEnd(step.to)) continue;
         const targetIndex = index.get(step.to);
         const target = w.lanes[targetIndex ?? -1];
@@ -107,11 +139,12 @@ export function checkTransitions(w: Workflow, index: Map<string, number>, proble
             `Use a lane id, or one of ${END_TARGETS.join(", ")}.`,
           );
         } else if (targetIndex <= i) {
-          if (target.oneWay) {
+          const crossed = w.lanes.slice(targetIndex, i + 1).find((l) => l.oneWay);
+          if (crossed) {
             add(
               here,
-              `This points back to "${step.to}", a one-way lane, so it could run twice.`,
-              "A one-way lane runs at most once in a run. Point at a lane before it, or end the run.",
+              `Going back to "${step.to}" would run the one-way lane "${crossed.id}" a second time.`,
+              "A one-way lane runs at most once in a run. End the run here, or point at a lane after it.",
             );
           } else if (step.maxRounds === undefined) {
             add(

@@ -1,0 +1,199 @@
+{
+  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
+  "version": 1,
+  "name": "release",
+  "description": "Cut a release: write the changelog, bump the version, tag, deploy to staging, smoke test, then a one-way production deploy that a person approves before it runs.",
+  "roles": {
+    "writer": {
+      "description": "Writes the changelog from the merged changes."
+    }
+  },
+  "limits": {
+    "minutes": 120,
+    "tokens": 2000000
+  },
+  "commands": {
+    "bump-version": {
+      "description": "Sets the version from FACTOR_INPUT_VERSION in the project's manifest and commits it."
+    },
+    "changelog-check": {
+      "description": "Exits 0 when the changelog has an entry for the version being released."
+    },
+    "deploy-production": {
+      "description": "Deploys the tagged build to production. Cannot be undone by the factory."
+    },
+    "deploy-staging": {
+      "description": "Deploys the tagged build to staging. Exits 0 when staging reports the new version."
+    },
+    "rollback-production": {
+      "description": "Puts production back on the previous release. Exits 0 when production reports it."
+    },
+    "smoke-production": {
+      "description": "Runs the smoke tests against production. Exits 0 when they pass."
+    },
+    "smoke-staging": {
+      "description": "Runs the smoke tests against staging. Exits 0 when they pass."
+    },
+    "tag-release": {
+      "description": "Creates the git tag for FACTOR_INPUT_VERSION on the release commit."
+    }
+  },
+  "collectors": [
+    {
+      "id": "releases",
+      "uses": "core/file@1",
+      "with": {
+        "path": ".factor/releases.md"
+      }
+    }
+  ],
+  "gates": {
+    "changelog-has-entry": {
+      "uses": "core/command@1",
+      "with": {
+        "command": "changelog-check"
+      },
+      "onFail": "repair",
+      "description": "CHANGELOG.md has a section for the version in FACTOR_OUTPUT_VERSION, and that version is valid semver above the last tag."
+    },
+    "only-changelog": {
+      "uses": "core/protected-paths@1",
+      "with": {
+        "paths": ["src/**", "package.json", ".github/**"]
+      },
+      "onFail": "stop"
+    }
+  },
+  "lanes": [
+    {
+      "id": "changelog",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "writer",
+        "access": "write",
+        "tier": "small",
+        "prompt": "Decide the next version by semver from the commits since the last tag. Write its CHANGELOG.md section."
+      },
+      "outputs": {
+        "version": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "gates": ["only-changelog", "changelog-has-entry"],
+      "checkpoint": "near",
+      "limits": {
+        "repairRounds": 1
+      },
+      "on": {
+        "pass": "bump",
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "bump",
+      "description": "Writes FACTOR_INPUT_VERSION into the package file and commits.",
+      "uses": "core/command@1",
+      "with": {
+        "command": "bump-version"
+      },
+      "inputs": {
+        "version": "changelog.outputs.version"
+      },
+      "checkpoint": "out",
+      "on": {
+        "pass": "tag",
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "tag",
+      "description": "Tags the commit with FACTOR_INPUT_VERSION and pushes the tag.",
+      "uses": "core/command@1",
+      "with": {
+        "command": "tag-release"
+      },
+      "inputs": {
+        "version": "changelog.outputs.version"
+      },
+      "checkpoint": "near",
+      "on": {
+        "pass": "deploy-staging",
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "deploy-staging",
+      "uses": "core/command@1",
+      "with": {
+        "command": "deploy-staging",
+        "timeoutMinutes": 20
+      },
+      "checkpoint": "near",
+      "retry": {
+        "max": 1
+      },
+      "on": {
+        "pass": "smoke-staging",
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "smoke-staging",
+      "uses": "core/command@1",
+      "with": {
+        "command": "smoke-staging"
+      },
+      "checkpoint": "out",
+      "on": {
+        "pass": "deploy-production",
+        "fail": "@stop"
+      }
+    },
+    {
+      "id": "deploy-production",
+      "uses": "core/command@1",
+      "with": {
+        "command": "deploy-production",
+        "timeoutMinutes": 20
+      },
+      "inputs": {
+        "version": "changelog.outputs.version"
+      },
+      "checkpoint": "in",
+      "oneWay": true,
+      "on": {
+        "pass": "smoke-production",
+        "fail": "rollback",
+        "needsPerson": "@stop"
+      }
+    },
+    {
+      "id": "smoke-production",
+      "uses": "core/command@1",
+      "with": {
+        "command": "smoke-production"
+      },
+      "checkpoint": "out",
+      "on": {
+        "pass": "@done",
+        "fail": "rollback"
+      }
+    },
+    {
+      "id": "rollback",
+      "uses": "core/command@1",
+      "with": {
+        "command": "rollback-production"
+      },
+      "checkpoint": "near",
+      "retry": {
+        "max": 3
+      },
+      "on": {
+        "pass": "@stop",
+        "fail": "@stop"
+      }
+    }
+  ]
+}

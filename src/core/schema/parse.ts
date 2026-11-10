@@ -41,6 +41,9 @@ function fixFor(path: PropertyKey[], issue: Issue, input: unknown): string {
     return `Remove ${issue.keys.map((k) => `"${k}"`).join(", ")}, or check the spelling against docs/workflow-schema.md.`;
   }
   if (issue.code === "custom") return issue.message;
+  if (issue.code === "invalid_key") {
+    return 'Name it with letters and digits only, starting with a lowercase letter, such as "planPath".';
+  }
   const last = String(path.at(-1) ?? "");
   const value = valueAt(input, path);
   if (value === undefined) return `Add "${last}" here. It is required.`;
@@ -62,6 +65,15 @@ function fixFor(path: PropertyKey[], issue: Issue, input: unknown): string {
     return 'Write a lane id such as "build", an end such as "@done", or a list such as [{ "to": "build" }].';
   }
   return "Change this value to what docs/workflow-schema.md shows for this field.";
+}
+
+// Zod's own wording quotes patterns and names types the author never chose. Say it plainly.
+function messageFor(path: PropertyKey[], issue: Issue): string {
+  if (issue.code === "custom") return "This is not valid as written.";
+  if (issue.code === "invalid_key") return "This name is not allowed.";
+  if (issue.code === "invalid_format") return "This value is not in the form this field needs.";
+  if (path.at(-2) === "on") return "This must be a lane id, an end such as @done, or a list of entries.";
+  return issue.message;
 }
 
 export function parseWorkflow(input: unknown): ParseResult {
@@ -94,10 +106,11 @@ export function parseWorkflow(input: unknown): ParseResult {
       .flatMap((issue) => flatten(issue))
       .map(({ path, issue }) => ({
         path: pathOf(path),
-        message: issue.message,
+        message: messageFor(path, issue),
         fix: fixFor(path, issue, input),
       }));
-    return { problems };
+    const seen = new Set<string>();
+    return { problems: problems.filter((p) => !seen.has(p.path + p.fix) && seen.add(p.path + p.fix)) };
   }
   const problems = checkWorkflow(parsed.data);
   return problems.length > 0 ? { problems } : { workflow: parsed.data, problems };
