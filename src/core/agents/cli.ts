@@ -13,7 +13,8 @@ const ERROR_TAIL = 2000;
 export const quote = (arg: string) => `'${arg.replaceAll("'", "'\\''")}'`;
 
 /** What a CLI says when the account has no quota left. */
-export const LIMIT = /usage limit|rate limit|limit reached|quota exceeded|out of credits|too many requests/i;
+export const LIMIT =
+  /usage limit|rate limit|limit reached|hit your limit|quota exceeded|out of credits|too many requests/i;
 
 /** The model and effort a lane gets from its role's binding. */
 export interface Choice {
@@ -85,7 +86,17 @@ export async function runCli(
  */
 export function handoffFromText(job: AgentJob, text: string): void {
   if (existsSync(job.handoffPath)) return;
-  const blocks = [...text.matchAll(/```(?:json)?[ \t]*\n([\s\S]*?)```/g)].map((m) => m[1] ?? "");
+  // fences are paired in order, whatever language they name: the closing fence of a code block
+  // must not be taken for the opening of the next one
+  const blocks: string[] = [];
+  let open: string[] | undefined;
+  for (const line of text.split(/\r?\n/)) {
+    if (!/^\s*```/.test(line)) open?.push(line);
+    else if (open) {
+      blocks.push(open.join("\n"));
+      open = undefined;
+    } else open = [];
+  }
   for (const candidate of [text, ...blocks.reverse()]) {
     try {
       const value: unknown = JSON.parse(candidate);

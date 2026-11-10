@@ -17,6 +17,8 @@ export interface AgentJob {
   hostDir: string;
   /** What the agent's process may see beyond the basics: the run's slot and where to hand off. Never a key. */
   env: Record<string, string>;
+  /** Branches the agent must not push to or move. */
+  protect?: string[];
   /** How many times this lane's agent has been started in this run before now. */
   entry: number;
   /** Aborted when the lane's time is up or the run is interrupted. The adapter must stop its agent. */

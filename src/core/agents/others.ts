@@ -4,7 +4,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Account } from "../accounts.ts";
 import { hostEnv, sh } from "../exec.ts";
-import { type Choice, handoffFromText, LIMIT, profileEnv, runCli } from "./cli.ts";
+import { type Choice, handoffFromText, profileEnv, runCli } from "./cli.ts";
 import type { AgentAdapter } from "./types.ts";
 
 /** Kimi Code in print mode. Written from its documentation: no run of the real CLI has checked it. */
@@ -28,7 +28,7 @@ export function kimiAgent(account: Account, choice: Choice): AgentAdapter {
       return {
         exitCode: out.exitCode,
         error,
-        limit: error !== undefined && LIMIT.test(error),
+        // no hold on a limit: its diagnostics carry the model's own words, which could say anything
         streamPath: out.streamPath,
       };
     },

@@ -77,6 +77,7 @@ If you cannot write that file, end your last message with the same JSON object i
 - "outcome" is "pass", "fail" or "needsPerson" (then the summary is your question). It is required, and so is "summary".
 - Evidence is "file:<committed path>", "commit:HEAD", "gate:<lane>.<gate>" or "attached:<file name>" for a file you put in ${evidenceDir}
 - ${outputs.length > 0 ? `Add "outputs" with: ${outputs.join(", ")}.` : 'Leave "outputs" out: this lane declares none.'}
+- If the repository has a CLAUDE.md or AGENTS.md at its top, read it first: it holds the project's own rules.
 - No other keys. The host checks the hand-off, and its own gates decide whether the lane passes.
 - ${
     lane.agent?.access === "write"

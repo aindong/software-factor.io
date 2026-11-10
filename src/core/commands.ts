@@ -85,7 +85,7 @@ export function accountCommand(args: string[], flags: Flags, say: (line: string)
   }
   const limits = ((flags.limit as string[] | undefined) ?? []).map((limit) => {
     const m = /^(\d+(?:\.\d+)?)h=(\d+)$/.exec(limit);
-    if (!m) {
+    if (!m || Number(m[1]) <= 0 || Number(m[2]) <= 0) {
       throw new UserError(
         `--limit "${limit}" is not a window and a number of tokens.`,
         "Write it as hours and tokens, such as --limit 5h=2000000.",

@@ -29,20 +29,36 @@ describe("a hold on an account in the middle of a lane", () => {
     expect(calls[2]?.stdin, "the start after the hold").toContain("paint it blue");
   });
 
-  it("drops what a read-only lane's agent committed before the limit", () => {
+  it("drops what a read-only lane's agent committed before the limit, and still holds the account", () => {
     const repo = flowRepo({ lanes: [readLane()] });
-    const profile = standinAccount(repo, "claude-a", "claude", {
+    standinAccount(repo, "claude-a", "claude", {
       actions: [{ write: { path: "README.md", content: "changed\n" } }, { commit: "sneak" }],
       error: limit,
     });
     bind(repo, "author", "claude-a");
-    expect(repo.sf("run").status).toBe(3);
-    plan(profile, pass);
-    repo.env.FACTOR_CLOCK_OFFSET_MS = String(2 * HOUR);
-    repo.sf("run");
+    expect(repo.sf("run").status).toBe(1); // changing the repository fails the lane, limit or not
     const [r] = repo.rows<{ branch: string; base_commit: string }>("select branch, base_commit from runs");
     expect(repo.git("rev-parse", r?.branch ?? ""), "the run's branch").toBe(r?.base_commit);
+    expect(repo.sf("account", "list").stdout).toMatch(/held until/);
   });
+
+  it("drops what a read-only lane's agent committed before its time was up", () => {
+    const repo = flowRepo({
+      lanes: [agentLane("look", { agent: { access: "read" }, limits: { minutes: 1 } })],
+    });
+    standinAccount(repo, "claude-a", "claude", {
+      actions: [
+        { write: { path: "README.md", content: "changed\n" } },
+        { commit: "sneak" },
+        { sleep: 20_000 },
+      ],
+    });
+    bind(repo, "author", "claude-a");
+    repo.env.FACTOR_MINUTE_MS = "1500";
+    expect(repo.sf("run").status).toBe(1);
+    const [r] = repo.rows<{ branch: string; base_commit: string }>("select branch, base_commit from runs");
+    expect(repo.git("rev-parse", r?.branch ?? ""), "the run's branch").toBe(r?.base_commit);
+  }, 30_000);
 });
 
 describe("a read-only lane whose agent switched branches", () => {

@@ -13,8 +13,16 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
     guarded: true,
     async run(job) {
       const canWrite = job.lane.agent?.access === "write";
-      // the hook runs this same program, so the guard is the one the tests cover
-      const guard = `${quote(process.execPath)} ${quote(process.argv[1] ?? "")} guard`;
+      // The hook runs this same program, so the guard is the one the tests cover. The lane is on
+      // its command line, where the agent cannot change it. A CLI lets a call through when its hook
+      // breaks (any exit code but 2), so every failure of the guard to run is turned into a denial.
+      const lane = [
+        ...["--worktree", job.cwd, "--lane-dir", job.laneDir],
+        ...["--access", canWrite ? "write" : "read"],
+        ...(job.protect ?? []).flatMap((branch) => ["--protect", branch]),
+      ];
+      const self = [process.execPath, process.argv[1] ?? "", "guard", ...lane].map(quote).join(" ");
+      const guard = `${self} || exit 2`;
       const hooks = { PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: guard }] }] };
       const tools = [...READ_TOOLS, ...(canWrite ? WRITE_TOOLS : [])].join(",");
       const args = [
@@ -28,6 +36,10 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
         job.laneDir,
         "--settings",
         JSON.stringify({ hooks }),
+        // the worktree is the agent's to write: its settings, hooks and MCP servers are not loaded
+        "--setting-sources",
+        "user",
+        "--strict-mcp-config",
         "--tools", // the only tools there are for this run
         tools,
         "--allowedTools", // and they need no approval: nobody is there to give one

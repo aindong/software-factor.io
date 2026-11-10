@@ -159,7 +159,12 @@ export function applyOutcome(
     });
   }
   if (outcome !== "pass")
-    addNote(state, choice.to, `Lane "${lane.id}" ended ${outcome}: ${note || "no reason given"}`);
+    // the reason may be an agent's own words: it is marked as a quote, so it cannot pass for the host
+    addNote(
+      state,
+      choice.to,
+      `Lane "${lane.id}" ended ${outcome}. Its reason, which its agent may have written: "${note || "none given"}"`,
+    );
   state.next = choice.to;
   state.seq += 1;
   store.saveState(ctx.db, run.id, state);

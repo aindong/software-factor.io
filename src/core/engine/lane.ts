@@ -1,6 +1,6 @@
 // Runs one lane: an agent (with retries after a crash and repairs after a failed gate) or a host
 // command, then the lane's gates. Only the host's gates can pass a lane (ADR 0005).
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { holdAccount, recordUsage } from "../accounts.ts";
 import { adapterFor } from "../agents/index.ts";
@@ -11,8 +11,9 @@ import { type Control, hostEnv, sh, wasInterrupted } from "../exec.ts";
 import { Checkouts, SetupFailed } from "../gates/checkout.ts";
 import { resolveCommand } from "../gates/command.ts";
 import { runGate } from "../gates/index.ts";
-import { branchTip, commitAll, currentBranch, git, gitConfigFingerprint, headOf } from "../git.ts";
+import { branchTip, currentBranch, gitConfigFingerprint, protectedBranches, worktreeGit } from "../git.ts";
 import { checkHandoff, combineRisk, type Handoff, outputProblems, type RunRisk } from "../handoff.ts";
+import { readObject } from "../safe-read.ts";
 import type { CommandSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
 import * as store from "../store.ts";
@@ -20,6 +21,7 @@ import type { Workspace } from "../workspace.ts";
 import { asText, HANDOFF, handoffHelp, inputsOf, promptFor } from "./prompt.ts";
 import type { LaneResult, RunState } from "./state.ts";
 import type { Facts } from "./transition.ts";
+import { settleTree } from "./tree.ts";
 
 export interface Ctx {
   ws: Workspace;
@@ -44,24 +46,9 @@ export function halted(ctx: Ctx): { code: "interrupted" | "stopped_by_person"; r
   return undefined;
 }
 
-const MAX_FILE_BYTES = 1_000_000;
 const REPAIR_HEAD = 1500;
 const REPAIR_TAIL = 4500;
 const LIMIT_HOLD_MS = 60 * 60_000; // shortcut: a CLI that reports its limit is held for an hour. Read its reset time when one is seen.
-
-/** A JSON object an agent or command left, or nothing when it is missing, too large or not an object. */
-function readObject(path: string): { text: string; value: Record<string, unknown> } | undefined {
-  if (!existsSync(path) || statSync(path).size > MAX_FILE_BYTES) return undefined;
-  try {
-    const text = readFileSync(path, "utf8");
-    const value: unknown = JSON.parse(text);
-    return typeof value === "object" && value !== null && !Array.isArray(value)
-      ? { text, value: value as Record<string, unknown> }
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 // biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
 const UNSAFE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]+/g;
@@ -210,6 +197,7 @@ export async function runLane(
             FACTOR_ACCESS: lane.agent?.access ?? "read",
             FACTOR_DEFAULT_BRANCH: currentBranch(ws.root),
           },
+          protect: account ? protectedBranches(ws.root) : undefined,
           entry,
           signal: limit.signal,
           pidFile: ctx.control.pidFile,
@@ -232,7 +220,7 @@ export async function runLane(
       if (gitConfigFingerprint(ws.root) !== gitBefore) {
         stop = {
           code: "git_config_changed",
-          reason: `git's configuration or hooks changed while lane "${lane.id}" worked`,
+          reason: `git's configuration or hooks changed while lane "${lane.id}" worked: look at .git/config and .git/hooks before you commit`,
         };
         failWith(stop.reason);
         return done();
@@ -243,40 +231,35 @@ export async function runLane(
         failWith(halt.reason);
         return done();
       }
+      // the account is held whatever else comes of the lane
+      const held = exit.limit && account ? nowMs() + LIMIT_HOLD_MS : undefined;
+      if (held !== undefined && account) holdAccount(account, held);
+      if (account) {
+        // before anything else can end the lane: what a read-only agent changed is dropped, and
+        // what a writing agent left is committed, also when its time or its account ran out
+        const settled = settleTree(
+          ws,
+          run,
+          lane,
+          tipBefore,
+          `${lane.id}: ${oneLine(ctx.task.title, 72)}`,
+          ctx.log,
+        );
+        if (settled.stop) stop = { code: "git_config_changed", reason: settled.fail ?? "" };
+        if (settled.fail) {
+          failWith(oneLine(settled.fail));
+          return done();
+        }
+      }
       if (limit.signal.aborted) {
         failWith(`out of time after ${lane.limits?.minutes ?? "the run's"} minutes`);
         return done();
       }
-      if (exit.limit && account) {
-        hold = nowMs() + LIMIT_HOLD_MS;
-        holdAccount(account, hold);
+      if (held !== undefined) {
+        hold = held;
+        if (notes.length > 0) state.notes[lane.id] = notes; // the lane starts again and must be told again
         failWith(oneLine(`the account "${account}" reached its limit: ${exit.error ?? ""}`));
         return done();
-      }
-      if (account && lane.agent?.access !== "write") {
-        // A lane that only reads leaves nothing behind. A commit or a changed file means its verdict
-        // is about code it altered itself, so the lane fails. A scratch file is only removed.
-        const changed = git(run.worktree, "status", "--porcelain", "--untracked-files=no") !== "";
-        const committed = branchTip(ws.root, run.branch) !== tipBefore;
-        const scratch = !changed && git(run.worktree, "status", "--porcelain") !== "";
-        if (changed || committed) git(run.worktree, "reset", "--hard", "-q", tipBefore);
-        git(run.worktree, "clean", "-fdq");
-        if (changed || committed) {
-          failWith(
-            `lane "${lane.id}" only reads, and its agent changed the repository: the change was dropped`,
-          );
-          return done();
-        }
-        if (scratch) ctx.log.push(`  ${lane.id}: this lane only reads: files its agent left were removed`);
-      }
-      if (account && lane.agent?.access === "write") {
-        // an agent in a sandbox cannot reach git's folder, and any agent can forget: what it left
-        // uncommitted is committed here, so the gates judge all of its work
-        try {
-          commitAll(run.worktree, `${lane.id}: ${oneLine(ctx.task.title, 72)}`);
-        } catch (error) {
-          failWith(oneLine(`the host could not commit what the agent left: ${(error as Error).message}`));
-        }
       }
       const handoff = readObject(agentHandoff);
       if (exit.exitCode !== 0 && !handoff && crashes < (lane.retry?.max ?? 0)) {
@@ -367,7 +350,7 @@ export async function runLane(
     store.setRunHead(db, run.id, head);
     let worktreeHead: string | undefined;
     try {
-      worktreeHead = headOf(run.worktree);
+      worktreeHead = worktreeGit(ws.root, run.worktree)("rev-parse", "--verify", "HEAD^{commit}");
     } catch {
       worktreeHead = undefined;
     }

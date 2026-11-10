@@ -59,22 +59,35 @@ const say = (line: string) => console.log(line.replace(CONTROL, ""));
 const EXIT = { none: 0, done: 0, dropped: 0, running: 0, stopped: 1, waiting: 3 } as const;
 
 /**
- * The hook an agent CLI calls before each tool call: the call on stdin, the lane in the environment.
- * Exit 0 allows. Exit 2 denies, with the reason on stderr for the agent. Nothing else is ever
- * returned, because a CLI reads any other code as "the hook broke, carry on".
+ * The hook an agent CLI calls before each tool call: the call on stdin, the lane on the command
+ * line (never from the environment, which an agent can set). Exit 0 allows. Exit 2 denies, with the
+ * reason on stderr for the agent. Nothing else is ever returned, because a CLI reads any other code
+ * as "the hook broke, carry on".
  */
-function guard(): number {
+function guard(args: string[]): number {
   let verdict: Verdict;
   try {
-    const call: unknown = JSON.parse(readFileSync(0, "utf8"));
-    if (typeof call !== "object" || call === null) throw new Error("the tool call is not an object");
-    const { tool_name, tool_input } = call as Record<string, unknown>;
-    const { FACTOR_WORKTREE: worktree, FACTOR_LANE_DIR: laneDir, FACTOR_ACCESS: access } = process.env;
+    const named: Record<string, string[]> = { worktree: [], "lane-dir": [], access: [], protect: [] };
+    for (let i = 0; i < args.length; i += 2) {
+      const list = named[(args[i] ?? "").replace(/^--/, "")];
+      const value = args[i + 1];
+      if (!list || !args[i]?.startsWith("--") || value === undefined)
+        throw new Error("its command line is wrong");
+      list.push(value);
+    }
+    const [worktree] = named.worktree ?? [];
+    const [laneDir] = named["lane-dir"] ?? [];
+    const [access] = named.access ?? [];
     if (!worktree || !laneDir || (access !== "read" && access !== "write")) {
       throw new Error("the guard was not told where the lane works");
     }
-    const defaultBranch = process.env.FACTOR_DEFAULT_BRANCH || "main";
-    verdict = judge({ tool: tool_name, input: tool_input }, { worktree, laneDir, access, defaultBranch });
+    const call: unknown = JSON.parse(readFileSync(0, "utf8"));
+    if (typeof call !== "object" || call === null) throw new Error("the tool call is not an object");
+    const { tool_name, tool_input } = call as Record<string, unknown>;
+    verdict = judge(
+      { tool: tool_name, input: tool_input },
+      { worktree, laneDir, access, defaultBranch: named.protect ?? [] },
+    );
   } catch (error) {
     verdict = {
       allow: false,
@@ -87,7 +100,7 @@ function guard(): number {
 }
 
 async function main(): Promise<number> {
-  if (process.argv[2] === "guard") return guard();
+  if (process.argv[2] === "guard") return guard(process.argv.slice(3));
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: {

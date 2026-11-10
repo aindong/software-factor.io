@@ -48,7 +48,10 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
         const item = e.type === "item.completed" ? (e.item as Event | undefined) : undefined;
         if (item?.type === "agent_message" && typeof item.text === "string") last = item.text;
       }
-      const failed = out.events.findLast((e) => e.type === "turn.failed" || e.type === "error");
+      // an error event can be a retry the CLI recovered from: it counts only when no turn finished after it
+      const failedAt = out.events.findLastIndex((e) => e.type === "turn.failed" || e.type === "error");
+      const doneAt = out.events.findLastIndex((e) => e.type === "turn.completed");
+      const failed = failedAt > doneAt ? out.events[failedAt] : undefined;
       const started = out.events.find((e) => e.type === "thread.started");
       let error: string | undefined;
       if (failed) error = messageOf(failed) || "the turn failed";

@@ -1,6 +1,6 @@
 // Accounts on this machine: which agent CLI, and which profile folder holds its login. The factory
 // never stores a login. The folder is the vendor's own, and this file only names it (ADR 0003).
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 import { nowMs } from "./clock.ts";
@@ -50,7 +50,10 @@ export function readAccounts(): Record<string, Account> {
 
 function writeAccounts(accounts: Record<string, Account>): void {
   mkdirSync(factorHome(), { recursive: true });
-  writeFileSync(accountsPath(), `${JSON.stringify({ accounts }, null, 2)}\n`);
+  // written beside and moved into place, so a run that reads now never sees half a file
+  const beside = `${accountsPath()}.${process.pid}.tmp`;
+  writeFileSync(beside, `${JSON.stringify({ accounts }, null, 2)}\n`);
+  renameSync(beside, accountsPath());
 }
 
 export function addAccount(name: string, account: Account): void {
@@ -68,6 +71,7 @@ export function removeAccount(name: string): void {
   const { [name]: gone, ...rest } = readAccounts();
   if (!gone) throw new UserError(`There is no account "${name}".`, "See `softwarefactor account list`.");
   writeAccounts(rest);
+  note({ at: nowMs(), account: name, reset: true }); // the name may be used again, for another login
 }
 
 // ---- usage and holds
@@ -77,6 +81,8 @@ interface UsageLine {
   account: string;
   tokens?: number;
   holdUntil?: number;
+  /** The account was removed: nothing before this line counts for a new account of the same name. */
+  reset?: boolean;
 }
 
 // shortcut: one line per agent start, never trimmed. Move it into a table when the cost report (task 11) needs more.
@@ -102,14 +108,14 @@ function usageOf(account: string): UsageLine[] {
       // a line cut off by a crash
     }
   }
-  return lines;
+  return lines.slice(lines.findLastIndex((l) => l.reset) + 1);
 }
 
 /** Until when an account must not start a lane, in milliseconds on the factory clock, or nothing. */
 export function heldUntil(name: string, account: Account): number | undefined {
   const now = nowMs();
   const lines = usageOf(name);
-  let until = Math.max(0, ...lines.map((l) => l.holdUntil ?? 0));
+  let until = lines.reduce((latest, l) => Math.max(latest, l.holdUntil ?? 0), 0);
   for (const limit of account.limits ?? []) {
     const windowMs = limit.hours * HOUR_MS;
     const inWindow = lines.filter((l) => l.tokens && l.at > now - windowMs).sort((a, b) => a.at - b.at);
