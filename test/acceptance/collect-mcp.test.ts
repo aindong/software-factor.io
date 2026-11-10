@@ -1,11 +1,11 @@
 // core/mcp-query@1: one call of a tool on an MCP server the factory starts, and a task for each item.
 import { expect, it } from "vitest";
-import { edit, mcpCalls, mcpServer, tasks } from "../helpers/collect.ts";
+import { alive, edit, type McpMode, mcpCalls, mcpServer, tasks } from "../helpers/collect.ts";
 import { commandLane, flowRepo, type Repo } from "../helpers/repo.ts";
 
-function querying(repo: Repo, answer: unknown, args?: Record<string, unknown>) {
+function querying(repo: Repo, answer: unknown, args?: Record<string, unknown>, mode: McpMode = "ok") {
   edit(repo, (w) => {
-    w.mcp = { board: mcpServer(repo, answer) };
+    w.mcp = { board: mcpServer(repo, answer, mode) };
     w.collectors = [
       {
         id: "board",
@@ -47,6 +47,16 @@ it("calls the tool with the arguments and adds a task for each item of a plain l
   expect(r.stdout).toContain("collected 2 new tasks");
   expect(r.stdout).toMatch(/collector board: 3 items skipped/);
   expect(repo.sf("collect").stdout).toContain("collected 0 new tasks");
+  // the server the factory started is gone again
+  expect(mcpCalls(repo).map((c) => alive(c.pid))).toEqual([false, false]);
+});
+
+it("reads the list from the tool's structured answer when it gives one", () => {
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
+  querying(repo, { items: [{ id: 3, title: "From the structured part" }] }, undefined, "structured");
+  const r = repo.sf("collect");
+  expect(r.status, r.stderr).toBe(0);
+  expect(tasks(repo).map((t) => `${t.key} ${t.title}`)).toEqual(["3 From the structured part"]);
 });
 
 it("reads Jira's shape: issues with a key and fields", () => {
@@ -64,6 +74,7 @@ it("reads Jira's shape: issues with a key and fields", () => {
       },
       // a description that is not text (Jira's document format) is left out, not printed as JSON
       { key: "APP-13", fields: { summary: "Add a dark theme", description: { type: "doc", content: [] } } },
+      { key: "APP-14", fields: { summary: "No description", description: null, labels: null } },
     ],
   });
   const r = repo.sf("collect");
@@ -77,5 +88,6 @@ it("reads Jira's shape: issues with a key and fields", () => {
       labels: '["factory"]',
     },
     { collector: "board", key: "APP-13", title: "Add a dark theme", body: "", labels: "[]" },
+    { collector: "board", key: "APP-14", title: "No description", body: "", labels: "[]" },
   ]);
 });

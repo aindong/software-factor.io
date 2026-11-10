@@ -12,6 +12,8 @@ export interface Task {
   key: string;
   title: string;
   body: string;
+  /** A JSON list of the labels the collector found on it. */
+  labels: string;
   status: TaskStatus;
 }
 export interface Run {
@@ -58,11 +60,26 @@ export interface InboxItem {
 }
 
 /** Adds a task the first time a collector sees it. A task already known keeps its status. */
-export function addTask(db: Db, t: { collector: string; key: string; title: string; body: string }): boolean {
+export function addTask(
+  db: Db,
+  t: { collector: string; key: string; title: string; body: string; labels?: string[] },
+): boolean {
   const r = db
-    .prepare("insert or ignore into tasks (collector, key, title, body, created_at) values (?, ?, ?, ?, ?)")
-    .run(t.collector, t.key, t.title, t.body, now());
+    .prepare(
+      "insert or ignore into tasks (collector, key, title, body, labels, created_at) values (?, ?, ?, ?, ?, ?)",
+    )
+    .run(t.collector, t.key, t.title, t.body, JSON.stringify(t.labels ?? []), now());
   return r.changes > 0;
+}
+
+/** A task's labels, as its collector found them. */
+export function labelsOf(task: Task): string[] {
+  try {
+    const labels: unknown = JSON.parse(task.labels);
+    return Array.isArray(labels) ? labels.filter((l) => typeof l === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Takes the oldest queued task for this process, or nothing. The claim comes before any work starts (ADR 0013). */

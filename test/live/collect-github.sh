@@ -24,6 +24,6 @@ out=$(sf collect) || fail "collect exited with an error: $out"
 echo "$out"
 echo "$out" | grep -Eq '^collected [1-9][0-9]* new tasks?$' || fail "no task was collected from $repo with the label $label"
 node -e 'const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync(".factor/state.db", { readOnly: true }); const rows = db.prepare("select key, title, labels from tasks order by id limit 3").all(); for (const r of rows) console.log(r.key, "|", r.title.slice(0, 70), "|", r.labels); if (!rows.every((r) => /^#[0-9]+$/.test(r.key) && r.title && JSON.parse(r.labels).includes(process.argv[1]))) process.exit(1);' "$label" || fail "a task does not have an issue number, a title and the label"
-again=$(sf collect)
+again=$(sf collect | sed -n 1p) # a second line may say that only the first hundred were read
 [ "$again" = "collected 0 new tasks" ] || fail "a second collect added tasks again: $again"
 echo "live github collect: ok ($repo, label $label)"

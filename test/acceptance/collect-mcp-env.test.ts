@@ -1,10 +1,10 @@
 // The MCP server a collector starts gets only the environment the workflow lists for it, and a
 // server that fails is said by name while the other collectors go on.
 import { expect, it } from "vitest";
-import { edit, mcpCalls, mcpServer, tasks } from "../helpers/collect.ts";
+import { alive, edit, type McpMode, mcpCalls, mcpServer, tasks } from "../helpers/collect.ts";
 import { commandLane, flowRepo, type Repo } from "../helpers/repo.ts";
 
-function querying(repo: Repo, mode: "ok" | "error" | "silent" | "crash", env?: string[]) {
+function querying(repo: Repo, mode: McpMode, env?: string[]) {
   edit(repo, (w) => {
     w.mcp = { board: { ...mcpServer(repo, [{ id: 1, title: "One" }], mode), ...(env ? { env } : {}) } };
     w.collectors = [
@@ -31,6 +31,7 @@ it("gives the server the variables the workflow lists, and no other of the calle
 
 it.each([
   ["error", /collector board: could not collect: .*the board is closed/],
+  ["rpc-error", /collector board: could not collect: .*no such tool on this board/],
   ["crash", /collector board: could not collect: .*could not start/],
   ["silent", /collector board: could not collect: .*did not answer/],
 ] as const)("says so when the server answers with %s, and still collects the file's tasks", (mode, said) => {
@@ -41,4 +42,6 @@ it.each([
   expect(r.status, r.stderr).toBe(0);
   expect(r.stdout).toMatch(said);
   expect(tasks(repo).map((t) => `${t.collector}:${t.title}`)).toEqual(["tasks:From the file"]);
+  // a server that did not answer is not left running
+  expect(mcpCalls(repo).some((c) => alive(c.pid))).toBe(false);
 });

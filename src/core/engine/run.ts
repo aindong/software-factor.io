@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { heldUntil } from "../accounts.ts";
 import { accountOf, rolesOf, sameVendor } from "../agents/index.ts";
 import { MINUTE_MS, nowMs } from "../clock.ts";
-import { collectFile } from "../collectors/file.ts";
+import { collectAll } from "../collectors/index.ts";
 import type { Db } from "../db.ts";
 import { UserError } from "../errors.ts";
 import { hostEnv, sh } from "../exec.ts";
@@ -31,16 +31,10 @@ export interface RunSummary {
   log: string[];
 }
 
-/** Ask every collector for tasks and add the new ones to the queue. Returns how many were new. */
-export function collect(ws: Workspace, db: Db): number {
-  let added = 0;
-  for (const c of ws.workflow.collectors) {
-    if (c.uses !== "core/file@1") continue;
-    for (const draft of collectFile(ws.root, c.with as { path: string })) {
-      if (store.addTask(db, { collector: c.id, ...draft })) added += 1;
-    }
-  }
-  return added;
+/** Ask every collector for tasks and add the new ones to the queue. Returns one line for each thing to say. */
+export function collect(ws: Workspace, db: Db): string[] {
+  const { added, said } = collectAll(ws, db);
+  return [`collected ${added} new task${added === 1 ? "" : "s"}`, ...said];
 }
 
 export function contextFor(ws: Workspace, db: Db, run: store.Run, log: string[]): Ctx {
@@ -67,7 +61,13 @@ export function contextFor(ws: Workspace, db: Db, run: store.Run, log: string[])
       } catch {
         tier = "refactor"; // when the change cannot be read, do not treat it as the least risky kind
       }
-      return { source: task.collector, labels: [], tier, outputs: state.outputs, gates: state.gates };
+      return {
+        source: task.collector,
+        labels: store.labelsOf(task),
+        tier,
+        outputs: state.outputs,
+        gates: state.gates,
+      };
     },
   };
   return ctx;

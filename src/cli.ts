@@ -5,6 +5,7 @@ import { join, relative, resolve, sep } from "node:path";
 // MCP server can offer the same ones (ADR 0008).
 import { parseArgs } from "node:util";
 import { judge, type Verdict } from "./core/agents/guard.ts";
+import { mcpCall } from "./core/collectors/mcp-call.ts";
 import { accountCommand, memoryCommand, roleCommand, sessionsCommand } from "./core/commands.ts";
 import { costCommand, pluginsCommand, runsCommand } from "./core/commands-view.ts";
 import { openDb } from "./core/db.ts";
@@ -168,6 +169,7 @@ async function mcpCommand(args: string[]): Promise<number> {
 async function main(): Promise<number> {
   if (process.argv[2] === "guard") return guard(process.argv.slice(3));
   if (process.argv[2] === "mcp") return mcpCommand(process.argv.slice(3));
+  if (process.argv[2] === "mcp-call") return mcpCall(); // the factory's own, for a collector
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: {
@@ -278,8 +280,7 @@ async function main(): Promise<number> {
     const ws = loadWorkspace(cwd);
     const db = openDb(ws.dbPath);
     try {
-      const added = collect(ws, db);
-      console.log(`collected ${added} new task${added === 1 ? "" : "s"}`);
+      for (const line of collect(ws, db)) console.log(line);
     } finally {
       db.close();
     }

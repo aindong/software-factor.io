@@ -1,6 +1,7 @@
 // The built-in lane, gate and collector types and the settings ("with") each accepts.
 // A plugin's types are checked by the plugin. These are checked here, strictly.
 import { z } from "zod";
+import { cronProblem } from "../collectors/cron.ts";
 
 /** A command the workspace defines in .factor/factory.json, such as `verify` or `test:e2e`. */
 export const commandName = z.string().regex(/^[a-zA-Z][\w:.-]*$/, {
@@ -118,9 +119,14 @@ export const BUILTINS: Record<Kind, Record<string, z.ZodType | null>> = {
         .optional(),
     }),
     "core/schedule@1": z.strictObject({
-      cron: z
-        .string()
-        .regex(/^(\S+\s+){4}\S+$/, { message: 'Write "cron" as five fields, such as "0 3 * * *".' }),
+      cron: z.string().superRefine((cron, ctx) => {
+        const problem = cronProblem(cron);
+        if (problem)
+          ctx.addIssue({
+            code: "custom",
+            message: `${problem} Write "cron" as five fields, such as "0 3 * * *".`,
+          });
+      }),
       title: z.string().min(1),
       body: z.string().min(1),
     }),

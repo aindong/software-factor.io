@@ -16,7 +16,7 @@ const ISSUES = JSON.stringify([
 it("collects the open issues with the label, once each, and asks gh for that label", () => {
   const repo = flowRepo({ lanes: [commandLane("build", "true")] });
   edit(repo, (w) => {
-    w.collectors = [{ id: "issues", uses: "core/github-issues@1", with: { label: "factory" } }];
+    w.collectors = [{ id: "issues", uses: "core/github-issues@1", with: { label: "good first issue" } }];
   });
   const log = standIn(repo, "gh", `cat << 'JSON'\n${ISSUES}\nJSON`);
 
@@ -33,14 +33,14 @@ it("collects the open issues with the label, once each, and asks gh for that lab
     },
     { collector: "issues", key: "#7", title: "Add a dark theme", body: "", labels: '["factory"]' },
   ]);
-  const asked = calls(log)[0] ?? "";
-  expect(asked).toMatch(/^issue list /);
-  expect(asked).toContain("--label factory");
-  expect(asked).toContain("--state open");
-  expect(asked).not.toContain("--repo");
+  // each argument is one argument (a label may hold a space), and nothing but a list is asked of gh
+  expect(calls(log)).toEqual([
+    "[issue][list][--label][good first issue][--state][open][--limit][100][--json][number,title,body,labels]",
+  ]);
 
   expect(repo.sf("collect").stdout).toContain("collected 0 new tasks");
   expect(tasks(repo)).toHaveLength(2);
+  expect(calls(log).every((c) => c.startsWith("[issue][list]"))).toBe(true);
 });
 
 it("names the repository when the workflow does", () => {
@@ -52,5 +52,5 @@ it("names the repository when the workflow does", () => {
   });
   const log = standIn(repo, "gh", "echo '[]'");
   expect(repo.sf("collect").status).toBe(0);
-  expect(calls(log)[0]).toContain("--repo acme/shop");
+  expect(calls(log)[0]).toContain("[--repo][acme/shop]");
 });

@@ -162,6 +162,8 @@ const MIGRATIONS = [
     at text not null
   );
   `,
+  // the labels a collector found on a task: a route can read them
+  "alter table tasks add column labels text not null default '[]';",
 ];
 
 export type Db = DatabaseSync;

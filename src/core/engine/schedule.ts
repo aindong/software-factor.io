@@ -48,8 +48,9 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
     for (const id of endedByCrash) seen({ status: "stopped", runId: id, code: "crashed", log });
     // a run this call has already moved is not woken again by the same call
     const moved = new Set<string>();
-    const added = collect(ws, db);
-    if (added > 0) log.push(`collected ${added} new task${added === 1 ? "" : "s"}`);
+    const [count = "", ...said] = collect(ws, db);
+    if (!count.startsWith("collected 0 ")) log.push(count);
+    log.push(...said);
     let started = 0;
     let busy = false;
 

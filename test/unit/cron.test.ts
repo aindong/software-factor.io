@@ -19,6 +19,7 @@ describe("a cron line", () => {
     ["0 0 * * mon", "weekday"],
     ["*/0 * * * *", "minute"],
     ["5-1 * * * *", "minute"],
+    ["1,,2 * * * *", "minute"],
     ["* * * *", "five"],
   ])("%s cannot, and the problem names the %s", (cron, word) => {
     expect(cronProblem(cron)).toContain(word);
@@ -30,7 +31,8 @@ describe("a cron line", () => {
     w.collectors[i].with.cron = "61 * * * *";
     const bad = parseWorkflow(w).problems;
     expect(bad.map((p) => p.path)).toEqual([`collectors[${i}].with.cron`]);
-    expect(bad[0]?.message).toContain("minute");
+    expect(bad[0]?.message).toContain('minute "61"');
+    expect(bad[0]?.message).toContain("0 to 59");
     expect(bad[0]?.fix).toMatch(/0 3 \* \* \*/);
     w.collectors[i].with.cron = "*/15 1-5 1,15 * 1-5";
     expect(parseWorkflow(w).problems).toEqual([]);
@@ -48,6 +50,17 @@ describe("when a schedule was last due", () => {
   it("takes the day of the month or the day of the week when both are given, as cron does", () => {
     // 2031-05-06 is a Tuesday: the 1st of the month, or any Monday
     expect(at("0 0 1 * 1", "2031-05-06T10:00:00")).toBe(local("2031-05-05T00:00:00"));
+  });
+  it("reads every field: a list, a range, a step, a day of the month, a month, a weekday", () => {
+    // 2031-05-06 is a Tuesday
+    expect(at("0 9 * * 1-5", "2031-05-04T12:00:00")).toBe(local("2031-05-02T09:00:00")); // Sunday: last due on Friday
+    expect(at("0,30 * * * *", "2031-05-06T10:44:00")).toBe(local("2031-05-06T10:30:00"));
+    expect(at("0 8-10 * * *", "2031-05-06T12:00:00")).toBe(local("2031-05-06T10:00:00"));
+    expect(at("0 */6 * * *", "2031-05-06T13:00:00")).toBe(local("2031-05-06T12:00:00"));
+    expect(at("0 0 15 * *", "2031-05-06T10:00:00")).toBe(local("2031-04-15T00:00:00"));
+    expect(at("0 0 1 5 *", "2031-05-06T10:00:00")).toBe(local("2031-05-01T00:00:00"));
+    expect(at("0 0 * * 0", "2031-05-06T10:00:00")).toBe(local("2031-05-04T00:00:00"));
+    expect(at("0 0 * * 7", "2031-05-06T10:00:00")).toBe(local("2031-05-04T00:00:00"));
   });
   it("is nothing when it was not due in the last 31 days", () => {
     expect(at("0 0 30 2 *", "2031-05-06T10:00:00")).toBeUndefined();

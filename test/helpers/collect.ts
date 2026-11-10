@@ -14,12 +14,12 @@ export function edit(repo: Repo, change: (workflow: Json & { collectors: Json[] 
   repo.write(path, `${JSON.stringify(workflow, null, 2)}\n`);
 }
 
-/** Put a shell script on PATH under a program's name. Returns the file its calls are written to, one line each. */
+/** Put a shell script on PATH under a program's name. Returns the file its calls are written to: one line each, every argument in brackets. */
 export function standIn(repo: Repo, name: string, body: string): string {
   const bin = join(repo.home, "bin");
   mkdirSync(bin, { recursive: true });
   const log = join(repo.home, `${name}.calls`);
-  writeFileSync(join(bin, name), `#!/bin/sh\necho "$*" >> "${log}"\n${body}\n`);
+  writeFileSync(join(bin, name), `#!/bin/sh\n{ printf '[%s]' "$@"; echo; } >> "${log}"\n${body}\n`);
   chmodSync(join(bin, name), 0o755);
   repo.env.PATH = `${bin}:${process.env.PATH}`;
   return log;
@@ -32,16 +32,15 @@ export const tasks = (repo: Repo) =>
     "select collector, key, title, body, labels from tasks order by id",
   );
 
+export type McpMode = "ok" | "structured" | "error" | "rpc-error" | "silent" | "crash";
+
 /**
- * A stand-in MCP server over stdio, as a command for the workflow's "mcp". It answers `tools/call`
- * with the text in `answer` (or as the mode says), and writes each call and the names of the
- * environment variables it was given to `<home>/mcp.calls`.
+ * A stand-in MCP server over stdio, as a command for the workflow's "mcp". Like a real one it
+ * refuses a tool call that comes before the handshake. It answers `tools/call` with the JSON in
+ * `answer` as text (or as the mode says), and writes each call, its own process number and the
+ * names of the environment variables it was given to `<home>/mcp.calls`.
  */
-export function mcpServer(
-  repo: Repo,
-  answer: unknown,
-  mode: "ok" | "error" | "silent" | "crash" = "ok",
-): Json {
+export function mcpServer(repo: Repo, answer: unknown, mode: McpMode = "ok"): Json {
   const script = join(repo.home, "mcp-stand-in.mjs");
   const log = join(repo.home, "mcp.calls");
   writeFileSync(join(repo.home, "mcp-answer.json"), JSON.stringify(answer));
@@ -51,15 +50,21 @@ export function mcpServer(
 import { createInterface } from "node:readline";
 const [log, answer, mode] = process.argv.slice(2);
 if (mode === "crash") { console.error("the stand-in server could not start"); process.exit(3); }
-const say = (m) => process.stdout.write(JSON.stringify(m) + "\\n");
+const say = (m) => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", ...m }) + "\\n");
+let hello = false, ready = false;
 for await (const line of createInterface({ input: process.stdin })) {
   const m = JSON.parse(line);
-  if (m.method === "initialize") say({ jsonrpc: "2.0", id: m.id, result: { protocolVersion: m.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: "stand-in", version: "1" } } });
+  if (m.method === "initialize") { hello = true; say({ id: m.id, result: { protocolVersion: m.params.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: "stand-in", version: "1" } } }); }
+  if (m.method === "notifications/initialized") ready = hello;
   if (m.method === "tools/call") {
-    appendFileSync(log, JSON.stringify({ call: m.params, env: Object.keys(process.env).sort() }) + "\\n");
-    if (mode === "silent") continue;
-    if (mode === "error") say({ jsonrpc: "2.0", id: m.id, result: { isError: true, content: [{ type: "text", text: "the board is closed" }] } });
-    else say({ jsonrpc: "2.0", id: m.id, result: { content: [{ type: "text", text: readFileSync(answer, "utf8") }] } });
+    appendFileSync(log, JSON.stringify({ call: m.params, pid: process.pid, env: Object.keys(process.env).sort() }) + "\\n");
+    const data = JSON.parse(readFileSync(answer, "utf8"));
+    if (!ready) say({ id: m.id, error: { code: -32002, message: "a tool was called before the session was started" } });
+    else if (mode === "silent") continue;
+    else if (mode === "rpc-error") say({ id: m.id, error: { code: -32602, message: "no such tool on this board" } });
+    else if (mode === "error") say({ id: m.id, result: { isError: true, content: [{ type: "text", text: "the board is closed" }] } });
+    else if (mode === "structured") say({ id: m.id, result: { content: [{ type: "text", text: "2 items" }], structuredContent: data } });
+    else say({ id: m.id, result: { content: [{ type: "text", text: JSON.stringify(data) }] } });
   }
 }
 `,
@@ -73,5 +78,15 @@ for await (const line of createInterface({ input: process.stdin })) {
 
 export const mcpCalls = (repo: Repo) =>
   calls(join(repo.home, "mcp.calls")).map(
-    (line) => JSON.parse(line) as { call: { name: string; arguments: Json }; env: string[] },
+    (line) => JSON.parse(line) as { call: { name: string; arguments: Json }; pid: number; env: string[] },
   );
+
+/** Whether a process is still there. */
+export function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
