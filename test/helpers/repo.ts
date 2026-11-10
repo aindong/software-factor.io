@@ -446,7 +446,9 @@ export function ensureUi(): void {
     return;
   }
   try {
-    if (!fresh()) execFileSync("pnpm", ["run", "-s", "build:ui"], { stdio: "ignore" });
+    // as it is built for release: under the test runner's own NODE_ENV the bundle is React's development build
+    const env = { ...process.env, NODE_ENV: "production" };
+    if (!fresh()) execFileSync("pnpm", ["run", "-s", "build:ui"], { stdio: "ignore", env });
   } finally {
     rmdirSync(lock);
   }
