@@ -1,6 +1,6 @@
 // Refuse what this version cannot run honestly, before any task is claimed.
 import { existsSync } from "node:fs";
-import { accountOf } from "../agents/index.ts";
+import { accountOf, rolesOf } from "../agents/index.ts";
 import { UserError } from "../errors.ts";
 import { resolveCommand } from "../gates/command.ts";
 import { isBuiltGate } from "../gates/index.ts";
@@ -29,20 +29,21 @@ export function preflight(ws: Workspace): void {
   for (const lane of ws.workflow.lanes) {
     if (!SUPPORTED_LANES.includes(lane.uses))
       throw later(`The lane type "${lane.uses}" (lane "${lane.id}")`, 19);
-    if (lane.panel) throw later(`A panel (lane "${lane.id}")`, 13);
-    if (lane.agent && !Object.hasOwn(ws.local.roles, lane.agent.role)) {
-      throw new UserError(
-        `The role "${lane.agent.role}" (lane "${lane.id}") is not bound to an agent on this machine.`,
-        `Bind it with \`softwarefactor role bind ${lane.agent.role} --account <name>\`.`,
-      );
-    }
-    const binding = lane.agent ? ws.local.roles[lane.agent.role] : undefined;
-    const bound = binding && lane.agent ? accountOf(binding, lane.agent.role) : undefined;
-    if (bound?.account.profile && !existsSync(bound.account.profile)) {
-      throw new UserError(
-        `The profile folder of the account "${bound.name}" does not exist: ${bound.account.profile}`,
-        "Sign in with that CLI again, or remove the account and add it with the right folder.",
-      );
+    for (const role of rolesOf(lane)) {
+      if (!Object.hasOwn(ws.local.roles, role)) {
+        throw new UserError(
+          `The role "${role}" (lane "${lane.id}") is not bound to an agent on this machine.`,
+          `Bind it with \`softwarefactor role bind ${role} --account <name>\`.`,
+        );
+      }
+      const binding = ws.local.roles[role];
+      const bound = binding ? accountOf(binding, role) : undefined;
+      if (bound?.account.profile && !existsSync(bound.account.profile)) {
+        throw new UserError(
+          `The profile folder of the account "${bound.name}" does not exist: ${bound.account.profile}`,
+          "Sign in with that CLI again, or remove the account and add it with the right folder.",
+        );
+      }
     }
     if (lane.uses === "core/command@1")
       resolveCommand(ws, (lane.with ?? {}) as CommandSettings, `Lane "${lane.id}"`);

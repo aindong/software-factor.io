@@ -60,3 +60,30 @@ export const serverFor = (root: string, run: string, lane: string, laneDir: stri
   ...[process.execPath, process.argv[1] ?? "", "mcp", "--workspace", root, "--run", run],
   ...["--lane", lane, "--lane-dir", laneDir, "--account", account],
 ];
+
+/** The roles a lane's agents work as: the lane's own, and those its panel members name. */
+export const rolesOf = (lane: Lane): string[] => [
+  ...new Set(
+    [lane.agent?.role, ...(lane.panel?.members ?? []).map((m) => m.role)].filter((r) => r !== undefined),
+  ),
+];
+
+/** For each role of the lane that should be on another vendor than some role and is not: what to say. */
+export function sameVendor(
+  roles: Record<string, { differentVendorFrom?: string[] }>,
+  bindings: Record<string, RoleBinding>,
+  lane: Lane,
+): string[] {
+  const vendorOf = (role: string) => {
+    const binding = own(bindings, role);
+    return binding ? accountOf(binding, role)?.account.agent : undefined;
+  };
+  return rolesOf(lane).flatMap((role) =>
+    (own(roles, role)?.differentVendorFrom ?? [])
+      .filter((other) => vendorOf(role) !== undefined && vendorOf(role) === vendorOf(other))
+      .map(
+        (other) =>
+          `the role "${role}" is on the same vendor as "${other}" (${vendorOf(role)}): for an independent review, bind one of them to another vendor`,
+      ),
+  );
+}

@@ -12,7 +12,7 @@ import {
   standinAccount,
 } from "../helpers/repo.ts";
 
-const sensitive = { ref: "change.tier", in: ["sensitive"] };
+const sensitive = { ref: "task.labels", in: ["security"] }; // this task has no such label
 
 describe("a lane with a panel", () => {
   const repo = flowRepo({

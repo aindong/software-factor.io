@@ -3,7 +3,7 @@
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { heldUntil } from "../accounts.ts";
-import { accountOf } from "../agents/index.ts";
+import { accountOf, rolesOf, sameVendor } from "../agents/index.ts";
 import { MINUTE_MS, nowMs } from "../clock.ts";
 import { collectFile } from "../collectors/file.ts";
 import type { Db } from "../db.ts";
@@ -258,16 +258,21 @@ export async function advance(ctx: Ctx): Promise<RunSummary> {
           `the run has used its budget of ${over[1]}, before lane "${lane.id}"`,
         );
 
-      // an account near its limit starts no lane: the run waits until the account has room again
-      const binding = lane.agent ? ws.local.roles[lane.agent.role] : undefined;
-      const bound = binding && lane.agent ? accountOf(binding, lane.agent.role) : undefined;
-      const until = bound ? heldUntil(bound.name, bound.account) : undefined;
-      if (bound && until !== undefined) {
+      // an account near its limit starts no lane, and no panel that one of its members is on
+      let heldBy: { name: string; until: number } | undefined;
+      for (const role of rolesOf(lane)) {
+        const binding = ws.local.roles[role];
+        const bound = binding ? accountOf(binding, role) : undefined;
+        const until = bound ? heldUntil(bound.name, bound.account) : undefined;
+        if (bound && until !== undefined && until > (heldBy?.until ?? 0))
+          heldBy = { name: bound.name, until };
+      }
+      if (heldBy) {
         return park(
           ctx,
-          { kind: "account", lane: lane.id, nextCheck: until },
+          { kind: "account", lane: lane.id, nextCheck: heldBy.until },
           "account_limit",
-          `lane "${lane.id}" waits: the account "${bound.name}" is held until ${new Date(until).toISOString()}`,
+          `lane "${lane.id}" waits: the account "${heldBy.name}" is held until ${new Date(heldBy.until).toISOString()}`,
         );
       }
 
@@ -308,6 +313,13 @@ export async function advance(ctx: Ctx): Promise<RunSummary> {
         store.endLane(db, laneRun, outcome, note, null);
       } else {
         state.parked = undefined;
+        // a review that should be on another vendor than the author and is not still runs: the run says so
+        const hostNote = `${lane.id}, by the host`;
+        state.open = (state.open ?? []).filter((o) => o.lane !== hostNote);
+        for (const text of sameVendor(ws.workflow.roles, ws.local.roles, lane)) {
+          ctx.log.push(`  ${lane.id}: ${text}`);
+          state.open.push({ lane: hostNote, text });
+        }
         const result = await runLane(ctx, lane, laneRun, state.seq);
         ({ outcome, note } = result);
         state.spent.ms += result.cost?.durationMs ?? 0;

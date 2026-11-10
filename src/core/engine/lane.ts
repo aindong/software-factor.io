@@ -2,7 +2,7 @@
 // command, then the lane's gates. Only the host's gates can pass a lane (ADR 0005).
 import { readFileSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { holdAccount } from "../accounts.ts";
+import { holdAccount, LIMIT_HOLD_MS } from "../accounts.ts";
 import { MINUTE_MS, nowMs } from "../clock.ts";
 import type { Db } from "../db.ts";
 import { saveEvidence, saveRunFile } from "../evidence.ts";
@@ -19,6 +19,7 @@ import { servedFor } from "../served.ts";
 import * as store from "../store.ts";
 import { oneLine } from "../text.ts";
 import type { Workspace } from "../workspace.ts";
+import { runPanel } from "./panel.ts";
 import { asText, HANDOFF, inputsOf, promptFor } from "./prompt.ts";
 import { startAgent } from "./start.ts";
 import type { LaneResult, RunState } from "./state.ts";
@@ -50,7 +51,6 @@ export function halted(ctx: Ctx): { code: "interrupted" | "stopped_by_person"; r
 
 const REPAIR_HEAD = 1500;
 const REPAIR_TAIL = 4500;
-const LIMIT_HOLD_MS = 60 * 60_000; // shortcut: a CLI that reports its limit is held for an hour. Read its reset time when one is seen.
 
 export async function runLane(
   ctx: Ctx,
@@ -137,6 +137,25 @@ export async function runLane(
       if ((lane.gates ?? []).length === 0 && branchTip(ws.root, run.branch) !== tipBefore) {
         failWith("its command committed to the run's branch, and the lane has no gate to check that commit");
       }
+    } else if (lane.panel) {
+      const entry = state.entries[lane.id] ?? 0;
+      state.entries[lane.id] = entry + 1;
+      db.prepare("delete from claims where lane_run_id = ?").run(laneRun);
+      const panel = await runPanel(ctx, lane, {
+        laneRun,
+        tag,
+        entry,
+        prompt: promptFor(ctx, lane, notes),
+        env: { ...baseEnv, ...inputEnv },
+        ms: laneMs,
+      });
+      agentStarts += panel.starts;
+      usage.tokens += panel.tokens;
+      usage.usd += panel.usd;
+      [stop, hold, outputs] = [panel.stop, panel.hold, panel.outputs];
+      if (panel.outcome === "fail") failWith(panel.note);
+      else [outcome, note] = [panel.outcome, panel.note];
+      if (panel.final) return done();
     } else {
       agentStarts += 1;
       const entry = state.entries[lane.id] ?? 0;
