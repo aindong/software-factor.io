@@ -57,6 +57,9 @@ export function fakeAgent(binding: RoleBinding): AgentAdapter {
         } else if ("handoff" in action) {
           writeFileSync(job.handoffPath, `${JSON.stringify(action.handoff, null, 2)}\n`);
         } else if ("attach" in action) {
+          if (/[\\/]/.test(action.attach.name) || action.attach.name.startsWith(".")) {
+            throw new Error(`fake agent: "${action.attach.name}" is not a plain file name`);
+          }
           mkdirSync(job.evidenceDir, { recursive: true });
           writeFileSync(join(job.evidenceDir, action.attach.name), action.attach.content);
         } else if ("sleep" in action) {

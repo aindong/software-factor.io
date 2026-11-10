@@ -30,7 +30,9 @@ The agent is given the path to write to. It is outside the repository, so a hand
 | `risk` | `level` (`low`, `medium`, `high`), `door` (`two-way`: undoing the change undoes its effect; `one-way`: it cannot be undone), `why`, and optionally `blastRadius`. |
 | `outputs` | The values the lane declared in the workflow. A required one must be there, with the declared type, and nothing undeclared. |
 
-Any other key is rejected.
+Any other key is rejected. Text is bounded: a summary of at most 4000 characters, at most 50 claims of 1000
+characters with at most 10 references each, at most 50 open items. An output may nest 16 levels and hold 100,000
+characters. Larger content belongs in a file whose path is the output.
 
 ## Evidence
 
@@ -38,18 +40,28 @@ A claim names its evidence as short references. The host resolves each one itsel
 
 | Reference | Holds when |
 | --- | --- |
-| `commit:<rev>` | The commit is on the run's branch and was made in this run. `commit:HEAD` is the branch's tip. |
-| `file:<path>` | The file is committed at the run's head. |
-| `attached:<name>` | A file of that name is in the evidence folder the agent was given, under 20 MB. The host copies it into `.factor/runs/<run>/evidence/` and records its hash. |
+| `commit:<id>` | The commit is on the run's branch and was made in this run. Give its id, or `HEAD` for the branch's tip. A branch or tag name is not accepted. |
+| `file:<path>` | That path is a committed file (not a folder) at the run's head. |
+| `attached:<name>` | A plain file of that name is in the evidence folder the agent was given: under 20 MB, not a link, at most 20 files and 50 MB per hand-off. When the whole hand-off is accepted, the host copies each file into `.factor/runs/<run>/evidence/` and records its hash. |
 | `gate:<lane>.<gate>` | That gate passed earlier in this run. A lane cannot cite its own gates: they run after the hand-off. |
 
 Evidence that exists is not evidence that proves the claim. The check stops a claim with nothing behind it.
 Whether the evidence supports the claim is for the review lane and the person.
 
+## Where the files go
+
+Each time an agent starts on a lane, the host gives it a fresh folder outside the repository for its hand-off and
+its evidence. The folder is emptied first, so nothing an earlier lane left there can be taken for this lane's.
+
+When a hand-off is passed to the next lane, it is quoted line by line under a heading that says another agent
+wrote it. The next agent can read it. It cannot be mistaken for the host or the person.
+
 ## Risk
 
 The run's risk is the highest level any lane stated. The host raises `low` to `medium` when the door is one-way
-or the change touches sensitive files, and says so. When no lane stated a risk, the run reads "not assessed".
+or the change touches sensitive files, and says so. A later lane cannot lower the level or rewrite the reason: only
+a higher level replaces it. A one-way lane or a sensitive change is at least medium even when no lane stated a
+risk. Otherwise, when no lane stated one, the run reads "not assessed".
 
 ## The hand-off to a person
 

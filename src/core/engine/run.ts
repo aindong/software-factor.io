@@ -79,7 +79,12 @@ export function finish(
   wakeAt: string | null = null,
 ): RunSummary {
   const { ws, db, run, state } = ctx;
-  store.saveState(db, run.id, state);
+  try {
+    store.saveState(db, run.id, state);
+  } catch {
+    // a state that cannot be written must not leave the run "running": save it without lane values
+    store.saveState(db, run.id, { ...state, outputs: {} });
+  }
   store.endRun(db, run.id, status, code, reason, wakeAt);
   store.releaseSlot(db, run.id); // a run that is not moving holds no slot
   store.setTaskStatus(db, ctx.task.id, status === "running" ? "running" : status);

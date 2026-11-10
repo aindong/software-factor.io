@@ -43,7 +43,7 @@ Exit codes for run and for a decision: 0 the task is done or dropped, 1 it stopp
 // Task titles and agent summaries come from outside. Printed raw, a control sequence in one could
 // rewrite the terminal's title or hide a failure line.
 // biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
-const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g;
+const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g;
 const say = (line: string) => console.log(line.replace(CONTROL, ""));
 
 const EXIT = { none: 0, done: 0, dropped: 0, running: 0, stopped: 1, waiting: 3 } as const;

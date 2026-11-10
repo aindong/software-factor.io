@@ -6,6 +6,7 @@ import { join, relative } from "node:path";
 import type { Db } from "../db.ts";
 import type { Run, Task } from "../store.ts";
 import type { Workspace } from "../workspace.ts";
+import { oneLine } from "./lane.ts";
 import type { RunState } from "./state.ts";
 
 const NEXT: Record<string, string> = {
@@ -73,7 +74,7 @@ export function writeRunHandoff(
     lines.push(`${i + 1}. **${l.lane}**: ${l.outcome ?? "not finished"}. ${l.note ?? ""}`.trimEnd());
     // what the agent itself said, when the host's verdict above differs from it
     const said = l.handoff_path ? summaryOf(join(ws.root, l.handoff_path)) : undefined;
-    if (said && said !== l.note) lines.push(`   - the agent said: ${said}`);
+    if (said && oneLine(said) !== l.note) lines.push(`   - the agent said: ${oneLine(said)}`);
     const gates = db
       .prepare("select gate, status, output_path from gate_results where lane_run_id = ? order by id")
       .all(l.id) as unknown as {
@@ -89,13 +90,15 @@ export function writeRunHandoff(
       const refs = (JSON.parse(c.evidence) as { ref: string; path?: string }[])
         .map((e) => (e.path ? `\`${e.path}\`` : e.ref))
         .join(", ");
-      lines.push(`   - claims: ${c.text} Evidence: ${refs}`);
+      lines.push(`   - claims: ${oneLine(c.text)} Evidence: ${refs}`);
     }
   });
   lines.push("", "## Still open", "");
   const open = state.open ?? [];
   lines.push(
-    ...(open.length > 0 ? open.map((o) => `- ${o.text} (from ${o.lane})`) : ["Nothing was listed as open."]),
+    ...(open.length > 0
+      ? open.map((o) => `- ${oneLine(o.text)} (from ${o.lane})`)
+      : ["Nothing was listed as open."]),
   );
   lines.push("", "## What to do next", "", NEXT[code] ?? "See the reason above.", "");
 

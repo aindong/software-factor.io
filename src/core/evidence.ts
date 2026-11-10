@@ -17,7 +17,7 @@ export function saveRunFile(
   runId: string,
   folder: string,
   name: string,
-  content: string,
+  content: string | Buffer,
 ): Evidence {
   const dir = join(ws.runsDir, runId, folder);
   mkdirSync(dir, { recursive: true });
@@ -33,5 +33,5 @@ export const saveEvidence = (
   ws: Pick<Workspace, "root" | "runsDir">,
   runId: string,
   name: string,
-  content: string,
+  content: string | Buffer,
 ) => saveRunFile(ws, runId, "evidence", name, content);
