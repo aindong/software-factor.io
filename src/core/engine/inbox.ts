@@ -5,7 +5,9 @@ import { UserError } from "../errors.ts";
 import * as store from "../store.ts";
 import type { Workspace } from "../workspace.ts";
 import { preflight } from "./preflight.ts";
+import { freeDeadSlots } from "./recover.ts";
 import { advance, applyOutcome, contextFor, crashed, type RunSummary } from "./run.ts";
+import { maxSlots, slotEnv } from "./slots.ts";
 import { addNote } from "./state.ts";
 
 export type Decision = "approve" | "reject" | "send-back" | "answer";
@@ -59,8 +61,30 @@ export async function decide(
       "send-back": "sent_back",
       answer: "answered",
     } as const;
+    if (!store.takeWaitingRun(db, runId)) {
+      throw new UserError(
+        `Run ${runId} is not waiting any more: another process just moved it.`,
+        "Look again with `softwarefactor status`.",
+      );
+    }
+    freeDeadSlots(db); // a run whose process died must not keep this one waiting
+    const slot = store.claimSlot(db, runId, maxSlots(ws));
+    ctx.slotEnv = slotEnv(ws, slot);
+    if (slot === undefined) {
+      store.endRun(
+        db,
+        runId,
+        "waiting",
+        run.stop_code ?? "awaiting_approval",
+        run.stop_reason ?? "",
+        run.wake_at,
+      );
+      throw new UserError(
+        `Every slot is busy, so run ${runId} cannot continue yet.`,
+        "Decide again when a run has finished, or raise slots.max in .factor/factory.json.",
+      );
+    }
     store.closeInbox(db, item.id, closed[decision], note);
-    store.resumeRun(db, runId);
     store.setTaskStatus(db, run.task_id, "running");
     state.parked = undefined;
     log.push(`run ${runId}: ${closed[decision].replace("_", " ")}${note ? ` ("${note}")` : ""}`);

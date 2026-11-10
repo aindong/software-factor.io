@@ -1,22 +1,21 @@
 // A run from claim to end. The engine owns the state machine: it decides which lane is next, counts
 // rounds, parks a run that waits for a person or a clock, and names every way a run can end (ADR 0013).
-import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { MINUTE_MS, nowMs } from "../clock.ts";
 import { collectFile } from "../collectors/file.ts";
-import { type Db, openDb } from "../db.ts";
+import type { Db } from "../db.ts";
 import { UserError } from "../errors.ts";
-import { hostEnv, sh, wasInterrupted } from "../exec.ts";
+import { hostEnv, sh } from "../exec.ts";
 import { resolveCommand } from "../gates/command.ts";
-import { addWorktree, branchTip, git, headOf, removeWorktree } from "../git.ts";
+import { branchTip, git, removeWorktree } from "../git.ts";
 import type { WaitSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
 import * as store from "../store.ts";
 import type { Workspace } from "../workspace.ts";
-import { type Ctx, runLane } from "./lane.ts";
-import { preflight } from "./preflight.ts";
-import { addNote, newState, type Parked, type RunState, type StopCode } from "./state.ts";
+import { type Ctx, halted, runLane } from "./lane.ts";
+import { slotEnv } from "./slots.ts";
+import { addNote, type Parked, type RunState, type StopCode } from "./state.ts";
 import { tierOf } from "./tier.ts";
 import { choose, type Facts } from "./transition.ts";
 
@@ -45,7 +44,11 @@ export function contextFor(ws: Workspace, db: Db, run: store.Run, log: string[])
   const task = store.getTask(db, run.task_id);
   if (!task) throw new Error(`run ${run.id} has no task`);
   const state = JSON.parse(run.state) as RunState;
+  const outDir = join(ws.workDir, `${run.id}.out`);
+  mkdirSync(outDir, { recursive: true });
   const ctx: Ctx = {
+    slotEnv: slotEnv(ws, store.getRun(db, run.id)?.slot),
+    control: { signal: new AbortController().signal, pidFile: join(outDir, "pids") },
     ws,
     db,
     run,
@@ -67,7 +70,7 @@ export function contextFor(ws: Workspace, db: Db, run: store.Run, log: string[])
   return ctx;
 }
 
-function finish(
+export function finish(
   ctx: Ctx,
   status: store.RunStatus,
   code: StopCode,
@@ -77,6 +80,7 @@ function finish(
   const { ws, db, run, state } = ctx;
   store.saveState(db, run.id, state);
   store.endRun(db, run.id, status, code, reason, wakeAt);
+  store.releaseSlot(db, run.id); // a run that is not moving holds no slot
   store.setTaskStatus(db, ctx.task.id, status === "running" ? "running" : status);
   store.addEvent(db, run.id, `run.${status}`, { code, reason });
   if (status === "done" || status === "dropped") {
@@ -175,11 +179,13 @@ async function waitStep(
   const result = await sh(resolveCommand(ctx.ws, until, `Lane "${lane.id}"`), {
     cwd: ctx.run.worktree,
     env: hostEnv(ctx.ws.config.gateEnv, {
+      ...ctx.slotEnv,
       FACTOR_RUN_ID: ctx.run.id,
       FACTOR_LANE: lane.id,
       FACTOR_OUTPUTS: outputsFile,
     }),
     timeoutMs: (until.timeoutMinutes ?? 10) * MINUTE_MS,
+    ...ctx.control,
   });
   if (result.exitCode === 0) {
     try {
@@ -198,16 +204,24 @@ async function waitStep(
     lane: lane.id,
     laneRun,
     deadline,
-    nextCheck: Math.min(deadline, now + (settings.everyMinutes ?? 1) * MINUTE_MS),
+    // counted from the end of the check: a check slower than the interval must not be due again at once
+    nextCheck: Math.min(Math.max(deadline, nowMs() + 1), nowMs() + (settings.everyMinutes ?? 1) * MINUTE_MS),
   };
 }
 
 /** Move a run forward until it ends or has to wait. */
 export async function advance(ctx: Ctx): Promise<RunSummary> {
   const { ws, db, run, state } = ctx;
+  // another process can ask this run to stop: look for that request while the run works
+  const stopper = new AbortController();
+  ctx.control = { ...ctx.control, signal: stopper.signal };
+  const watch = setInterval(() => {
+    if (store.stopRequested(db, run.id)) stopper.abort();
+  }, 400);
   try {
     for (;;) {
-      if (wasInterrupted()) return finish(ctx, "stopped", "interrupted", "interrupted");
+      const halt = halted(ctx);
+      if (halt) return finish(ctx, "stopped", halt.code, halt.reason);
       const lane = ws.workflow.lanes.find((l) => l.id === state.next);
       if (!lane) return finish(ctx, "stopped", "lane_failed", `the workflow has no lane "${state.next}"`);
 
@@ -254,6 +268,12 @@ export async function advance(ctx: Ctx): Promise<RunSummary> {
 
       if (lane.uses === "core/wait@1") {
         const step = await waitStep(ctx, lane, laneRun);
+        // a stop that arrived during the check must end the run, not park it to be woken later
+        const stopped = halted(ctx);
+        if (stopped) {
+          store.endLane(db, laneRun, "fail", stopped.reason, null);
+          return finish(ctx, "stopped", stopped.code, stopped.reason);
+        }
         if ("kind" in step) return park(ctx, step, "waiting", `lane "${lane.id}" is waiting`);
         state.parked = undefined;
         ({ outcome, note } = step);
@@ -288,12 +308,15 @@ export async function advance(ctx: Ctx): Promise<RunSummary> {
     }
   } catch (error) {
     return crashed(ctx, error);
+  } finally {
+    clearInterval(watch);
   }
 }
 
 /** End a run that hit an error: close its open lane, name the reason, and leave nothing "running". */
 export function crashed(ctx: Ctx, error: unknown): RunSummary {
-  if (wasInterrupted()) return finish(ctx, "stopped", "interrupted", "interrupted");
+  const halt = halted(ctx);
+  if (halt) return finish(ctx, "stopped", halt.code, halt.reason);
   const message = (error as Error).message;
   ctx.db
     .prepare(
@@ -308,68 +331,4 @@ export function crashed(ctx: Ctx, error: unknown): RunSummary {
   );
   if (error instanceof UserError) throw error;
   return summary;
-}
-
-/** Wake the parked waits that are due, then take the next queued task through the workflow. */
-export async function runNext(ws: Workspace): Promise<RunSummary> {
-  preflight(ws);
-  const db = openDb(ws.dbPath);
-  const log: string[] = [];
-  try {
-    // one call can move several runs: report the worst outcome among them
-    const rank = { none: 0, running: 0, done: 1, dropped: 1, waiting: 2, stopped: 3 } as const;
-    let worst: RunSummary | undefined;
-    const seen = (summary: RunSummary): RunSummary => {
-      if (!worst || rank[summary.status] > rank[worst.status]) worst = summary;
-      return { ...worst, log };
-    };
-    for (const due of store.dueRuns(db)) {
-      if (wasInterrupted()) break; // runs that are only parked stay parked
-      store.resumeRun(db, due.id);
-      store.setTaskStatus(db, due.task_id, "running");
-      log.push(`run ${due.id}: waking`);
-      seen(await advance(contextFor(ws, db, { ...due, status: "running" }, log)));
-    }
-    if (wasInterrupted()) return worst ?? { status: "none", log };
-
-    const added = collect(ws, db);
-    if (added > 0) log.push(`collected ${added} new task${added === 1 ? "" : "s"}`);
-    const task = store.claimNextTask(db);
-    if (!task) return worst ?? { status: "none", log: [...log, "no queued task"] };
-
-    const runId = randomBytes(4).toString("hex");
-    const branch = `factor/${task.key}-${runId}`;
-    const worktree = join(ws.workDir, runId);
-    const first = ws.workflow.lanes[0]?.id ?? "";
-    let base: string;
-    try {
-      base = headOf(ws.root);
-      store.createRun(db, {
-        id: runId,
-        task_id: task.id,
-        workflow: ws.workflow.name,
-        base_commit: base,
-        branch,
-        worktree,
-        state: JSON.stringify(newState(first)),
-      });
-    } catch (error) {
-      store.setTaskStatus(db, task.id, "queued"); // nothing started: the task goes back in the queue
-      throw error;
-    }
-    store.addEvent(db, runId, "run.started", { task: task.title });
-    log.push(`run ${runId}: ${task.title}`);
-    const run = store.getRun(db, runId);
-    if (!run) throw new Error("the run was not recorded");
-    const ctx = contextFor(ws, db, run, log);
-    try {
-      mkdirSync(ctx.outDir, { recursive: true });
-      addWorktree(ws.root, worktree, branch, base);
-    } catch (error) {
-      return seen(finish(ctx, "stopped", "crashed", `the run could not start: ${(error as Error).message}`));
-    }
-    return seen(await advance(ctx));
-  } finally {
-    db.close();
-  }
 }

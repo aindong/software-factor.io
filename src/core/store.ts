@@ -26,6 +26,10 @@ export interface Run {
   branch: string;
   worktree: string;
   wake_at: string | null;
+  /** The slot the run holds while it is moving. */
+  slot: number | null;
+  /** The process that is moving the run, when one is. */
+  pid: number | null;
   /** The run's position and counters, as JSON (engine/state.ts). */
   state: string;
 }
@@ -117,12 +121,63 @@ export function endRun(
   ).run(status, code, reason, wakeAt, ended, id);
 }
 
-/** A waiting run starts moving again in this process. */
-export function resumeRun(db: Db, id: string): void {
-  db.prepare(
-    "update runs set status = 'running', stop_code = null, stop_reason = null, wake_at = null, pid = ? where id = ?",
-  ).run(process.pid, id);
+/** This process takes a waiting run. False when another process took it first: a run has one owner at a time. */
+export function takeWaitingRun(db: Db, id: string): boolean {
+  const r = db
+    .prepare(
+      "update runs set status = 'running', stop_code = null, stop_reason = null, wake_at = null, stop_requested = 0, pid = ? where id = ? and status = 'waiting'",
+    )
+    .run(process.pid, id);
+  return r.changes === 1;
 }
+
+/** This process takes over a run whose owner is gone. False when another process got there first. */
+export function takeOrphan(db: Db, id: string, deadPid: number | null): boolean {
+  const r = db
+    .prepare("update runs set pid = ?, stop_requested = 0 where id = ? and status = 'running' and pid is ?")
+    .run(process.pid, id, deadPid);
+  return r.changes === 1;
+}
+
+export const workingRuns = (db: Db) =>
+  db.prepare("select * from runs where status = 'running' order by started_at").all() as unknown as (Run & {
+    pid: number | null;
+  })[];
+
+/** The lowest free slot, claimed for this run, or nothing when all are busy. */
+export function claimSlot(db: Db, runId: string, max: number): number | undefined {
+  db.exec("begin immediate");
+  try {
+    const taken = new Set(
+      (db.prepare("select slot from slots").all() as { slot: number }[]).map((r) => r.slot),
+    );
+    let slot: number | undefined;
+    for (let n = 1; n <= max && slot === undefined; n++) if (!taken.has(n)) slot = n;
+    if (slot !== undefined) {
+      db.prepare("insert into slots (slot, run_id) values (?, ?)").run(slot, runId);
+      db.prepare("update runs set slot = ? where id = ?").run(slot, runId);
+    }
+    db.exec("commit");
+    return slot;
+  } catch (error) {
+    db.exec("rollback");
+    throw error;
+  }
+}
+
+export function releaseSlot(db: Db, runId: string): void {
+  db.prepare("delete from slots where run_id = ?").run(runId);
+}
+
+export function requestStop(db: Db, id: string): void {
+  db.prepare("update runs set stop_requested = 1 where id = ?").run(id);
+}
+export const stopRequested = (db: Db, id: string) =>
+  (
+    db.prepare("select stop_requested from runs where id = ?").get(id) as
+      | { stop_requested: number }
+      | undefined
+  )?.stop_requested === 1;
 
 /** Runs parked on a wait lane whose time has come. */
 export const dueRuns = (db: Db) =>
@@ -219,7 +274,7 @@ export const openInboxFor = (db: Db, runId: string) =>
 export function closeInbox(
   db: Db,
   id: number,
-  status: "approved" | "rejected" | "sent_back" | "answered",
+  status: "approved" | "rejected" | "sent_back" | "answered" | "closed",
   note: string,
 ): void {
   db.prepare("update inbox set status = ?, answer = ?, answered_at = ? where id = ?").run(

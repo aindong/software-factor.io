@@ -157,7 +157,10 @@ describe("one call that moves several runs", () => {
       { status: "stopped", stop_code: "interrupted", title: "A" },
       { status: "waiting", stop_code: "waiting", title: "B" },
     ]);
-    expect(repo.rows("select title, status from tasks where title = 'C'")).toEqual([]);
+    // the new task was collected at the start of the call, and was not started
+    expect(repo.rows("select title, status from tasks where title = 'C'")).toEqual([
+      { title: "C", status: "queued" },
+    ]);
     // the interrupted lane is not recorded as passed: only gates pass a lane
     expect(repo.rows("select outcome from lane_runs where lane = 'slow'")).toEqual([{ outcome: "fail" }]);
   }, 30_000);
