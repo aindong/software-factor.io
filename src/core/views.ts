@@ -136,6 +136,20 @@ type SessionRow = {
   title: string | null;
 };
 
+/** To a millionth: sums of amounts such as 0.1 and 0.2 are not exact in floating point. */
+export const millionth = (usd: number) => Math.round(usd * 1e6) / 1e6;
+
+/** The line of some sessions: how many, their tokens, and the cost that is known. */
+export function costLine(list: { tokens: number; usd: number | null }[]): CostLine {
+  const known = list.filter((s) => s.usd !== null);
+  return {
+    sessions: list.length,
+    tokens: list.reduce((sum, s) => sum + s.tokens, 0),
+    usd: known.length > 0 ? millionth(known.reduce((sum, s) => sum + (s.usd ?? 0), 0)) : null,
+    unknown: list.length - known.length,
+  };
+}
+
 /** Tokens and cost by lane, by task and by account: each line the sum of its sessions. */
 export function costsView(db: Db): CostsView {
   // every session counts, also one whose run or task is no longer in the record
@@ -145,16 +159,7 @@ export function costsView(db: Db): CostsView {
        left join runs r on r.id = s.run_id left join tasks t on t.id = r.task_id order by s.id`,
     )
     .all() as unknown as SessionRow[];
-  const line = (list: SessionRow[]): CostLine => {
-    const known = list.filter((s) => s.usd !== null);
-    return {
-      sessions: list.length,
-      tokens: list.reduce((sum, s) => sum + s.tokens, 0),
-      // to a millionth: sums of amounts such as 0.1 and 0.2 are not exact in floating point
-      usd: known.length > 0 ? Math.round(known.reduce((sum, s) => sum + (s.usd ?? 0), 0) * 1e6) / 1e6 : null,
-      unknown: list.length - known.length,
-    };
-  };
+  const line = costLine;
   const groups = (key: (s: SessionRow) => string) => {
     const by = new Map<string, SessionRow[]>();
     for (const s of rows) by.set(key(s), [...(by.get(key(s)) ?? []), s]);

@@ -25,7 +25,7 @@ it("prints four sections, and each lane's kinds are the sums of its session rows
 
   const printed = book.repo.sf("cost");
   expect(printed.status, printed.stderr).toBe(0);
-  const out = printed.stdout;
+  const out = `\n${printed.stdout}`; // a heading is looked for at the start of a line, the first one too
   const order = ["By task", "By lane", "By account", "By model"].map((h) => out.indexOf(`\n${h}`));
   expect(order.every((at) => at >= 0)).toBe(true);
   expect([...order].sort((x, y) => x - y)).toEqual(order);
@@ -43,7 +43,7 @@ it("prints four sections, and each lane's kinds are the sums of its session rows
   expect(lanes.find((l) => l.trim().startsWith("build "))).toMatch(/\$0\.51\b.*1 of unknown cost/);
 
   expect(section(out, "By task").join("\n")).toMatch(
-    /Alpha[\s\S]*Beta.*unknown[\s\S]*no longer in the record/,
+    /Alpha[\s\S]*Beta.*unknown[\s\S]*a task that is no longer in/,
   );
   expect(section(out, "By account").map((l) => l.trim().split(/\s+/)[0])).toEqual(["work", "spare"]);
   const models = section(out, "By model").join("\n");

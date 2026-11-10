@@ -20,12 +20,13 @@ import {
 } from "node:fs";
 import { basename, join } from "node:path";
 import { z } from "zod";
+import { costReport } from "./cost.ts";
 import type { Db } from "./db.ts";
 import { UserError } from "./errors.ts";
 import { acceptStep, ladderView } from "./ladder.ts";
 import { listRuns, runDetail, runDiff, runFile } from "./runs/view.ts";
 import { type Problem, parseWorkflow } from "./schema/parse.ts";
-import { accountsView, costsView, inboxItems, pluginsView } from "./views.ts";
+import { accountsView, inboxItems, pluginsView } from "./views.ts";
 import { factorHome, loadWorkspace, workspaceId } from "./workspace.ts";
 
 export interface At {
@@ -441,11 +442,11 @@ export const OPERATIONS: Operation[] = [
   op({
     name: "costs",
     description:
-      "Tokens and cost by lane, by task and by account, from the session records, with the whole and how many sessions have no known cost.",
+      "Tokens and cost by lane, by task, by account and by model, from the session records: the kinds of tokens by lane, the cache hit rate, the cost per landed task, the most expensive runs that did not land, the whole, and how many sessions have no known cost.",
     input: none,
     changes: false,
     cli: [["cost"]],
-    run: (at) => costsView(at.db),
+    run: (at) => costReport(at.db),
   }),
   op({
     name: "ladder_list",

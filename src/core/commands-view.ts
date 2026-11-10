@@ -1,9 +1,8 @@
-// `softwarefactor runs`, `cost` and `plugins`: printed from the same data the interface shows.
+// `softwarefactor runs` and `plugins`: printed from the same data the interface shows.
 import type { Db } from "./db.ts";
 import { UserError } from "./errors.ts";
 import { listRuns, runDetail, runDiff } from "./runs/view.ts";
-import { money } from "./text.ts";
-import { type CostLine, costsView, pluginsView } from "./views.ts";
+import { pluginsView } from "./views.ts";
 
 type Say = (line: string) => void;
 
@@ -37,36 +36,6 @@ export function runsCommand(db: Db, root: string, id: string | undefined, diff: 
   for (const item of run.inbox) say(`  waiting: ${item.body}`);
   for (const file of run.files)
     say(`  file: ${file.path}${file.name === file.path.split("/").pop() ? "" : `  (${file.name})`}`);
-  return 0;
-}
-
-const amount = (line: CostLine) =>
-  line.usd === null
-    ? "unknown"
-    : `${money(line.usd)}${line.unknown > 0 ? `  (${line.unknown} of unknown cost not counted)` : ""}`;
-const used = (line: CostLine) =>
-  `${String(line.sessions).padStart(4)} session${line.sessions === 1 ? " " : "s"} ${String(line.tokens).padStart(12)} tokens  ${amount(line)}`;
-
-/** `cost`: tokens and cost by lane, by task and by account, with the whole. */
-export function costCommand(db: Db, say: Say): number {
-  const costs = costsView(db);
-  if (costs.total.sessions === 0) {
-    say("No sessions yet. A session is recorded each time an agent starts on a lane.");
-    return 0;
-  }
-  say("By lane");
-  for (const l of costs.byLane) say(`  ${l.lane.padEnd(28)} ${used(l)}`);
-  say("By task");
-  for (const t of costs.byTask) say(`  ${t.task.slice(0, 28).padEnd(28)} ${used(t)}`);
-  say("By account");
-  for (const a of costs.byAccount) say(`  ${(a.account ?? "(the scripted agent)").padEnd(28)} ${used(a)}`);
-  say(`Total${" ".repeat(25)} ${used({ ...costs.total, unknown: 0 })}`);
-  const { unknown } = costs.total;
-  if (unknown > 0) {
-    say(
-      `${unknown} session${unknown === 1 ? "" : "s"} of unknown cost ${unknown === 1 ? "is" : "are"} not in the totals`,
-    );
-  }
   return 0;
 }
 

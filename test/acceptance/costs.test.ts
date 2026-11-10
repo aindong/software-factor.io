@@ -15,7 +15,18 @@ interface Costs {
   byTask: (Line & { task: string; runs: string[] })[];
   byAccount: (Line & { account: string | null; agent: string })[];
   total: Line;
+  // since task 24, beside the lines above
+  byModel: (Line & { model: string | null })[];
+  landed: { perTask: number | null; spent: Line; notLanded: Line; other: Line };
+  failedRuns: { usd: number | null }[];
 }
+/** Every amount the operation gives. */
+const amountsOf = (body: Costs) => [
+  ...[...body.byLane, ...body.byTask, ...body.byAccount, ...body.byModel, body.total].map((l) => l.usd),
+  ...[body.landed.spent, body.landed.notLanded, body.landed.other].map((l) => l.usd),
+  body.landed.perTask,
+  ...body.failedRuns.map((r) => r.usd),
+];
 const { repo, done, stopped, waiting } = threeRuns();
 // one more start of an agent on another lane and account, and one session whose cost is not known
 sql(repo, (db) => {
@@ -129,7 +140,7 @@ describe("costs", () => {
     // every amount the command line prints is one the operation gave
     const printed = repo.sf("cost").stdout;
     const amounts = [...printed.matchAll(/\$(\d+\.\d+)/g)].map((m) => Number(m[1]));
-    const known = [...body.byLane, ...body.byTask, ...body.byAccount, body.total].map((l) => l.usd);
+    const known = amountsOf(body);
     expect(amounts.length).toBeGreaterThanOrEqual(8);
     for (const amount of amounts) expect(known, `$${amount}`).toContain(amount);
   });
@@ -154,17 +165,24 @@ describe("costs", () => {
     expect(printed).toMatch(/small .*\$0\.00004\b/);
     expect(printed).not.toMatch(/\$0\.0000\b/);
     const amounts = [...printed.matchAll(/\$(\d+\.\d+)/g)].map((m) => Number(m[1]));
-    const known = [...body.byLane, ...body.byTask, ...body.byAccount, body.total].map((l) => l.usd);
+    const known = amountsOf(body);
     for (const amount of amounts) expect(known, `$${amount}`).toContain(amount);
   });
 
   it("say so when nothing has been recorded", async () => {
     sql(repo, (db) => db.exec("delete from sessions"));
+    const nothing = { sessions: 0, tokens: 0, usd: null, unknown: 0 };
     expect((await op<Costs>(ui, "costs")).body).toEqual({
       byLane: [],
       byTask: [],
       byAccount: [],
-      total: { sessions: 0, tokens: 0, usd: null, unknown: 0 },
+      total: nothing,
+      byModel: [],
+      usage: [],
+      cacheRate: null,
+      // the three tasks are still in the record: one done, one stopped, one that waits
+      landed: { tasks: 1, ended: 2, spent: nothing, perTask: 0, notLanded: nothing, other: nothing },
+      failedRuns: [],
     });
     expect(repo.sf("cost").stdout).toMatch(/No sessions yet/);
   });
