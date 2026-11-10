@@ -64,6 +64,8 @@ export interface CheckContext {
   gates: Record<string, Record<string, string>>;
   /** Where the agent may leave files as evidence. */
   evidenceDir: string;
+  /** Files the agent attached through the factor server, by name: the host already holds their text. */
+  served?: Record<string, string>;
 }
 
 const MAX_ATTACHMENT = 20_000_000;
@@ -154,7 +156,9 @@ const isAncestor = (root: string, a: string, b: string) => {
 /** A file the agent attached, opened so that what was checked is what is copied. */
 interface Attachment {
   name: string;
-  fd: number;
+  /** An open file from the evidence folder, or the text the factor server kept. */
+  fd?: number;
+  text?: string;
   size: number;
 }
 
@@ -256,7 +260,11 @@ export function checkHandoff(c: CheckContext, lane: Lane, value: unknown): Check
           if (attachments.size >= MAX_ATTACHMENTS) {
             return { ref, ok: false, why: `a hand-off may attach at most ${MAX_ATTACHMENTS} files` };
           }
-          const opened = openAttachment(c.evidenceDir, name);
+          const kept = c.served && Object.hasOwn(c.served, name) ? c.served[name] : undefined;
+          const opened =
+            kept === undefined
+              ? openAttachment(c.evidenceDir, name)
+              : { name, text: kept, size: Buffer.byteLength(kept) };
           if (typeof opened === "string") return { ref, ok: false, why: opened };
           attachments.set(name, opened);
         }
@@ -282,7 +290,13 @@ export function checkHandoff(c: CheckContext, lane: Lane, value: unknown): Check
       const ext = /\.[A-Za-z0-9]{1,8}$/.exec(a.name)?.[0] ?? "";
       copies.set(
         a.name,
-        saveRunFile(c.ws, c.runId, "evidence", `${c.tag}-attached-${n}${ext}`, readFileSync(a.fd)),
+        saveRunFile(
+          c.ws,
+          c.runId,
+          "evidence",
+          `${c.tag}-attached-${n}${ext}`,
+          a.fd === undefined ? (a.text ?? "") : readFileSync(a.fd),
+        ),
       );
     }
     return {
@@ -298,7 +312,7 @@ export function checkHandoff(c: CheckContext, lane: Lane, value: unknown): Check
       })),
     };
   } finally {
-    for (const a of attachments.values()) closeSync(a.fd);
+    for (const a of attachments.values()) if (a.fd !== undefined) closeSync(a.fd);
   }
 }
 

@@ -69,6 +69,20 @@ describe("softwarefactor mcp", () => {
     expect(status).toBe(0);
   });
 
+  it("takes a line feed as the end of a message, and nothing else", () => {
+    // U+2028 is legal inside a JSON string, and JSON.stringify leaves it as it is
+    const body = "one\u2028two\u2029three";
+    const call = {
+      jsonrpc: "2.0",
+      id: 8,
+      method: "tools/call",
+      params: { name: "memory_note", arguments: { title: "t", body } },
+    };
+    const { answers } = mcp(repo, lane, [call]);
+    expect(answers).toHaveLength(1);
+    expect(answers[0]?.result?.isError).toBeFalsy();
+  });
+
   it("refuses to start without the run and the lane it serves", () => {
     const { status, stderr } = mcp(repo, { run: "", lane: "build" }, [init]);
     expect(status).not.toBe(0);

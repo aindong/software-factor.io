@@ -116,7 +116,8 @@ export function keepNote(factorDir: string, db: Db, id: string): string {
       .slice(0, 60) || "note";
   const name = existsSync(join(dir, `${slug}.md`)) ? `${slug}-${note.id}.md` : `${slug}.md`;
   const origin = `From a note by an agent: run ${note.run_id}, lane ${note.lane}, account ${note.account ?? "none"}. Kept by a person on ${nowIso().slice(0, 10)}.`;
-  writeFileSync(join(dir, name), `# ${note.title}\n\n${note.body}\n\n${origin}\n`, { flag: "wx" });
+  // where it came from stands first, so it is read before the note is
+  writeFileSync(join(dir, name), `# ${note.title}\n\n${origin}\n\n${note.body}\n`, { flag: "wx" });
   db.prepare("update memory_notes set status = 'kept' where id = ?").run(note.id);
   return `.factor/memory/notes/${name}`;
 }
@@ -150,12 +151,14 @@ export function memorySection(entries: Entry[]): string | undefined {
   ].join("\n\n");
 }
 
+/** Text split at every kind of line end, so no forged line hides behind an odd one. */
+export const lines = (text: string) => text.split(/\r\n|[\n\r\v\f\u0085\u2028\u2029]/);
+/** Lines as a quote: each one marked, so none can pass for a heading or for the host's own words. */
+export const quoted = (all: string[]) => all.map((line) => `> ${line}`.trimEnd()).join("\n");
+
 /** Notes of this run as a part of a prompt, quoted line by line: they are agents' words. */
 export function notesSection(notes: Note[]): string | undefined {
   if (notes.length === 0) return undefined;
-  const quoted = notes
-    // every kind of line end starts a new quoted line: a lone carriage return would hide the mark
-    .flatMap((n) => [`${n.title} (lane "${n.lane}")`, ...n.body.split(/\r\n|\r|\n/), ""])
-    .map((line) => `> ${line}`.trimEnd());
-  return `# Notes from earlier lanes of this run (written by agents, not by the host or a person)\n\n${quoted.join("\n")}`;
+  const all = notes.flatMap((n) => [`${n.title} (lane "${n.lane}")`, ...lines(n.body), ""]);
+  return `# Notes from earlier lanes of this run (written by agents, not by the host or a person)\n\n${quoted(all)}`;
 }

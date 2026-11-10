@@ -79,6 +79,10 @@ const WRAPPERS = new Set([
 const TEXT_ONLY = new Set(["git", "echo", "printf", "grep", "rg"]);
 const SUPERUSER = new Set(["sudo", "doas"]);
 const FACTORY = "softwarefactor";
+const FACTORY_COMMANDS = new Set([
+  ...["init", "collect", "run", "stop", "approve", "reject", "send-back", "answer"],
+  ...["account", "role", "memory", "mcp", "guard"],
+]);
 const READS_CONFIG = new Set(["--get", "--get-all", "--get-regexp", "--list", "-l"]);
 const GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--exec-path"]);
 const GIT_ELSEWHERE = /^--(git-dir|work-tree|namespace|config-env)(=|$)/;
@@ -281,8 +285,15 @@ function judgeShell(command: unknown, where: Where): Verdict {
     if (SUPERUSER.has(first) || (!TEXT_ONLY.has(first) && rest.some((w) => SUPERUSER.has(nameOf(w))))) {
       return deny("sudo is not allowed. An agent works with the rights of its own user.");
     }
-    // the factory's command is for people: an agent that runs it could approve or keep its own work
-    if (first === FACTORY || (!TEXT_ONLY.has(first) && rest.some((w) => nameOf(w) === FACTORY))) {
+    // The factory's command is for people: an agent that runs it could approve or keep its own
+    // work. Only the command counts, not the word: as the command itself, or before one of its
+    // own subcommands. Quoted text is left out, so a test's name with the word in it is fine.
+    const bare = part
+      .replace(/"[^"]*"|'[^']*'/g, " ")
+      .trim()
+      .split(/\s+/);
+    const runsFactory = bare.some((w, i) => nameOf(w) === FACTORY && FACTORY_COMMANDS.has(bare[i + 1] ?? ""));
+    if (first === FACTORY || runsFactory) {
       return deny("The softwarefactor command is for people. Use the tools of the factor server.");
     }
     if (first === "cd" || first === "pushd") moved = true;

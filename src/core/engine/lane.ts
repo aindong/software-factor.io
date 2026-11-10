@@ -3,7 +3,7 @@
 import { mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { holdAccount } from "../accounts.ts";
-import { adapterFor } from "../agents/index.ts";
+import { adapterFor, serverFor } from "../agents/index.ts";
 import type { AgentExit } from "../agents/types.ts";
 import { MINUTE_MS, nowMs } from "../clock.ts";
 import type { Db } from "../db.ts";
@@ -17,6 +17,7 @@ import { checkHandoff, combineRisk, type Handoff, outputProblems, type RunRisk }
 import { readObject } from "../safe-read.ts";
 import type { CommandSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
+import { clearServed, servedFor } from "../served.ts";
 import * as store from "../store.ts";
 import { oneLine } from "../text.ts";
 import type { Workspace } from "../workspace.ts";
@@ -152,6 +153,7 @@ export async function runLane(
       mkdirSync(hostDir, { recursive: true });
       const evidenceDir = join(laneDir, "evidence");
       mkdirSync(evidenceDir, { recursive: true });
+      clearServed(db, { run: run.id, slot: laneDir });
       const agentHandoff = join(laneDir, "handoff.json");
       db.prepare("delete from claims where lane_run_id = ?").run(laneRun); // an earlier attempt's claims are replaced
       const binding = ws.local.roles[lane.agent?.role ?? ""];
@@ -196,13 +198,7 @@ export async function runLane(
             FACTOR_DEFAULT_BRANCH: currentBranch(ws.root),
           },
           protect: account ? protectedBranches(ws.root) : undefined,
-          // the factor server for this lane: which lane it serves is fixed here, on its command line
-          server: account
-            ? [
-                ...[process.execPath, process.argv[1] ?? "", "mcp", "--workspace", ws.root, "--run", run.id],
-                ...["--lane", lane.id, "--lane-dir", laneDir, "--account", account],
-              ]
-            : undefined,
+          server: account ? serverFor(ws.root, run.id, lane.id, laneDir, account) : undefined,
           entry,
           signal: limit.signal,
           pidFile: ctx.control.pidFile,
@@ -268,7 +264,9 @@ export async function runLane(
         failWith(oneLine(`the account "${account}" reached its limit: ${exit.error ?? ""}`));
         return done();
       }
-      let handoff = readObject(agentHandoff);
+      // what the agent gave the factor server comes first: a question asked there stands
+      const served = servedFor(db, { run: run.id, slot: laneDir });
+      let handoff = served.handoff ?? readObject(agentHandoff);
       let inTheWay = false;
       if (exit.exitCode !== 0 && !handoff && crashes < (lane.retry?.max ?? 0)) {
         crashes += 1; // a crash, not a round: start the agent again
@@ -294,6 +292,7 @@ export async function runLane(
             head: branchTip(ws.root, run.branch),
             gates: state.gates,
             evidenceDir,
+            served: served.evidence,
           },
           lane,
           handoff.value,

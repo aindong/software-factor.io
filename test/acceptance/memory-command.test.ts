@@ -35,7 +35,7 @@ describe("softwarefactor memory", () => {
     const file = join(repo.dir, ".factor/memory/notes/the-deploy-script-builds-twice.md");
     expect(existsSync(file)).toBe(true);
     expect(repo.read(".factor/memory/notes/the-deploy-script-builds-twice.md")).toMatch(
-      /^# The deploy script builds twice\n\nOnce is enough: see scripts\/deploy\.sh\.\n\n.*run r1.*build.*claude-a/s,
+      /^# The deploy script builds twice\n\n.*run r1.*build.*claude-a.*\n\nOnce is enough: see scripts\/deploy\.sh\.\n/,
     );
     expect(repo.sf("memory", "list").stdout).toMatch(/kept\s+notes\/the-deploy-script-builds-twice\.md/);
     repo.sf("run");

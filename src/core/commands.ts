@@ -14,7 +14,7 @@ import {
 import { LocalConfig } from "./config.ts";
 import type { Db } from "./db.ts";
 import { UserError } from "./errors.ts";
-import { dropNote, keepNote, proposedNotes, readMemory } from "./memory.ts";
+import { dropNote, keepNote, lines, proposedNotes, readMemory } from "./memory.ts";
 import { own } from "./schema/builtins.ts";
 import { getRun, type Session, sessionsOf } from "./store.ts";
 import type { Workspace } from "./workspace.ts";
@@ -261,6 +261,8 @@ export function memoryCommand(ws: Workspace, db: Db, args: string[], say: (line:
       say(
         `proposed  ${String(n.id).padEnd(5)} ${n.title}  (run ${n.run_id}, lane ${n.lane}, account ${n.account ?? "none"})`,
       );
+      // the whole note, as a quote: a person keeps only what they have read
+      for (const line of lines(n.body)) say(`    > ${line}`);
     }
     return 0;
   }

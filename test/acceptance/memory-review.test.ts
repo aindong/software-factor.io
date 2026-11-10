@@ -208,7 +208,7 @@ describe("attaching evidence", () => {
     mkdirSync(elsewhere);
     symlinkSync(elsewhere, join(laneDir, "evidence"));
     const lane = { run: "r1", lane: "look", laneDir };
-    expect(callTool(repo, lane, "evidence_attach", { name: "a.txt", text: "x" }).result?.isError).toBe(true);
+    callTool(repo, lane, "evidence_attach", { name: "a.txt", text: "x" }); // kept by the host, not written here
     expect(existsSync(join(elsewhere, "a.txt"))).toBe(false);
     callTool(repo, lane, "evidence_attach", { name: "../escape.txt", text: "x" });
     expect(existsSync(join(repo.home, "escape.txt"))).toBe(false);

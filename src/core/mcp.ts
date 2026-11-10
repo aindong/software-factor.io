@@ -1,32 +1,26 @@
 // The factor MCP server: the one way agents of every vendor read the project's memory, leave a
 // note for later lanes, hand off, ask a person and attach evidence (ADR 0007). It speaks JSON-RPC
 // over stdio, one message a line. It is started by the agent's CLI for one lane, and which lane
-// that is comes from its command line, never from a tool call.
-import { lstatSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+// that is comes from its command line, never from a tool call. It runs outside any sandbox, so it
+// writes no file: what an agent gives it is kept as rows, which the host reads when the agent ends.
 import { join } from "node:path";
-import { createInterface } from "node:readline";
 import { z } from "zod";
 import { FACTOR_TOOLS, type FactorTool } from "./agents/factor-tools.ts";
 import { type Db, openDb } from "./db.ts";
-import { type Asker, addNote, proposedNotes, readMemory, recordRead } from "./memory.ts";
-import { readObject } from "./safe-read.ts";
+import { type Asker, addNote, lines, proposedNotes, quoted, readMemory, recordRead } from "./memory.ts";
+import { serve as keep } from "./served.ts";
 
 export interface Served extends Asker {
   /** The workspace's root: its .factor folder holds the memory and the database. */
   root: string;
+  /** The lane folder the host made for this start of the lane. It names the start: nothing is written there. */
   laneDir: string;
 }
 
 const MAX_ATTACHMENT = 1_000_000;
+const MAX_LINE = 20_000_000;
 const text = (max: number) => z.string().min(1).max(max);
-
-/** Write a file the lane's folder may already hold, never through a link left in its place. */
-function put(dir: string, name: string, content: string): void {
-  mkdirSync(dir, { recursive: true });
-  if (!lstatSync(dir).isDirectory()) throw new Error("The lane's folder is not a folder any more.");
-  rmSync(join(dir, name), { force: true });
-  writeFileSync(join(dir, name), content, { flag: "wx" });
-}
+const slotOf = (at: Served) => ({ run: at.run, lane: at.lane, slot: at.laneDir });
 
 const TOOLS: Record<
   FactorTool,
@@ -45,10 +39,11 @@ const TOOLS: Record<
       if (kept.length + notes.length === 0) return "Nothing in memory matches.";
       return [
         ...kept.map((e) => `## ${e.title} (${e.id}, kept by the project)\n\n${e.body}`),
-        ...notes.map(
-          (n) =>
-            `## ${n.title} (a note by the agent of lane "${n.lane}" in this run, not checked by anyone)\n\n${n.body}`,
-        ),
+        // a note is an agent's words: quoted on every line, so it cannot pass for a kept entry
+        ...notes.map((n) => {
+          const head = `## A note by the agent of lane "${n.lane}" in this run (not checked by anyone)`;
+          return `${head}\n\n${quoted([n.title, "", ...lines(n.body)])}`;
+        }),
       ].join("\n\n");
     },
   },
@@ -63,50 +58,38 @@ const TOOLS: Record<
     description:
       "Hand off: give your hand-off as an object with `outcome` (pass, fail or needsPerson) and `summary`, and optionally `claims`, `open`, `risk`, `outputs`. The host checks it. Call this once, when you are done.",
     input: z.strictObject({ handoff: z.record(z.string(), z.unknown()) }),
-    run: (args: { handoff: Record<string, unknown> }, at) => {
-      // a question that was asked stands: a hand-off after it would hide it from the person
-      if (readObject(join(at.laneDir, "handoff.json"))?.value.outcome === "needsPerson") {
-        throw new Error("You asked a person a question. End now: the run waits for the answer.");
-      }
-      put(at.laneDir, "handoff.json", `${JSON.stringify(args.handoff, null, 2)}\n`);
-      return "The hand-off is written. The host checks it when you end.";
+    run: (args: { handoff: Record<string, unknown> }, at, db) => {
+      keep(db, slotOf(at), "handoff", JSON.stringify(args.handoff, null, 2));
+      return "The hand-off is kept. The host checks it when you end.";
     },
   },
   ask_question: {
     description:
       "Ask a person something only they can answer. The run waits for the answer, and this lane starts again with it. End your work after calling this.",
     input: z.strictObject({ question: text(2000) }),
-    run: (args: { question: string }, at) => {
-      put(
-        at.laneDir,
-        "handoff.json",
-        `${JSON.stringify({ outcome: "needsPerson", summary: args.question })}\n`,
-      );
-      return "The question is written. End now: the run waits for a person.";
+    run: (args: { question: string }, at, db) => {
+      keep(db, slotOf(at), "question", args.question);
+      return "The question is kept. End now: the run waits for a person.";
     },
   },
   evidence_attach: {
     description:
       'Attach a text file as evidence. A claim in your hand-off can then cite it as "attached:<name>". The name is a plain file name.',
     input: z.strictObject({ name: text(100), text: z.string().max(MAX_ATTACHMENT) }),
-    run: (args: { name: string; text: string }, at) => {
+    run: (args: { name: string; text: string }, at, db) => {
       if (/[\\/]/.test(args.name) || args.name.startsWith(".")) {
         throw new Error(`"${args.name}" is not a plain file name.`);
       }
-      put(join(at.laneDir, "evidence"), args.name, args.text);
+      keep(db, slotOf(at), "evidence", args.text, args.name);
       return `Attached. Cite it as "attached:${args.name}".`;
     },
   },
 };
 
-type Message = { id?: unknown; method?: unknown; params?: Record<string, unknown> };
+type Answer = { result: unknown } | { error: { code: number; message: string } };
 
-function answer(
-  message: Message,
-  at: Served,
-  db: Db,
-): { result: unknown } | { error: { code: number; message: string } } {
-  const { method, params } = message;
+function answer(method: string, given: unknown, at: Served, db: Db): Answer {
+  const params = typeof given === "object" && given !== null ? (given as Record<string, unknown>) : undefined;
   if (method === "initialize") {
     return {
       result: {
@@ -128,7 +111,7 @@ function answer(
   }
   if (method === "tools/call") {
     const name = FACTOR_TOOLS.find((t) => t === params?.name);
-    if (!name) return { error: { code: -32602, message: `There is no tool "${String(params?.name)}".` } };
+    if (!name) return { error: { code: -32602, message: "There is no tool of that name." } };
     const said = (words: string, isError = false) => ({
       result: { content: [{ type: "text", text: words }], ...(isError ? { isError: true } : {}) },
     });
@@ -146,31 +129,55 @@ function answer(
       return said((error as Error).message, true);
     }
   }
-  return { error: { code: -32601, message: `This server has no method "${String(method)}".` } };
+  return { error: { code: -32601, message: "This server has no such method." } };
 }
 
 /** Serve one lane until the client closes the stream. */
 export async function serve(at: Served): Promise<void> {
   const db = openDb(join(at.root, ".factor", "state.db"));
   const say = (message: unknown) => process.stdout.write(`${JSON.stringify(message)}\n`);
-  try {
-    for await (const line of createInterface({ input: process.stdin })) {
-      if (line.trim() === "") continue;
-      let message: Message;
-      try {
-        message = JSON.parse(line);
-        if (typeof message !== "object" || message === null) throw new Error("not an object");
-      } catch {
-        say({
-          jsonrpc: "2.0",
-          id: null,
-          error: { code: -32700, message: "That line is not a JSON object." },
-        });
-        continue;
-      }
-      if (message.id === undefined || message.id === null) continue; // a notification: no answer
-      say({ jsonrpc: "2.0", id: message.id, ...answer(message, at, db) });
+  const handle = (line: string) => {
+    if (line.trim() === "") return;
+    let message: { id?: unknown; method?: unknown; params?: unknown };
+    try {
+      message = JSON.parse(line);
+      if (typeof message !== "object" || message === null) throw new Error("not an object");
+    } catch {
+      say({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "That line is not a JSON object." } });
+      return;
     }
+    const { id, method } = message;
+    if (id === undefined || id === null) return; // a notification: no answer
+    const idOk = typeof id === "string" || typeof id === "number";
+    if (!idOk || typeof method !== "string") {
+      const error = {
+        code: -32600,
+        message: "A request needs a method that is text and an id that is text or a number.",
+      };
+      say({ jsonrpc: "2.0", id: idOk ? id : null, error });
+      return;
+    }
+    try {
+      say({ jsonrpc: "2.0", id, ...answer(method, message.params, at, db) });
+    } catch (error) {
+      // whatever a message does, the server stays up for the next one
+      say({ jsonrpc: "2.0", id, error: { code: -32603, message: (error as Error).message } });
+    }
+  };
+  try {
+    // Messages end at a line feed and nowhere else. Node's line reader also splits at U+2028 and
+    // U+2029, which are legal inside a JSON string, so the stream is split here by hand.
+    let pending = "";
+    process.stdin.setEncoding("utf8");
+    for await (const chunk of process.stdin) {
+      pending += chunk;
+      for (let end = pending.indexOf("\n"); end >= 0; end = pending.indexOf("\n")) {
+        handle(pending.slice(0, end));
+        pending = pending.slice(end + 1);
+      }
+      if (pending.length > MAX_LINE) pending = ""; // a line with no end is not a message
+    }
+    handle(pending);
   } finally {
     db.close();
   }
