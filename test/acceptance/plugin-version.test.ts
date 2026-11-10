@@ -17,7 +17,7 @@ it.each(["^2.0.0", "2.x", "2"])("refuses a workflow that asks for %s when 1.2.0 
   expect(runsOf(repo)).toEqual([]);
 });
 
-it.each(["^1.0.0", "1.x", "1", "~1.2.0", ">=1.0.0 <2"])("accepts %s for 1.2.0", (range) => {
+it.each(["^1.0.0", "^1.2.0", "1.x", "1", "~1.2.0", "1.2.x", "1.2.0"])("accepts %s for 1.2.0", (range) => {
   const repo = flowRepo({ lanes: [commandLane("build", "true")] });
   const plugin = makePlugin();
   expect(repo.sf("add", plugin.dir, "--yes").status).toBe(0);
