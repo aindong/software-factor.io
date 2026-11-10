@@ -22,6 +22,15 @@ spec=.agent/spec.md
 want=$(grep -oE '^- \*\*D[0-9]+ ' "$spec" | grep -oE 'D[0-9]+' | sort -u)
 [ -n "$want" ] || bad "no decisions found in $spec"
 for d in D12 D13; do echo "$want" | grep -qx "$d" || bad "$spec has no $d"; done
+# the two decisions research added, by subject and not only by number
+grep -E '^- \*\*D12 ' "$spec" | grep -qi 'workflow' || bad "$spec: D12 is not the workflow shape decision"
+grep -E '^- \*\*D13 ' "$spec" | grep -i 'claim' | grep -qi 'landed' || bad "$spec: D13 is not claim before spawn with landed work"
+awk 'FNR == 1' docs/adr/[0-9]*.md 2>/dev/null | grep -E '\(D12\)' | grep -qi 'lanes' || bad "the D12 ADR is not about the workflow shape"
+awk 'FNR == 1' docs/adr/[0-9]*.md 2>/dev/null | grep -E '\(D13\)' | grep -qi 'claim' || bad "the D13 ADR is not about claiming before spawning"
+grep -E '^- \*\*D3 ' -A6 "$spec" | grep -q 'KIMI_CODE_HOME' || bad "$spec: D3 does not name Kimi Code's profile variable"
+for a in docs/adr/*.md; do
+  case "$a" in docs/adr/[0-9][0-9][0-9][0-9]-*.md) ;; *) [ -f "$a" ] && bad "$a is not named <4 digits>-<slug>.md" ;; esac
+done
 
 have=""
 for a in docs/adr/[0-9][0-9][0-9][0-9]-*.md; do
