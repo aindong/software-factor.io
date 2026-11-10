@@ -7,6 +7,8 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  rmdirSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -423,10 +425,31 @@ export const sessionRows = (repo: Repo, columns = "lane, tokens") =>
 
 // ---- the interface's server
 
-/** Build the interface once, when it is not built yet: the server serves it from dist/ui. */
+/** Build the interface when it is not built, or older than its source: the server serves it from dist/ui. */
 export function ensureUi(): void {
-  if (existsSync(resolve("dist/ui/index.html"))) return;
-  execFileSync("pnpm", ["run", "-s", "build:ui"], { stdio: "ignore" });
+  const built = resolve("dist/ui/index.html");
+  const changed = (dir: string) =>
+    Math.max(
+      ...readdirSync(resolve(dir), { recursive: true }).map((f) => statSync(resolve(dir, String(f))).mtimeMs),
+    );
+  const fresh = () =>
+    existsSync(built) && statSync(built).mtimeMs >= Math.max(changed("src/ui"), changed("src/core"));
+  if (fresh()) return;
+  // test files run side by side: one builds, the others wait for it
+  const lock = resolve("dist/.building-ui");
+  mkdirSync(resolve("dist"), { recursive: true });
+  try {
+    mkdirSync(lock);
+  } catch {
+    for (let i = 0; i < 1200 && existsSync(lock); i++)
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+    return;
+  }
+  try {
+    if (!fresh()) execFileSync("pnpm", ["run", "-s", "build:ui"], { stdio: "ignore" });
+  } finally {
+    rmdirSync(lock);
+  }
 }
 
 export interface Ui {

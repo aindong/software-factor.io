@@ -13,6 +13,8 @@ import {
   readFileSync,
   realpathSync,
   renameSync,
+  rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, extname, join, normalize, sep } from "node:path";
@@ -105,7 +107,7 @@ export function startServer(root: string, config: { workflow: string }, port: nu
   app.get("/api/workspace", (c) => {
     const names = existsSync(workflows)
       ? readdirSync(workflows)
-          .filter((f) => f.endsWith(".json") && NAME.test(f.slice(0, -5)))
+          .filter((f) => f.endsWith(".json") && fileOf(f.slice(0, -5)))
           .map((f) => f.slice(0, -5))
           .sort()
       : [];
@@ -171,8 +173,13 @@ export function startServer(root: string, config: { workflow: string }, port: nu
     if (problems.length > 0) return c.json({ problems }, 422);
     // written beside and moved into place: never through a link, and never left half written
     const beside = `${file}.${process.pid}.tmp`;
-    writeFileSync(beside, `${JSON.stringify(workflow, null, 2)}\n`, { flag: "wx" });
-    renameSync(beside, file);
+    try {
+      writeFileSync(beside, `${JSON.stringify(workflow, null, 2)}\n`, { flag: "wx" });
+      renameSync(beside, file);
+    } catch (error) {
+      rmSync(beside, { force: true }); // or the next save would find it in its way
+      return c.json({ error: `The workflow could not be written: ${(error as Error).message}` }, 500);
+    }
     return c.json({ workflow, problems: [] });
   });
   app.all("/api/*", (c) => c.json({ error: "There is no such operation." }, 404));
@@ -180,8 +187,14 @@ export function startServer(root: string, config: { workflow: string }, port: nu
   // the interface: its files as they were built, and its one page for every other path
   const page = readFileSync(join(ui, "index.html"), "utf8");
   app.get("/assets/*", (c) => {
-    const file = normalize(join(ui, decodeURIComponent(new URL(c.req.url).pathname)));
-    if (!file.startsWith(`${join(ui, "assets")}${sep}`) || !existsSync(file)) return c.text("Not found", 404);
+    let file = "";
+    try {
+      file = normalize(join(ui, decodeURIComponent(new URL(c.req.url).pathname)));
+      if (!file.startsWith(`${join(ui, "assets")}${sep}`) || !statSync(file).isFile()) file = "";
+    } catch {
+      file = ""; // an address that does not decode, or a file that is not there
+    }
+    if (!file) return c.text("Not found", 404);
     return c.body(readFileSync(file), 200, {
       "Content-Type": TYPES[extname(file)] ?? "application/octet-stream",
     });

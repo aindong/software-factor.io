@@ -25,6 +25,11 @@ const END_NAME: Record<string, string> = {
 const record = (v: unknown): Json =>
   typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Json) : {};
 const text = (v: unknown) => (typeof v === "string" ? v : "");
+/** The document's lanes, each at its own place. JSON can hold anything there: what is no object is left empty. */
+const lanesIn = (doc: Json) =>
+  (Array.isArray(doc.lanes) ? doc.lanes : []).map((l) =>
+    typeof l === "object" && l !== null ? (l as LaneJson) : undefined,
+  );
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
@@ -113,7 +118,7 @@ function LaneForm({
     setRemoving(false);
   }, [lane.id]);
 
-  const lanes = (Array.isArray(doc.lanes) ? doc.lanes : []) as LaneJson[];
+  const lanes = lanesIn(doc).filter((l) => l !== undefined);
   const set = (patch: Json) => onChange(updateLane(doc, lane.id, patch));
   const agent = record(lane.agent);
   const settings = record(lane.with);
@@ -421,8 +426,8 @@ export function Inspector({
   onSelect,
   onClose,
 }: InspectorProps) {
-  const lanes = (Array.isArray(doc.lanes) ? doc.lanes : []) as LaneJson[];
-  const lane = lanes.find((l) => l.id === selected);
+  const lanes = lanesIn(doc);
+  const lane = lanes.find((l) => l?.id === selected);
   const laneAt = (path: string) => lanes[Number(/^lanes\[(\d+)\]/.exec(path)?.[1] ?? -1)]?.id;
   const limits = record(doc.limits);
   const setLimit = (key: string, value: string) =>

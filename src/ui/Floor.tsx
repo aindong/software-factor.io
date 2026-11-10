@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addLane, connect, hadConditions } from "../core/floor/edit.ts";
 import { drawable, layout } from "../core/floor/layout.ts";
 import { parseWorkflow } from "../core/schema/parse.ts";
-import { getWorkflow, getWorkspace, type Json, saveWorkflow, type WorkspaceInfo } from "./api.ts";
+import { forgetKey, getWorkflow, getWorkspace, type Json, saveWorkflow, type WorkspaceInfo } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
 import { Inspector } from "./Inspector.tsx";
 import { statusOf } from "./status.ts";
@@ -27,18 +27,21 @@ export function Floor() {
   const connectRef = useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
-    getWorkspace().then(({ body }) => {
+    getWorkspace().then(({ status, body }) => {
+      if (status === 401) forgetKey();
+      if (status !== 200) return;
       setWorkspace(body);
       setName(body.workflow);
     });
   }, []);
   const load = useCallback((which: string) => {
-    getWorkflow(which).then(({ body }) => {
-      const loaded = body.workflow ?? {};
+    getWorkflow(which).then(({ status, body }) => {
+      const loaded = (status === 200 && body.workflow) || {};
       setDoc(loaded);
       setText(print(loaded));
       setSaved(print(loaded));
-      setBroken(body.workflow ? undefined : body.problems[0]?.message);
+      const why = status === 200 ? body.problems[0]?.message : (body.error ?? "It could not be read.");
+      setBroken(status === 200 && body.workflow ? undefined : why);
       setSelected(undefined);
       setNotice(undefined);
     });
@@ -58,7 +61,8 @@ export function Floor() {
       problems.flatMap((p) => lanes[Number(/^lanes\[(\d+)\]/.exec(p.path)?.[1] ?? -1)]?.id ?? []),
     );
   }, [doc, problems]);
-  const dirty = doc !== undefined && print(doc) !== saved;
+  // text that does not parse is a change too, though the document behind it is the last that did
+  const dirty = broken ? text !== saved : doc !== undefined && print(doc) !== saved;
   const canSave = dirty && problems.length === 0 && !broken;
 
   /** A change made on the map or in the inspector: the JSON view follows. */
@@ -93,7 +97,7 @@ export function Floor() {
       const why =
         status === 401
           ? "this tab's key is no longer good: open the address the command printed"
-          : (body.problems?.[0]?.message ?? "the server refused it");
+          : (body.problems?.[0]?.message ?? body.error ?? "the server refused it");
       setNotice({ text: `Not saved: ${why}`, bad: true });
     }
   }, [name, doc, canSave]);
@@ -121,7 +125,7 @@ export function Floor() {
   };
   const add = (kind: "agent" | "command" | "wait") => {
     if (!doc) return;
-    const before = new Set(((doc.lanes as { id: string }[] | undefined) ?? []).map((l) => l.id));
+    const before = new Set(floor?.stations.map((s) => s.id));
     const next = addLane(doc, { after: before.has(selected ?? "") ? selected : undefined, kind });
     change(next);
     const added = (next.lanes as { id: string }[]).find((l) => !before.has(l.id));
@@ -273,7 +277,8 @@ export function Floor() {
         {doc ? (
           <Inspector
             doc={doc}
-            selected={selected}
+            // a station the JSON view has since renamed or removed is no longer selected
+            selected={floor?.stations.some((s) => s.id === selected && !s.missing) ? selected : undefined}
             problems={problems}
             open={sheet}
             headRef={headRef}

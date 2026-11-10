@@ -54,10 +54,18 @@ for _ in $(seq 1 50); do grep -q "#t=" "$work/ui.log" && break; sleep 0.1; done
 address=$(grep -o 'http://127.0.0.1:[0-9]*/#t=[0-9a-f]*' "$work/ui.log") || fail "the interface did not start: $(cat "$work/ui.log")"
 
 pw open "$address" || fail "the browser did not open"
-pw resize 1440 900
 grep -q "Console: [1-9]" "$work/pw.log" && fail "the page logged an error: $(cat "$work/pw.log")"
+pw resize 1440 900
 expect "the key is taken out of the address bar" "$(js '() => location.href')" '^http://127\.0\.0\.1:[0-9]+/$'
 shot floor-light-1440
+
+# 0. a press on a station's handle with no drag changes nothing
+at=$(js "() => { const b = document.querySelector('.station[aria-label^=\"Lane Build\"] .handle.pass').getBoundingClientRect(); return Math.round(b.x + b.width / 2) + ' ' + Math.round(b.y + b.height / 2); }")
+# shellcheck disable=SC2086
+pw mousemove $at && pw mousedown && pw mouseup
+expect "a press with no drag leaves the workflow as it was" "$(js "() => document.querySelector('.status').textContent")" '^Saved$'
+pw reload # the keyboard starts from the top of the page again
+sleep 0.5
 
 # 1. by keyboard: Tab into the map, arrows along it, Enter opens a station
 for _ in $(seq 1 24); do
@@ -86,7 +94,17 @@ expect "a connection that goes back gets a round limit" "$(js "() => [...documen
 shot lane-added-and-connected
 
 # 3. the same change is in the JSON view, and a change there shows on the map
-view JSON
+tab_to() { # Tab until the keyboard is on what matches
+  for _ in $(seq 1 60); do
+    case "$(js "$1")" in $2) return 0 ;; esac
+    pw press Tab
+  done
+  fail "Tab never reached $2"
+}
+js "() => { document.querySelector('.topbar h1').closest('.topbar').querySelector('select, button, [tabindex]')?.focus(); return 'top'; }" > /dev/null
+tab_to "$focused" JSON
+pw press Enter
+tab_to '() => document.activeElement.tagName' TEXTAREA
 expect "the JSON view holds the new lane" "$(js "() => { const t = document.querySelector('.json textarea').value; return [t.includes('\"id\": \"lane\"'), t.includes('\"maxRounds\": 2')].join(' '); }")" '^true true$'
 put_json "'\"name\": \"Impact\"'" "'\"name\": \"Blast radius\"'"
 shot json-light-1440
@@ -131,6 +149,16 @@ js "() => { document.querySelector('.station[aria-label^=\"Lane Build\"]').dispa
 expect "a station opens as a sheet at phone width" "$(js "() => document.querySelector('.inspector').dataset.open")" '^true$'
 shot sheet-light-390
 theme dark && shot sheet-dark-390
+
+# 8. a key the server no longer takes: the page says so, and the printed address in the same tab opens it
+theme light
+js "() => { sessionStorage.setItem('factor-token', 'deadbeef'); return 'stale'; }" > /dev/null
+pw reload
+sleep 0.5
+expect "a stale key is said, not a blank page" "$(js "() => document.querySelector('h1')?.textContent ?? 'blank'")" '^This tab has no key$'
+js "() => { location.hash = '${address#*/#}'; return 'pasted'; }" > /dev/null
+sleep 0.8
+expect "the printed address opens the floor in the same tab" "$(js "() => [document.querySelector('h1')?.textContent, document.querySelectorAll('.station.lane').length > 0].join(' ')")" '^Floor true$'
 
 playwright-cli -s="$session" close > /dev/null 2>&1
 kill "$server" 2> /dev/null

@@ -143,7 +143,8 @@ export function Diagram({
         onSelect(next.id);
       }
     } else if (event.key === "Enter" || event.key === " ") onOpen(station.id);
-    else if (event.key === "c" && station.kind === "lane") onAskConnect(station.id);
+    else if (event.key === "c" && !event.metaKey && !event.ctrlKey && station.kind === "lane")
+      onAskConnect(station.id);
     else if (event.key === "Escape") onSelect(undefined);
     else return;
     event.preventDefault();
@@ -157,7 +158,8 @@ export function Diagram({
     if (!drag) return;
     const { x, y } = pointOf(event);
     const target = floor.stations.find((s) => Math.hypot(s.x - x, s.y - y) <= 26);
-    if (target && !target.missing) onConnect(drag.from, drag.outcome, target.id);
+    // a press on the handle with no drag ends on the lane's own station: that is not a connection
+    if (target && !target.missing && target.id !== drag.from) onConnect(drag.from, drag.outcome, target.id);
     setDrag(undefined);
   };
   const from = drag ? floor.stations.find((s) => s.id === drag.from) : undefined;
