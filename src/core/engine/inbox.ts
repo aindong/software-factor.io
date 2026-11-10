@@ -5,7 +5,7 @@ import { UserError } from "../errors.ts";
 import * as store from "../store.ts";
 import type { Workspace } from "../workspace.ts";
 import { preflight } from "./preflight.ts";
-import { advance, applyOutcome, contextFor, type RunSummary } from "./run.ts";
+import { advance, applyOutcome, contextFor, crashed, type RunSummary } from "./run.ts";
 import { addNote } from "./state.ts";
 
 export type Decision = "approve" | "reject" | "send-back" | "answer";
@@ -65,30 +65,34 @@ export async function decide(
     state.parked = undefined;
     log.push(`run ${runId}: ${closed[decision].replace("_", " ")}${note ? ` ("${note}")` : ""}`);
 
-    let ended: RunSummary | undefined;
-    if (decision === "approve" && parked.kind === "approve-before") {
-      state.approved = lane.id; // the lane now runs
-    } else if (decision === "approve") {
-      ended = applyOutcome(ctx, lane, "pass", parked.note ?? "");
-    } else if (decision === "reject") {
-      const why = note || "rejected by a person";
-      if (parked.laneRun !== undefined) store.setLaneOutcome(db, parked.laneRun, "fail", why);
-      else store.endLane(db, store.startLane(db, runId, lane.id, state.seq), "fail", why, null);
-      state.rejected = true;
-      ended = applyOutcome(ctx, lane, "fail", why);
-      state.rejected = false;
-    } else {
-      // send back, or an answer: the same lane runs again and is told why
-      addNote(
-        state,
-        lane.id,
-        decision === "answer" ? `A person answered: ${note}` : `A person sent this back: ${note}`,
-      );
-      state.next = lane.id;
-      state.seq += 1;
+    try {
+      let ended: RunSummary | undefined;
+      if (decision === "approve" && parked.kind === "approve-before") {
+        state.approved = lane.id; // the lane now runs
+      } else if (decision === "approve") {
+        ended = applyOutcome(ctx, lane, "pass", parked.note ?? "");
+      } else if (decision === "reject") {
+        const why = note || "rejected by a person";
+        if (parked.laneRun !== undefined) store.setLaneOutcome(db, parked.laneRun, "fail", why);
+        else store.endLane(db, store.startLane(db, runId, lane.id, state.seq), "fail", why, null);
+        state.rejected = true;
+        ended = applyOutcome(ctx, lane, "fail", why);
+        state.rejected = false;
+      } else {
+        // send back, or an answer: the same lane runs again and is told why
+        addNote(
+          state,
+          lane.id,
+          decision === "answer" ? `A person answered: ${note}` : `A person sent this back: ${note}`,
+        );
+        state.next = lane.id;
+        state.seq += 1;
+      }
+      store.saveState(db, runId, state);
+      return ended ?? (await advance(ctx));
+    } catch (error) {
+      return crashed(ctx, error); // the decision is recorded, so the run must not be left "running"
     }
-    store.saveState(db, runId, state);
-    return ended ?? (await advance(ctx));
   } finally {
     db.close();
   }

@@ -98,7 +98,8 @@ Rules the checker keeps:
 ### Outcomes and transitions
 
 A lane ends with one of three outcomes: `pass`, `fail` or `needsPerson`. `on` says where the task goes for each.
-`pass` and `fail` are required. `needsPerson` defaults to `@inbox`.
+`pass` and `fail` are required. `needsPerson` defaults to `@inbox`. An agent that asks for a person has not
+finished, so its gates are not run: there is nothing to judge yet.
 
 A transition is a lane id, or one of four ends:
 

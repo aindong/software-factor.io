@@ -72,19 +72,20 @@ describe("an agent that asks for a person", () => {
 
 describe("budgets and loops", () => {
   it("caps a lane's own minutes by what the run has left", () => {
-    const nap = [{ sleep: 250 }, pass()];
     const repo = flowRepo({
       limits: { minutes: 2, tokens: 1000000 },
       lanes: [
         agentLane("a", { on: { pass: "b", fail: "@stop" } }),
         agentLane("b", { limits: { minutes: 2 } }),
       ],
-      scripts: { author: { a: nap, b: nap } },
+      scripts: { author: { a: [{ sleep: 600 }, pass()], b: [{ sleep: 5000 }, pass()] } },
     });
-    repo.env.FACTOR_MINUTE_MS = "150"; // the run has 300 ms: lane a uses 250, so lane b has about 50
+    // a minute lasts one second: the run has 2 s, lane a uses about 0.7 s, so lane b has about 1.3 s
+    // and not the 2 s its own limit allows
+    repo.env.FACTOR_MINUTE_MS = "1000";
     expect(repo.sf("run").status).toBe(1);
     expect(trail(repo)).toEqual(["a:pass", "b:fail"]);
-    expect(JSON.parse(runRow(repo)?.state ?? "{}").spent.ms).toBeLessThan(480);
+    expect(JSON.parse(runRow(repo)?.state ?? "{}").spent.ms).toBeLessThan(2450);
   });
 
   it("notices a round with no new commit even when two loops share the lane they go back to", () => {

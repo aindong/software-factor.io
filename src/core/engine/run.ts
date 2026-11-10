@@ -54,21 +54,14 @@ export function contextFor(ws: Workspace, db: Db, run: store.Run, log: string[])
     outDir: join(ws.workDir, `${run.id}.out`),
     log,
     facts: (): Facts => {
-      let files: string[] = [];
+      let tier: string;
       try {
-        files = git(ws.root, "diff", "--name-only", run.base_commit, branchTip(ws.root, run.branch))
-          .split("\n")
-          .filter(Boolean);
+        const files = git(ws.root, "diff", "--name-only", run.base_commit, branchTip(ws.root, run.branch));
+        tier = tierOf(files.split("\n").filter(Boolean));
       } catch {
-        // no branch yet: nothing has changed
+        tier = "refactor"; // when the change cannot be read, do not treat it as the least risky kind
       }
-      return {
-        source: task.collector,
-        labels: [],
-        tier: tierOf(files),
-        outputs: state.outputs,
-        gates: state.gates,
-      };
+      return { source: task.collector, labels: [], tier, outputs: state.outputs, gates: state.gates };
     },
   };
   return ctx;
@@ -123,7 +116,8 @@ export function applyOutcome(
   if (choice.key) {
     const target = ws.workflow.lanes.find((l) => l.id === choice.to);
     // a round that brought no new commit from a lane that writes is a loop going nowhere
-    if (target?.agent?.access === "write" && state.loopHeads[choice.key] === head) {
+    // the head is remembered per lane gone back to, so two loops into one lane cannot hide it
+    if (target?.agent?.access === "write" && state.loopHeads[choice.to] === head) {
       return finish(
         ctx,
         "stopped",
@@ -132,7 +126,7 @@ export function applyOutcome(
       );
     }
     state.rounds[choice.key] = (state.rounds[choice.key] ?? 0) + 1;
-    state.loopHeads[choice.key] = head;
+    state.loopHeads[choice.to] = head;
   }
   if (choice.to === "@done") return finish(ctx, "done", "done", `lane "${lane.id}" passed`);
   if (choice.to === "@drop") return finish(ctx, "dropped", "dropped", said);
@@ -237,7 +231,8 @@ export async function advance(ctx: Ctx): Promise<RunSummary> {
 
       // a command, a wait or anything one-way is approved before it runs: afterwards is too late
       const before = lane.uses !== "core/agent@1" || lane.oneWay === true;
-      if (lane.checkpoint === "in" && before && state.approved !== lane.id) {
+      const midWait = state.parked?.kind === "wait" && state.parked.lane === lane.id; // approved before it began waiting
+      if (lane.checkpoint === "in" && before && !midWait && state.approved !== lane.id) {
         return park(
           ctx,
           { kind: "approve-before", lane: lane.id },
@@ -292,19 +287,27 @@ export async function advance(ctx: Ctx): Promise<RunSummary> {
       if (ended) return ended;
     }
   } catch (error) {
-    if (wasInterrupted()) return finish(ctx, "stopped", "interrupted", "interrupted");
-    db.prepare(
-      "update lane_runs set outcome = 'fail', note = ?, ended_at = ? where run_id = ? and outcome is null",
-    ).run((error as Error).message, new Date(nowMs()).toISOString(), run.id);
-    const summary = finish(
-      ctx,
-      "stopped",
-      "crashed",
-      error instanceof UserError ? error.message : `the run crashed: ${(error as Error).message}`,
-    );
-    if (error instanceof UserError) throw error;
-    return summary;
+    return crashed(ctx, error);
   }
+}
+
+/** End a run that hit an error: close its open lane, name the reason, and leave nothing "running". */
+export function crashed(ctx: Ctx, error: unknown): RunSummary {
+  if (wasInterrupted()) return finish(ctx, "stopped", "interrupted", "interrupted");
+  const message = (error as Error).message;
+  ctx.db
+    .prepare(
+      "update lane_runs set outcome = 'fail', note = ?, ended_at = ? where run_id = ? and outcome is null",
+    )
+    .run(message, new Date(nowMs()).toISOString(), ctx.run.id);
+  const summary = finish(
+    ctx,
+    "stopped",
+    "crashed",
+    error instanceof UserError ? message : `the run crashed: ${message}`,
+  );
+  if (error instanceof UserError) throw error;
+  return summary;
 }
 
 /** Wake the parked waits that are due, then take the next queued task through the workflow. */
@@ -313,18 +316,26 @@ export async function runNext(ws: Workspace): Promise<RunSummary> {
   const db = openDb(ws.dbPath);
   const log: string[] = [];
   try {
-    let last: RunSummary | undefined;
+    // one call can move several runs: report the worst outcome among them
+    const rank = { none: 0, running: 0, done: 1, dropped: 1, waiting: 2, stopped: 3 } as const;
+    let worst: RunSummary | undefined;
+    const seen = (summary: RunSummary): RunSummary => {
+      if (!worst || rank[summary.status] > rank[worst.status]) worst = summary;
+      return { ...worst, log };
+    };
     for (const due of store.dueRuns(db)) {
+      if (wasInterrupted()) break; // runs that are only parked stay parked
       store.resumeRun(db, due.id);
       store.setTaskStatus(db, due.task_id, "running");
       log.push(`run ${due.id}: waking`);
-      last = await advance(contextFor(ws, db, { ...due, status: "running" }, log));
+      seen(await advance(contextFor(ws, db, { ...due, status: "running" }, log)));
     }
+    if (wasInterrupted()) return worst ?? { status: "none", log };
 
     const added = collect(ws, db);
     if (added > 0) log.push(`collected ${added} new task${added === 1 ? "" : "s"}`);
     const task = store.claimNextTask(db);
-    if (!task) return last ?? { status: "none", log: [...log, "no queued task"] };
+    if (!task) return worst ?? { status: "none", log: [...log, "no queued task"] };
 
     const runId = randomBytes(4).toString("hex");
     const branch = `factor/${task.key}-${runId}`;
@@ -355,9 +366,9 @@ export async function runNext(ws: Workspace): Promise<RunSummary> {
       mkdirSync(ctx.outDir, { recursive: true });
       addWorktree(ws.root, worktree, branch, base);
     } catch (error) {
-      return finish(ctx, "stopped", "crashed", `the run could not start: ${(error as Error).message}`);
+      return seen(finish(ctx, "stopped", "crashed", `the run could not start: ${(error as Error).message}`));
     }
-    return await advance(ctx);
+    return seen(await advance(ctx));
   } finally {
     db.close();
   }

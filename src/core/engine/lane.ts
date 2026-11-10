@@ -97,9 +97,9 @@ export async function runLane(
   const failWith = (why: string) => {
     if (outcome !== "fail") [outcome, note] = ["fail", why];
   };
-  const laneMs = lane.limits?.minutes
-    ? lane.limits.minutes * MINUTE_MS
-    : Math.max(1000, ws.workflow.limits.minutes * MINUTE_MS - state.spent.ms);
+  // a lane's time is its own limit or what the run has left, whichever is less
+  const runLeft = Math.max(1, ws.workflow.limits.minutes * MINUTE_MS - state.spent.ms);
+  const laneMs = Math.min(lane.limits?.minutes ? lane.limits.minutes * MINUTE_MS : runLeft, runLeft);
   const done = () => ({
     outcome,
     note,
@@ -125,7 +125,7 @@ export async function runLane(
       const result = await sh(command, {
         cwd: run.worktree,
         env: hostEnv(ws.config.gateEnv, { ...baseEnv, ...inputEnv, FACTOR_OUTPUTS: outputsFile }),
-        timeoutMs: minutes * MINUTE_MS,
+        timeoutMs: Math.min(minutes * MINUTE_MS, laneMs),
       });
       saveEvidence(ws, run.id, `${tag}.log`, `$ ${command}\n# exit ${result.exitCode}\n\n${result.output}`);
       if (result.exitCode !== 0)
@@ -198,9 +198,12 @@ export async function runLane(
     }
     if (wasInterrupted()) {
       stop = { code: "interrupted", reason: "interrupted" };
+      failWith("interrupted"); // no gate ran, so the lane did not pass
       return done();
     }
     state.outputs[lane.id] = outputs;
+    // an agent that asks for a person has not finished: there is nothing for the gates to judge yet
+    if (outcome === "needsPerson") return done();
 
     // The commit of record is the run's branch as the repository has it. An agent controls its
     // own worktree, so what HEAD says there is checked, never trusted.
@@ -236,6 +239,7 @@ export async function runLane(
       });
       if (wasInterrupted()) {
         stop = { code: "interrupted", reason: "interrupted" };
+        failWith("interrupted");
         return done();
       }
       store.addGateResult(db, run.id, laneRun, record);
