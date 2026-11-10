@@ -10,7 +10,7 @@
   },
   "gates": {
     "no-word@1": {
-      "description": "Fails when a file of the change's commit holds a word (FIXME unless \"word\" is set).",
+      "description": "Fails when a file the run added or changed holds a word (FIXME unless \"word\" is set).",
       "run": "node \"$FACTOR_PLUGIN_DIR/no-word.mjs\""
     }
   },

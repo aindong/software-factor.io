@@ -108,7 +108,8 @@ A workflow that asks for another major version than the one installed is refused
 - A **collector** runs in the workspace and prints the tasks it found as JSON: a list of items with a `key`
   (or `id`), a `title`, and if wanted a `body` and `labels`. It has one minute, and it must only read.
 - A **gate** runs in a fresh checkout of the commit the lane left, like a command gate. Exit 0 passes. What it
-  prints is kept as the gate's evidence.
+  prints is kept as the gate's evidence. It also gets `FACTOR_BASE`, the commit the run started from, and
+  `FACTOR_HEAD`, the commit it checks.
 - A **lane type** runs in the run's worktree, like a command lane. Exit 0 passes the lane.
 - A **workflow** it brings must pass `softwarefactor check` as it is.
 

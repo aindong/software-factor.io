@@ -30,6 +30,7 @@ export async function runGate(g: GateJob): Promise<GateRecord> {
   return commandGate({
     ...g,
     settings: { run: plugin.run, timeoutMinutes },
-    env: { ...g.env, ...plugin.env },
+    // a gate about "the change" needs to know where the run began
+    env: { ...g.env, ...plugin.env, FACTOR_BASE: g.base, FACTOR_HEAD: g.head },
   });
 }
