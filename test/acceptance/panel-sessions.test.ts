@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { agentLane, flowRepo, panelLane, pass, promptsOf, runRow, sessionRows } from "../helpers/repo.ts";
 
+const claim = (text: string) => ({ text, evidence: ["file:README.md"] });
+
 describe("what a panel leaves", () => {
   const findings = { findings: { type: "array", description: "Every finding." } };
   const repo = flowRepo({
@@ -17,11 +19,20 @@ describe("what a panel leaves", () => {
       reviewer: {
         "review.logic": [
           { usage: { tokens: 100 } },
-          pass({ summary: "The logic holds.", outputs: { findings: ["a"] } }),
+          { sleep: 400 }, // it ends last: the lists are still joined in the order of the members
+          pass({
+            summary: "The logic holds.",
+            outputs: { findings: ["a"] },
+            claims: [claim("The logic holds.")],
+          }),
         ],
         "review.needs": [
           { usage: { tokens: 50 } },
-          pass({ summary: "All criteria met.", outputs: { findings: ["b", "c"] } }),
+          pass({
+            summary: "All criteria met.",
+            outputs: { findings: ["b", "c"] },
+            claims: [claim("All met.")],
+          }),
         ],
       },
     },
@@ -40,6 +51,11 @@ describe("what a panel leaves", () => {
         true,
       );
     }
+  });
+
+  it("records what each member claimed", () => {
+    const claims = repo.rows<{ text: string }>("select text from claims order by text").map((c) => c.text);
+    expect(claims).toEqual(["All met.", "The logic holds."]);
   });
 
   it("is one lane run, with the members' tokens added up", () => {
