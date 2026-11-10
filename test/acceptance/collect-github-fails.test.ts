@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { expect, it } from "vitest";
+import { MIGRATIONS } from "../../src/core/db.ts";
 import { edit, standIn, tasks } from "../helpers/collect.ts";
 import { commandLane, flowRepo } from "../helpers/repo.ts";
 
@@ -78,17 +79,21 @@ it("names a collector whose type is not on this machine, and goes on", () => {
 });
 
 it("reads a database made before tasks had labels", () => {
-  const repo = flowRepo({ lanes: [commandLane("build", "true")], tasks: "- [ ] An old task\n" });
-  expect(repo.sf("collect").stdout).toContain("collected 1 new task");
-  // back to how the database was one version ago
+  const repo = flowRepo({ lanes: [commandLane("build", "true")], tasks: "" });
+  // a database as it was before the labels: every migration up to that one, and a task from then
+  const before = MIGRATIONS.findIndex((m) => m.includes("add column labels"));
+  expect(before).toBeGreaterThan(0);
   const db = new DatabaseSync(join(repo.dir, ".factor/state.db"));
-  const { user_version: version } = db.prepare("pragma user_version").get() as { user_version: number };
-  db.exec(`alter table tasks drop column labels; pragma user_version = ${version - 1};`);
+  for (const migration of MIGRATIONS.slice(0, before)) db.exec(migration);
+  db.exec(`pragma user_version = ${before}`);
+  db.prepare(
+    "insert into tasks (collector, key, title, body, created_at) values ('tasks', 'old', 'An old task', '', ?)",
+  ).run(new Date().toISOString());
   db.close();
   const r = repo.sf("run");
   expect(r.status, r.stdout + r.stderr).toBe(0);
   expect(tasks(repo)).toEqual([
-    { collector: "tasks", key: expect.any(String), title: "An old task", body: "", labels: "[]" },
+    { collector: "tasks", key: "old", title: "An old task", body: "", labels: "[]" },
   ]);
   expect(repo.rows<{ status: string }>("select status from runs")).toEqual([{ status: "done" }]);
 });

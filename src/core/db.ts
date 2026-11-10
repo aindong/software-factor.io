@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { nowIso } from "./clock.ts";
 
 // Each entry runs once, in order. Never edit one that has shipped: add another.
-const MIGRATIONS = [
+export const MIGRATIONS = [
   `
   create table tasks (
     id integer primary key,
@@ -164,6 +164,20 @@ const MIGRATIONS = [
   `,
   // the labels a collector found on a task: a route can read them
   "alter table tasks add column labels text not null default '[]';",
+  // the autonomy ladder: each step a lane took, up or back, and each defect that got through one
+  `
+  create table ladder (
+    id integer primary key,
+    workflow text not null,
+    lane text not null,
+    kind text not null,
+    from_mode text,
+    to_mode text,
+    run_id text,
+    note text not null default '',
+    at text not null
+  );
+  `,
 ];
 
 export type Db = DatabaseSync;

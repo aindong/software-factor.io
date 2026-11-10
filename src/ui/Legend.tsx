@@ -1,5 +1,5 @@
 // The fixed parts around the floor's map: what it is drawn with, in words, the buttons that add a
-// lane, and the trains that stand on it.
+// lane, the trains that stand on it, and the caret's way to a lane in the JSON view.
 import type { RunRow } from "./api.ts";
 
 /** The runs of one workflow that are moving or waiting, each as a train at its lane. */
@@ -67,4 +67,17 @@ export function AddLane({ onAdd }: { onAdd: (kind: "agent" | "command" | "wait")
       </button>
     </div>
   );
+}
+
+/** In the JSON view, put the caret on a lane's id and bring it into sight. */
+export function caretToLane(area: HTMLTextAreaElement, text: string, id: string): void {
+  const needle = `"id": ${JSON.stringify(id)}`;
+  // from where the lanes begin: a collector or a panel member may have the same id earlier in the text
+  const at = text.indexOf(needle, text.indexOf('"lanes"'));
+  if (at < 0) return;
+  area.focus();
+  area.setSelectionRange(at, at + needle.length);
+  // a text area does not scroll to its selection by itself
+  area.scrollTop =
+    (text.slice(0, at).split("\n").length - 3) * Number.parseFloat(getComputedStyle(area).lineHeight);
 }

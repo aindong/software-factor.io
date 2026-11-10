@@ -8,7 +8,8 @@ import { parseWorkflow } from "../core/schema/parse.ts";
 import { forgetKey, getWorkflow, getWorkspace, type Json, saveWorkflow, type WorkspaceInfo } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
 import { Inspector } from "./Inspector.tsx";
-import { AddLane, Legend, trainsOf } from "./Legend.tsx";
+import { Ladder } from "./Ladder.tsx";
+import { AddLane, caretToLane, Legend, trainsOf } from "./Legend.tsx";
 import { useRuns } from "./live.ts";
 import { go } from "./route.ts";
 import { statusOf } from "./status.ts";
@@ -43,6 +44,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
   const reading = useRef(false); // a read of the file is out
   const saving = useRef(false); // a save is out: a second one would be refused by the first's own write
   const area = useRef<HTMLTextAreaElement>(null);
+  const stay = useRef(false); // the next read keeps the selection
 
   useEffect(() => {
     getWorkspace().then(({ status, body }) => {
@@ -60,7 +62,9 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
     setSaved(print(loaded));
     const why = status === 200 ? body.problems[0]?.message : (body.error ?? "It could not be read.");
     setBroken(status === 200 && body.workflow ? undefined : why);
-    setSelected(undefined);
+    // a move on the ladder reads the file again with the lane still open
+    if (!stay.current) setSelected(undefined);
+    stay.current = false;
     setNotice(undefined);
     // what is read is where undo begins
     setPast([]);
@@ -257,16 +261,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
   /** A problem chosen while the JSON view is up leads to its lane in the text, where it is mended. */
   const choose = (id: string | undefined) => {
     setSelected(id);
-    // from where the lanes begin: a collector or a panel member may have the same id earlier in the text
-    const at =
-      id && view === "json" ? text.indexOf(`"id": ${JSON.stringify(id)}`, text.indexOf('"lanes"')) : -1;
-    if (at < 0 || !area.current) return;
-    area.current.focus();
-    area.current.setSelectionRange(at, at + `"id": ${JSON.stringify(id)}`.length);
-    // a text area does not scroll to its selection by itself
-    area.current.scrollTop =
-      (text.slice(0, at).split("\n").length - 3) *
-      Number.parseFloat(getComputedStyle(area.current).lineHeight);
+    if (id && view === "json" && area.current) caretToLane(area.current, text, id);
   };
   const open = (id: string) => {
     setSelected(id);
@@ -476,6 +471,21 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
             onChange={change}
             onSelect={choose}
             onClose={() => setSheet(false)}
+            ladder={
+              name !== workspace?.workflow
+                ? undefined
+                : (lane) => (
+                    <Ladder
+                      lane={lane}
+                      dirty={dirty}
+                      stamp={version}
+                      onMoved={() => {
+                        stay.current = true;
+                        if (name) load(name);
+                      }}
+                    />
+                  )
+            }
           />
         ) : null}
       </div>

@@ -160,6 +160,7 @@ describe("the factory's operations", () => {
       runs_diff: { run: "abc" },
       inbox_decide: { run: "abc", item: 1, decision: "approve" },
       roles_bind: { role: "author", account: "work" },
+      ladder_accept: { lane: "build" },
     };
     const cases = [
       ...wrong,

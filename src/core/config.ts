@@ -26,6 +26,9 @@ export const FactoryConfig = z.strictObject({
       description:
         "How many runs may work at once (default 2), and the block of ports each slot gets (default 10 ports from 4100).",
     }),
+  ladder: z.strictObject({ runs: z.number().int().positive() }).optional().meta({
+    description: "How many clean runs in a row a lane needs before a step up is suggested (10 unless set).",
+  }),
   gateEnv: z.array(envName).optional().meta({
     description:
       "Names of environment variables that gates and command lanes may see, beyond the basic ones.",

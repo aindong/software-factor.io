@@ -22,6 +22,7 @@ import { basename, join } from "node:path";
 import { z } from "zod";
 import type { Db } from "./db.ts";
 import { UserError } from "./errors.ts";
+import { acceptStep, ladderView } from "./ladder.ts";
 import { listRuns, runDetail, runDiff, runFile } from "./runs/view.ts";
 import { type Problem, parseWorkflow } from "./schema/parse.ts";
 import { accountsView, costsView, inboxItems, pluginsView } from "./views.ts";
@@ -445,6 +446,24 @@ export const OPERATIONS: Operation[] = [
     changes: false,
     cli: [["cost"]],
     run: (at) => costsView(at.db),
+  }),
+  op({
+    name: "ladder_list",
+    description:
+      "The autonomy ladder: for each lane of the workflow, where it stands (in, near or out of the loop), its record of clean runs in a row, the step that record has earned, and the last move.",
+    input: none,
+    changes: false,
+    cli: [["ladder"]],
+    run: (at) => ladderView(loadWorkspace(at.root), at.db),
+  }),
+  op({
+    name: "ladder_accept",
+    description:
+      "Take the step up that a lane's record has earned: the lane's checkpoint changes in the workflow's file. Refused when the lane has no suggestion.",
+    input: z.strictObject({ lane: name }),
+    changes: true,
+    cli: [["ladder", "accept"]],
+    run: (at, input) => acceptStep(loadWorkspace(at.root), at.db, input.lane),
   }),
   op({
     name: "plugins_list",

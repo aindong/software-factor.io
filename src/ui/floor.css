@@ -290,6 +290,12 @@
   margin: 0;
   padding-left: var(--lg);
 }
+/* the lane's place on the autonomy ladder, under its checkpoint */
+.inspector .ladder {
+  display: grid;
+  gap: var(--xs);
+  justify-items: start;
+}
 .inspector .note {
   color: var(--ink-soft);
   font-size: var(--text-label);
