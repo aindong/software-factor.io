@@ -37,7 +37,7 @@ it("shows what the server runs and which variables it gets, and then starts it",
   repo.env.BOARD_TOKEN = "a-value-that-is-never-shown";
   const allowed = repo.sf("allow", "board");
   expect(allowed.status, allowed.stderr).toBe(0);
-  expect(allowed.stdout).toContain([server.command, ...server.args].join(" "));
+  expect(allowed.stdout).toContain(JSON.stringify([server.command, ...server.args]));
   expect(allowed.stdout).toContain("BOARD_TOKEN");
   expect(allowed.stdout).not.toContain("a-value-that-is-never-shown");
   expect(repo.sf("collect").stdout).toContain("collected 1 new task");

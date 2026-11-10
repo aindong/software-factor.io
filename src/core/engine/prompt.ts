@@ -17,6 +17,9 @@ export function inputsOf(ctx: Ctx, lane: Lane): Record<string, string> {
   );
 }
 
+// every character a reader may take for the end of a line (written as a string: a regex literal may not hold some of them)
+const LINE_END = /\r\n|[\r\n\u2028\u2029\u0085]/;
+
 export function promptFor(
   ctx: Ctx,
   lane: Lane,
@@ -27,7 +30,7 @@ export function promptFor(
   // repository). They are quoted, so no line of them reads as a section of this prompt.
   const quoted = (text: string) =>
     text
-      .split("\n")
+      .split(LINE_END)
       .map((line) => `> ${line}`.trimEnd())
       .join("\n");
   const task = [

@@ -77,7 +77,7 @@ collector of its own is read: Jira, an alerting tool, a queue of your own.
 The server is declared in the workflow's `mcp`, and it must be one the factory can start itself:
 
 ```json
-{ "from": "command", "command": "npx", "args": ["-y", "some-mcp-server"], "env": ["BOARD_TOKEN"] }
+{ "from": "command", "command": "npx", "args": ["-y", "some-mcp-server@1.4.2"], "env": ["BOARD_TOKEN"] }
 ```
 
 A workflow can come from someone else, and this command runs on your machine. So a collector does not start a
@@ -85,8 +85,9 @@ server until you have allowed it here:
 
 ```
 $ softwarefactor allow board
-The server "board" runs: npx -y some-mcp-server (with your BOARD_TOKEN)
+The server "board" runs: ["npx","-y","some-mcp-server@1.4.2"] (with your BOARD_TOKEN)
 allowed: collectors may start "board" on this machine, until the workflow changes what it runs
+This allows the command as written, not the program behind it: pin a version, and read a script it names.
 ```
 
 The approval is kept in `.factor/local.json`, which is not shared. If the workflow later changes the command, its
@@ -95,6 +96,11 @@ arguments or the variables it asks for, collecting stops and asks again.
 The server gets only the environment variables listed for it (by name: the value stays on the machine), plus the
 few every command gets, such as `PATH` and `HOME`. It has one minute to answer, and it is stopped afterwards,
 together with anything it started.
+
+What the approval does not cover: the program behind the command. An unpinned `npx -y some-server` runs whatever
+is published tomorrow, and a script in the repository can be changed by a later commit. A launcher that hands the
+server to a daemon (`docker run`) leaves it running: the factory stops only what the command itself started. The
+approval is a line in a file on your machine, as trusted as the rest of `.factor/local.json`.
 
 The answer must be JSON: a list, or an object that holds one (under `issues`, `items`, `tasks` or `results`, or
 its first list). An item becomes a task when it has a key (`key`, `id` or `number`) and a title (`title`,
@@ -119,3 +125,5 @@ again while it still waits takes its newest title, body and labels; once it has 
 - A collector never writes back: closing an issue when its task is done is a lane's job, not the collector's.
 - A schedule in the hour the clocks skip in spring (02:30 where 02:00 to 03:00 does not exist) is not due that day.
 - Nothing shows whether an issue's text was edited after it was labelled.
+- An agent's use of `gh` is held to reading and to opening its own pull request by the guard, which reads the
+  command's words. It is a guard, not a wall: protect the default branch on GitHub as well.

@@ -48,8 +48,9 @@ function draftOf(item: unknown): TaskDraft | undefined {
 }
 
 type Server = { command: string; args?: string[]; env?: string[] };
+// as a list in JSON: an argument with spaces or a line break in it cannot pass for two, or hide one
 const shown = (s: Server) =>
-  `${[s.command, ...(s.args ?? [])].join(" ")}${s.env?.length ? ` (with your ${s.env.join(", ")})` : ""}`;
+  `${JSON.stringify([s.command, ...(s.args ?? [])])}${s.env?.length ? ` (with your ${s.env.join(", ")})` : ""}`;
 /** What a server runs and which variables it gets, as one print: a change to either is a different server. */
 export const printOf = (s: Server) =>
   createHash("sha256")

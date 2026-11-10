@@ -301,5 +301,8 @@ export function allowCommand(ws: Workspace, args: string[], say: (line: string) 
   const local = { ...ws.local, servers: { ...ws.local.servers, [name]: printOf(server) } };
   writeFileSync(join(ws.factorDir, "local.json"), `${JSON.stringify(local, null, 2)}\n`);
   say(`allowed: collectors may start "${name}" on this machine, until the workflow changes what it runs`);
+  say(
+    "This allows the command as written, not the program behind it: pin a version, and read a script it names.",
+  );
   return 0;
 }

@@ -83,48 +83,78 @@ const FACTORY_COMMANDS = new Set([
   ...["init", "collect", "run", "stop", "approve", "reject", "send-back", "answer"],
   ...["account", "role", "memory", "mcp", "guard", "ui", "allow", "mcp-call"],
 ]);
-// What an agent may not do on GitHub with the person's login: anything that lands or publishes a
-// change, or changes the repository itself. It reads, and it opens its own pull request.
-const GH_DENIED: Record<string, Set<string> | "all"> = {
-  pr: new Set(["merge"]),
-  repo: new Set(["delete", "edit", "rename", "archive", "unarchive", "deploy-key", "sync"]),
-  release: new Set(["create", "delete", "edit", "upload", "delete-asset"]),
-  workflow: new Set(["run", "enable", "disable"]),
-  variable: new Set(["set", "delete"]),
-  secret: "all",
-  "ssh-key": "all",
-  "gpg-key": "all",
+// What an agent may do on GitHub with the person's login: read, and open its own pull request.
+// It is a list of what is allowed, not of what is not: a list of forbidden words is passed by
+// the next spelling (an alias, an extension, an option's value before the subcommand).
+const GH_MAY: Record<string, Set<string>> = {
+  issue: new Set(["view", "list", "status"]),
+  pr: new Set(["view", "list", "status", "diff", "checks", "create"]),
+  run: new Set(["view", "list", "watch"]),
+  repo: new Set(["view", "list"]),
+  release: new Set(["view", "list"]),
+  workflow: new Set(["view", "list"]),
+  label: new Set(["list"]),
+  search: new Set(["issues", "prs", "repos", "code", "commits"]),
 };
+const GH_ALONE = new Set(["status", "help", "version"]);
+// gh takes its subcommand from anywhere after the group, so one of these as a later word may be the real one
+const GH_WRITES = new Set([
+  ...[
+    "merge",
+    "close",
+    "reopen",
+    "edit",
+    "delete",
+    "comment",
+    "review",
+    "ready",
+    "lock",
+    "unlock",
+    "transfer",
+  ],
+  ...["pin", "unpin", "develop", "rename", "archive", "unarchive", "sync", "fork", "upload", "run", "rerun"],
+  ...[
+    "cancel",
+    "enable",
+    "disable",
+    "set",
+    "install",
+    "remove",
+    "upgrade",
+    "login",
+    "logout",
+    "token",
+    "refresh",
+  ],
+]);
 const GH_API_WRITES = /^(-f|-F|--field|--raw-field|--input)(=|$)|^-[fF]./;
 
+/** The words after `gh`, with quoted text already taken out. */
 function judgeGh(words: string[]): Verdict | undefined {
-  // the words that are not options, without the repository an option names
-  const plain = words.filter((w, i) => !w.startsWith("-") && !/^(-R|--repo)$/.test(words[i - 1] ?? ""));
-  const [group = "", verb = ""] = plain;
+  const plain = words.filter((w) => !w.startsWith("-"));
+  const [group, verb = ""] = plain;
+  if (group === undefined || (GH_ALONE.has(group) && plain.length === 1)) return undefined;
   if (group === "auth") return deny("The GitHub login may not be read or changed by an agent.");
-  const denied = Object.hasOwn(GH_DENIED, group) ? GH_DENIED[group] : undefined;
-  if (denied === "all" || denied?.has(verb)) {
-    return deny(
-      `An agent may not run "gh ${group}${verb ? ` ${verb}` : ""}": a person lands and publishes changes.`,
-    );
-  }
   if (group === "api") {
-    // a method other than GET, or a field (which makes the call a POST), is a write
+    // a method other than GET, a field (which makes the call a POST), or the GraphQL endpoint is a write
     const method = words.flatMap((w, i) =>
       /^(-X|--method)$/.test(w)
         ? [words[i + 1] ?? ""]
-        : /^(-X|--method=)/.test(w)
+        : /^(-X.|--method=)/.test(w)
           ? [w.replace(/^(-X|--method=)/, "")]
           : [],
     );
-    if (
+    const writes =
       method.some((m) => m.toUpperCase() !== "GET") ||
-      (method.length === 0 && words.some((w) => GH_API_WRITES.test(w)))
-    ) {
-      return deny("An agent may read the GitHub API, not write to it.");
-    }
+      words.some((w) => GH_API_WRITES.test(w)) ||
+      plain.includes("graphql");
+    return writes ? deny("An agent may read the GitHub API with gh, not write to it.") : undefined;
   }
-  return undefined;
+  const may = Object.hasOwn(GH_MAY, group) && GH_MAY[group]?.has(verb);
+  if (may && !plain.slice(2).some((w) => GH_WRITES.has(w))) return undefined;
+  return deny(
+    `An agent may read GitHub with gh and open its own pull request, nothing else: "gh ${plain.slice(0, 3).join(" ")}" is for a person.`,
+  );
 }
 
 const READS_CONFIG = new Set(["--get", "--get-all", "--get-regexp", "--list", "-l"]);
@@ -336,6 +366,10 @@ function judgeShell(command: unknown, where: Where): Verdict {
       .replace(/"[^"]*"|'[^']*'/g, " ")
       .trim()
       .split(/\s+/);
+    // the login's token, taken inside another command: $(gh auth token)
+    if (/(\$\(|`)\s*(\S*\/)?gh\s+auth\b/.test(part)) {
+      return deny("The GitHub login may not be read or changed by an agent.");
+    }
     const runsFactory = bare.some((w, i) => nameOf(w) === FACTORY && FACTORY_COMMANDS.has(bare[i + 1] ?? ""));
     if (first === FACTORY || runsFactory) {
       return deny("The softwarefactor command is for people. Use the tools of the factor server.");
@@ -346,10 +380,13 @@ function judgeShell(command: unknown, where: Where): Verdict {
         ? judgeDelete(first, rest, where, moved)
         : first === "git"
           ? judgeGit(rest, where)
-          : first === "gh"
-            ? judgeGh(rest)
-            : undefined;
+          : undefined;
     if (verdict) return verdict;
+    // gh, wherever it stands in the command: after a wrapper this guard does not know, or as what find runs
+    for (const [i, word] of bare.entries()) {
+      const refused = nameOf(word) === "gh" ? judgeGh(bare.slice(i + 1)) : undefined;
+      if (refused) return refused;
+    }
   }
   return ALLOW;
 }
