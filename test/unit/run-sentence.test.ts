@@ -100,11 +100,12 @@ describe("what an agent's output says it is doing", () => {
   });
 
   it("skips a line that is megabytes long and uses an earlier one", () => {
-    const tail = [
-      claude([use("Bash", { command: "npm test" })]),
-      `{"type":"assistant","message":{"content":[{"type":"text","text":"${"y".repeat(5_000_000)}`,
-    ].join("\n");
-    expect(activityOf(tail)).toBe("running `npm test`");
+    const early = claude([use("Bash", { command: "npm test" })]);
+    // whole and well formed, and it would say something: it is passed over for its length alone
+    const long = claude([use("Bash", { command: `echo ${"y".repeat(2_000_000)}` })]);
+    expect(activityOf(`${early}\n${long}\n`)).toBe("running `npm test`");
+    // and one that never ends
+    expect(activityOf(`${early}\n${long.slice(0, -40)}`)).toBe("running `npm test`");
   });
 
   it("never splits a character in two when it cuts", () => {
