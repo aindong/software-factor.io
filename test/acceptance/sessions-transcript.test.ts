@@ -1,4 +1,5 @@
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { agentLane, bind, flowRepo, type Repo, runRow, standinAccount } from "../helpers/repo.ts";
@@ -13,21 +14,47 @@ const transcripts = (repo: Repo) => {
 };
 
 describe("a transcript the host cannot trust", () => {
+  const forged =
+    '{"type":"result","is_error":false,"result":"TOP-SECRET","session_id":"LEAK","total_cost_usd":9,"usage":{"input_tokens":7}}\n';
+  const ok = { handoff: { outcome: "pass", summary: "ok" } };
+  const check = (repo: Repo, run: { stdout: string; stderr: string }) => {
+    const [session] = repo.rows<Record<string, unknown>>("select * from sessions");
+    expect(session).toMatchObject({ tokens: 0, usd: null, session_id: null, transcript_path: null });
+    const note = repo.rows<{ note: string }>("select note from lane_runs")[0]?.note;
+    expect(transcripts(repo).join("") + run.stdout + run.stderr + note).not.toContain("TOP-SECRET");
+  };
+
   it("is not read through a link the agent put in its place", () => {
     const repo = flowRepo({ lanes: [agentLane("build")] });
     const secret = join(repo.home, "elsewhere.txt");
-    writeFileSync(secret, '{"type":"result","result":"TOP-SECRET"}\n');
+    writeFileSync(secret, forged);
     const swap = `f="$FACTOR_LANE_DIR.host/stream.jsonl"; rm -f "$f"; ln -s '${secret}' "$f"`;
-    standinAccount(repo, "claude-a", "claude", {
-      actions: [{ sh: swap }, { handoff: { outcome: "pass", summary: "ok" } }],
-    });
+    standinAccount(repo, "claude-a", "claude", { actions: [{ sh: swap }, ok] });
     bind(repo, "author", "claude-a");
-    repo.sf("run");
-    expect(transcripts(repo).join("")).not.toContain("TOP-SECRET");
-    expect(
-      repo.rows<{ transcript_path: string | null }>("select transcript_path from sessions")[0]
-        ?.transcript_path,
-    ).toBeNull();
+    check(repo, repo.sf("run"));
+  });
+
+  it("is not read when the host's folder for it was swapped for a link", () => {
+    const repo = flowRepo({ lanes: [agentLane("build")] });
+    const elsewhere = join(repo.home, "elsewhere");
+    mkdirSync(elsewhere);
+    writeFileSync(join(elsewhere, "stream.jsonl"), forged);
+    const swap = `d="$FACTOR_LANE_DIR.host"; mv "$d" "$d.old"; ln -s '${elsewhere}' "$d"`;
+    standinAccount(repo, "claude-a", "claude", { actions: [{ sh: swap }, ok] });
+    bind(repo, "author", "claude-a");
+    check(repo, repo.sf("run"));
+  });
+
+  it("does not end the run when the agent put a file where the transcript goes", () => {
+    const repo = flowRepo({ lanes: [agentLane("build")] });
+    const plant = `d='${repo.dir}'/.factor/runs/$FACTOR_RUN_ID/sessions; mkdir -p "$d"; echo FORGED > "$d/01-build.jsonl"`;
+    standinAccount(repo, "claude-a", "claude", { actions: [{ sh: plant }, ok] });
+    bind(repo, "author", "claude-a");
+    const run = repo.sf("run");
+    expect(run.status, run.stdout + run.stderr).toBe(0);
+    expect(repo.rows("select tokens, transcript_path from sessions")).toEqual([
+      { tokens: 1350, transcript_path: null },
+    ]);
   });
 
   it("is cut when it is larger than the cap, keeps its end, and says so", () => {
@@ -44,6 +71,12 @@ describe("a transcript the host cannot trust", () => {
     expect(transcript?.length).toBeGreaterThan(20_000);
     expect(transcript).toMatch(/^\{"type":"factor\.cut"/);
     expect(transcript).toContain('"total_cost_usd":0.42'); // the result is at the end, and is kept
-    expect(repo.rows<{ tokens: number }>("select tokens from sessions")[0]?.tokens).toBe(1350);
+    const [row] = repo.rows<Record<string, string>>("select * from sessions");
+    expect(row?.tokens).toBe(1350);
+    expect(
+      createHash("sha256")
+        .update(transcript ?? "")
+        .digest("hex"),
+    ).toBe(row?.transcript_sha256);
   });
 });

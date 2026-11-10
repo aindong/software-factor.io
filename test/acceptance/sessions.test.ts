@@ -6,8 +6,11 @@ import { agentLane, bind, flowRepo, standinAccount } from "../helpers/repo.ts";
 
 describe("the session record of a lane worked by Claude Code", () => {
   const repo = flowRepo({ lanes: [agentLane("build")] });
-  standinAccount(repo, "claude-a", "claude", { actions: [{ handoff: { outcome: "pass", summary: "ok" } }] });
-  bind(repo, "author", "claude-a");
+  const profile = standinAccount(repo, "claude-a", "claude", {
+    final: "MARK-7f3",
+    actions: [{ handoff: { outcome: "pass", summary: "ok" } }],
+  });
+  bind(repo, "author", "claude-a", "--medium", "the-model-the-binding-names");
   const run = repo.sf("run");
   const rows = repo.rows<Record<string, unknown>>("select * from sessions order by id");
   const [session] = rows;
@@ -23,9 +26,10 @@ describe("the session record of a lane worked by Claude Code", () => {
     expect(session).toMatchObject({
       account: "claude-a",
       agent: "claude",
-      model: "claude-standin-1",
+      model: "claude-standin-1", // the model the CLI says did most of the work, not the one asked for
       session_id: "claude-session-1",
     });
+    expect(profile.calls()[0]?.argv).toContain("the-model-the-binding-names");
   });
 
   it("holds the tokens by kind and the cost, as the CLI reported them", () => {
@@ -44,7 +48,11 @@ describe("the session record of a lane worked by Claude Code", () => {
     const path = String(session?.transcript_path);
     expect(path).toMatch(/^\.factor\/runs\/[0-9a-f]+\/sessions\/01-build\.jsonl$/);
     const transcript = readFileSync(join(repo.dir, path));
-    expect(transcript.toString()).toContain('"type":"result"');
+    const lines = transcript.toString().trim().split("\n");
+    expect(lines.length).toBe(3); // every line the CLI printed, as it printed it
+    expect(lines[0]).toContain('"subtype":"init"');
+    expect(lines[1]).toContain("MARK-7f3");
+    expect(lines[2]).toContain('"type":"result"');
     expect(createHash("sha256").update(transcript).digest("hex")).toBe(session?.transcript_sha256);
   });
 });

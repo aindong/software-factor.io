@@ -20,11 +20,11 @@ describe("softwarefactor sessions", () => {
   it("prints each session with its lane, account, model, tokens by kind and cost", () => {
     expect(all.status, all.stderr).toBe(0);
     expect(all.stdout).toMatch(/build\s+1\s+claude-a\s+claude-standin-1\s+100\s+50\s+1000\s+200\s+\$0\.4200/);
-    expect(all.stdout).toMatch(/review\s+1\s+codex-a\s+-\s+1500\s+300\s+500\s+0\s+unknown/);
+    expect(all.stdout).toMatch(/review\s+1\s+codex-a\s+-\s+1400\s+300\s+500\s+100\s+unknown/);
   });
 
   it("prints a total for each run, and says when a cost is left out", () => {
-    expect(all.stdout.match(/total\s+1600\s+350\s+1500\s+200\s+\$0\.4200/g)?.length).toBe(2);
+    expect(all.stdout.match(/total\s+1500\s+350\s+1500\s+300\s+\$0\.4200/g)?.length).toBe(2);
     expect(all.stdout).toMatch(/3650 tokens/);
     expect(all.stdout).toMatch(/1 session of unknown cost is not in the total/);
   });
@@ -38,6 +38,7 @@ describe("softwarefactor sessions", () => {
     const one = repo.sf("sessions", runs[0]?.id ?? "");
     expect(one.stdout).toContain(runs[0]?.id);
     expect(one.stdout).not.toContain(runs[1]?.id);
+    expect(one.stdout).toMatch(/claude-a\s+1 session\s+1350 tokens\s+\$0\.4200/); // totals of that run only
     const none = repo.sf("sessions", "nope");
     expect(none.status).toBe(1);
     expect(none.stderr).toMatch(/nope/);
