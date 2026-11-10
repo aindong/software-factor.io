@@ -23,7 +23,9 @@ import { stopRun } from "./core/engine/stop.ts";
 import { UserError } from "./core/errors.ts";
 import { interrupt } from "./core/exec.ts";
 import { repoRoot } from "./core/git.ts";
+import { HELP } from "./core/help.ts";
 import { init } from "./core/init.ts";
+import { escapeCommand, ladderCommand } from "./core/ladder.ts";
 import { serve } from "./core/mcp.ts";
 import { serveOperator } from "./core/mcp-operator.ts";
 import { addCommand, availableCommand } from "./core/plugins/install.ts";
@@ -32,56 +34,6 @@ import { startServer } from "./core/server.ts";
 import { exportCommand, importCommand } from "./core/sharing.ts";
 import { openInbox, readStatus } from "./core/store.ts";
 import { factorHome, loadWorkspace, locateWorkspace } from "./core/workspace.ts";
-
-const HELP = `softwarefactor: a software factory you assemble yourself
-
-Usage: softwarefactor <command>
-
-  init                     Set up a factory in this repository (.factor/)
-  check [files]            Check workflow files: each problem with its place and fix
-  collect                  Ask the workflow's collectors for new tasks
-  allow <server>           Show what an MCP server of the workflow runs, and let collectors start it
-  allow --skill <name>     Show where a skill of the workflow comes from, and let runs install it
-  add <source> [--yes]     Show what a plugin holds and would run, and install it on a yes
-                           (a folder, owner/repo, or a name from \`plugins --available\`)
-  export [workflow]        Print a workflow as one file to share: no secret, no account, no path
-  import <file> [--yes]    Show what a shared workflow would run, and write it on a yes
-  run [--all] [--parallel N]
-                           Pick up runs a crash left, wake waits that are due, then take the next
-                           queued task through the workflow. With --all, keep going until the queue
-                           is empty, several runs at once
-  stop <run>               Stop a run that is working or waiting
-  status                   Show tasks, runs, lanes, gates and where the evidence is
-  runs [run] [--diff]      Show every run with one sentence on what is happening, or one run lane by
-                           lane, or what it changed
-  cost                     Show tokens and cost by lane, by task and by account
-  plugins                  Show what is built in: lane types, gate types, collectors, agents, workflows
-  ui [--port N]            Open the interface in a browser: the factory floor, on this machine only
-  memory list | keep <id> | drop <id>
-                           Show what the project remembers and what agents have proposed, and keep
-                           or drop a proposed note
-  sessions [run]           Show each start of an agent: account, model, tokens by kind and cost,
-                           with a total per run and per account
-  inbox                    Show what waits for a person
-  approve <run>            Approve a waiting lane. With --item <n> on any decision: only if the run
-                           still waits on that inbox item
-  reject <run> [--note]    Reject it: the lane's fail transition is taken
-  send-back <run> --note   Run the lane again with your note
-  answer <run> --note      Answer a lane's question and run it again
-  account add <name> --agent claude|codex|kimi|command --profile <folder>
-          [--limit 5h=2000000] [--headroom 0.9] [--bin <path>] [--command "<shell command>"]
-                           Name an agent login on this machine. The login stays in the CLI's own
-                           profile folder: the factory stores only where it is
-  account list | remove <name>
-  role bind <role> --account <name> [--small <model>] [--medium <model>] [--large <model>] [--effort <level>]
-                           Say which account works a role of the workflow, in this workspace
-  role list                Show each role, its account, and any role that should be on another vendor
-  mcp --operator --workspace <folder>
-                           Serve every operation of the factory to your own agent as an MCP server
-                           (docs/operations.md). Not for an agent inside a run
-
-Exit codes for run and for a decision: 0 the task is done or dropped, 1 it stopped, 3 it waits.
-`;
 
 // Task titles and agent summaries come from outside. Printed raw, a control sequence in one could
 // rewrite the terminal's title or hide a failure line.
@@ -189,6 +141,7 @@ async function main(): Promise<number> {
     options: {
       help: { type: "boolean", short: "h" },
       yes: { type: "boolean" },
+      lane: { type: "string" },
       hash: { type: "string" },
       skill: { type: "string" },
       available: { type: "boolean" },
@@ -293,6 +246,18 @@ async function main(): Promise<number> {
     const db = openDb(loadWorkspace(cwd).dbPath);
     try {
       return sessionsCommand(db, positionals[1], say);
+    } finally {
+      db.close();
+    }
+  }
+
+  if (command === "ladder" || command === "escape") {
+    const ws = loadWorkspace(cwd);
+    const db = openDb(ws.dbPath);
+    try {
+      return command === "ladder"
+        ? ladderCommand(ws, db, positionals.slice(1), say)
+        : escapeCommand(ws, db, positionals.slice(1), values, say);
     } finally {
       db.close();
     }

@@ -110,9 +110,11 @@ function LaneForm({
   connectRef,
   onChange,
   onSelect,
+  ladder,
 }: {
   doc: Json;
   lane: LaneJson;
+  ladder?: (lane: string) => ReactNode;
   connectRef: RefObject<HTMLSelectElement | null>;
   onChange: (doc: Json) => void;
   onSelect: (id: string | undefined) => void;
@@ -194,6 +196,7 @@ function LaneForm({
           ]}
           onChange={(v) => set({ checkpoint: v })}
         />
+        {ladder?.(lane.id)}
       </section>
 
       {kind === "core/agent@1" ? (
@@ -439,6 +442,8 @@ export interface InspectorProps {
   onChange: (doc: Json) => void;
   onSelect: (id: string | undefined) => void;
   onClose: () => void;
+  /** The lane's place on the autonomy ladder, drawn under its checkpoint. */
+  ladder?: (lane: string) => ReactNode;
 }
 
 export function Inspector({
@@ -451,6 +456,7 @@ export function Inspector({
   onChange,
   onSelect,
   onClose,
+  ladder,
 }: InspectorProps) {
   const lanes = lanesIn(doc);
   const lane = lanes.find((l) => l?.id === selected);
@@ -481,7 +487,14 @@ export function Inspector({
         </p>
       ) : null}
       {lane ? (
-        <LaneForm doc={doc} lane={lane} connectRef={connectRef} onChange={onChange} onSelect={onSelect} />
+        <LaneForm
+          doc={doc}
+          lane={lane}
+          connectRef={connectRef}
+          onChange={onChange}
+          onSelect={onSelect}
+          ladder={ladder}
+        />
       ) : selected ? (
         <section>
           <p>A run that reaches this station ends here.</p>

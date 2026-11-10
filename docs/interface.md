@@ -43,6 +43,14 @@ The inspector, on the right, holds the selected lane's settings: its id and name
 role, access, model size, effort and instructions, where each outcome leads, and its gates. With nothing
 selected it holds the workflow's own description and limits.
 
+## The ladder at a lane
+
+Under a lane's checkpoint the inspector shows the lane's place on the autonomy ladder (`docs/ladder.md`): its
+record of clean runs in a row, the last time it moved and why, and, when the record has earned a step, a button
+that takes it. Taking a step changes the workflow's file, so the button is off while the floor holds changes
+that are not saved. A step back after a defect got through is made from the command line
+(`softwarefactor escape`) and is shown here.
+
 ## The JSON, one click away
 
 The Diagram and JSON switch shows the same workflow as text. A change in either shows in the other at once.

@@ -15,7 +15,7 @@ it("moves a lane near the loop back in the loop, records why, and the lane waits
   expect(repo.sf("check").status).toBe(0);
   expect(
     repo.rows(
-      "select lane, kind, from_mode, to_mode, run_id, note from ladder where kind <> 'promoted' order by id",
+      "select lane, kind, from_mode, to_mode, run_id, note from ladder where kind in ('escape', 'demoted') order by id",
     ),
   ).toEqual([
     {
@@ -50,6 +50,6 @@ it("records an escape at a lane already in the loop, moves nothing, and starts i
   const r = repo.sf("escape", first, "--lane", "build", "--note", "A typo in the title");
   expect(r.status, r.stderr).toBe(0);
   expect(checkpointOf(repo)).toBe("in");
-  expect(repo.rows("select kind from ladder")).toEqual([{ kind: "escape" }]);
+  expect(repo.rows("select kind from ladder where kind <> 'seen'")).toEqual([{ kind: "escape" }]);
   expect(ladderLine(repo)).toMatch(/0 of 2/);
 });

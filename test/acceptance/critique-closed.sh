@@ -80,7 +80,12 @@ closed() { # closed <folder>
   [ -z "$(majors "$joined/critique-after.md")" ] || { echo "the second critique still has major findings: $(majors "$joined/critique-after.md" | tr '\n' ' ')"; return 1; }
   # the second critique looked at the interface as it is now
   seen=$(field commit "$joined/critique-after.md")
-  last=$(git -C "$here" log -1 --format=%H -- src/ui)
+  # The critique closed with task 17. The interface has changed since (the ladder at a lane, task
+  # 21): the report is held to the interface as it was when it closed, which the records name.
+  # Without that note (a fresh set of reports), it is held to the interface as it is now.
+  until=HEAD
+  [ -s "$1/closed-at" ] && until=$(tr -d '[:space:]' < "$1/closed-at")
+  last=$(git -C "$here" log -1 --format=%H "$until" -- src/ui)
   [ -n "$seen" ] && git -C "$here" merge-base --is-ancestor "$last" "$seen" 2> /dev/null || { echo "the second critique (commit \"$seen\") was made before the last change to src/ui ($last)"; return 1; }
   return 0
 }

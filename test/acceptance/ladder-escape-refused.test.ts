@@ -16,5 +16,20 @@ it("refuses an escape with no run, no such lane in the run, or no note, and reco
     expect(r.status, args.join(" ")).toBe(1);
     expect(r.stderr, args.join(" ")).toMatch(said);
   }
-  expect(repo.rows("select count(*) as n from ladder")).toEqual([{ n: 0 }]);
+  expect(repo.rows("select count(*) as n from ladder where kind <> 'seen'")).toEqual([{ n: 0 }]);
+});
+
+it("refuses an escape for a run that has not ended, and a second one for the same run and lane", () => {
+  const repo = ladderRepo();
+  repo.sf("run"); // it waits
+  const waiting = repo.rows<{ id: string }>("select id from runs")[0]?.id ?? "";
+  const early = repo.sf("escape", waiting, "--lane", "build", "--note", "x");
+  expect(early.status).toBe(1);
+  expect(early.stderr).toMatch(/not ended/);
+  repo.sf("approve", waiting);
+  expect(repo.sf("escape", waiting, "--lane", "build", "--note", "x").status).toBe(0);
+  const twice = repo.sf("escape", waiting, "--lane", "build", "--note", "x again");
+  expect(twice.status).toBe(1);
+  expect(twice.stderr).toMatch(/already recorded/);
+  expect(repo.rows("select count(*) as n from ladder where kind = 'escape'")).toEqual([{ n: 1 }]);
 });

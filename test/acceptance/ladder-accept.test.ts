@@ -11,7 +11,7 @@ it("moves the lane a step up in the workflow's file, records the move, and the l
   expect(r.stdout).toMatch(/build is now near the loop/);
   expect(checkpointOf(repo)).toBe("near");
   expect(repo.sf("check").status).toBe(0);
-  expect(repo.rows("select lane, kind, from_mode, to_mode, note from ladder")).toEqual([
+  expect(repo.rows("select lane, kind, from_mode, to_mode, note from ladder where kind <> 'seen'")).toEqual([
     {
       lane: "build",
       kind: "promoted",
@@ -40,5 +40,5 @@ it("refuses to move a lane that has no suggestion, and a lane the workflow does 
   expect(early.stderr).toMatch(/1 of 2/);
   expect(checkpointOf(repo)).toBe("in");
   expect(repo.sf("ladder", "accept", "nothing").status).toBe(1);
-  expect(repo.rows("select count(*) as n from ladder")).toEqual([{ n: 0 }]);
+  expect(repo.rows("select count(*) as n from ladder where kind <> 'seen'")).toEqual([{ n: 0 }]);
 });

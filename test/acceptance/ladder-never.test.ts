@@ -4,7 +4,11 @@ import { checkpointOf, cleanRun, ladderLine, ladderRepo } from "../helpers/ladde
 
 it.each([
   ["pin", { pin: true }, /pinned/],
-  ["oneWay", { oneWay: true }, /cannot be undone|one-way/],
+  [
+    "oneWay",
+    { oneWay: true, on: { pass: "ship", fail: "@stop", needsPerson: "@stop" } },
+    /cannot be undone|one-way/,
+  ],
 ] as const)("never suggests a lane marked %s, and refuses to move it", (_, extra, why) => {
   const repo = ladderRepo(extra);
   cleanRun(repo);
@@ -32,4 +36,15 @@ it("moves a lane near the loop out of it on a second record, and no further", ()
   cleanRun(repo);
   expect(ladderLine(repo)).not.toMatch(/can move/);
   expect(repo.sf("ladder", "accept", "build").status).toBe(1);
+});
+
+it("records an escape at a pinned lane near the loop and leaves it where it is pinned", () => {
+  const repo = ladderRepo({ pin: true, checkpoint: "near" });
+  const run = cleanRun(repo);
+  const r = repo.sf("escape", run, "--lane", "build", "--note", "Something got through");
+  expect(r.status, r.stderr).toBe(0);
+  expect(checkpointOf(repo)).toBe("near");
+  expect(repo.rows("select kind from ladder where kind in ('escape', 'demoted')")).toEqual([
+    { kind: "escape" },
+  ]);
 });
