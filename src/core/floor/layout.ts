@@ -56,8 +56,6 @@ const CLEAR = 36; // from the main line to the first track
 const BEVEL = 12; // the 45-degree stretch at each corner
 const EDGE = 56; // above the highest and below the lowest thing drawn
 const PORT = 8; // between two lines that leave or reach one station on the same side
-const SELF = 10; // how far from its station's middle a lane's line to itself leaves and comes back
-const SELF_BEVEL = 6;
 const ENDS = ["@done", "@inbox", "@stop", "@drop"];
 const END_LABEL: Record<string, string> = {
   "@done": "Done",
@@ -118,30 +116,36 @@ export function layout(workflow: Workflow): Floor {
   for (const side of [-1, 1] as const) {
     for (const index of ids.keys()) {
       const here = drafts
-        // a lane's line to itself has places of its own, below
-        .filter((d) => d.side === side && d.fromAt !== d.toAt && (d.fromAt === index || d.toAt === index))
-        .flatMap((d) => [
-          ...(d.fromAt === index ? [{ d, end: "from" as const, other: d.toAt, key: `from ${d.key}` }] : []),
-          // lines of one outcome that end here arrive together, at one point
-          ...(d.toAt === index ? [{ d, end: "to" as const, other: -1, key: `to ${d.outcome}` }] : []),
-        ])
+        .filter((d) => d.side === side && (d.fromAt === index || d.toAt === index))
+        .flatMap((d): { d: Draft; end?: "from" | "to"; other: number; key: string }[] => {
+          // A lane's line to itself comes back beside where it left, with one free place between
+          // so that it reads as a loop. A second such loop on the same side goes around the first.
+          if (d.fromAt === d.toAt) {
+            const out = d.outcome === "needsPerson" ? 0.4 : 0.2;
+            return [
+              { d, end: "to", other: index - out, key: `to ${d.key}` },
+              { d, other: index, key: `gap ${d.key}` },
+              { d, end: "from", other: index + out, key: `from ${d.key}` },
+            ];
+          }
+          return [
+            ...(d.fromAt === index ? [{ d, end: "from" as const, other: d.toAt, key: `from ${d.key}` }] : []),
+            // lines of one outcome that end here arrive together, at one point
+            ...(d.toAt === index ? [{ d, end: "to" as const, other: -1, key: `to ${d.outcome}` }] : []),
+          ];
+        })
         .sort((a, b) => a.other - b.other);
       const slots = [...new Set(here.map((p) => p.key))];
       const step = Math.min(PORT, 48 / Math.max(1, slots.length - 1));
       for (const port of here) {
         const slot = ports.get(port.d);
-        if (slot) slot[port.end] = Math.round((slots.indexOf(port.key) - (slots.length - 1) / 2) * step);
+        if (slot && port.end)
+          slot[port.end] = Math.round((slots.indexOf(port.key) - (slots.length - 1) / 2) * step);
       }
     }
   }
   const ends = (d: Draft) => {
     const port = ports.get(d) ?? { from: 0, to: 0 };
-    // a lane's line to itself leaves on one side of the station and comes back on the other, a
-    // little further out for each outcome so that two such loops do not run along each other
-    if (d.fromAt === d.toAt) {
-      const out = SELF + (d.outcome === "needsPerson" ? 3 : 0);
-      return { a: xOf(d.fromAt) + out, b: xOf(d.fromAt) - out };
-    }
     return { a: xOf(d.fromAt) + port.from, b: xOf(d.toAt) + port.to };
   };
 
@@ -189,7 +193,7 @@ export function layout(workflow: Workflow): Floor {
     const { a, b } = ends(d);
     const y = mainY + side * (CLEAR + (level.get(d) ?? 1) * TRACK);
     const dir = b > a ? 1 : -1;
-    const bevel = fromAt === toAt ? SELF_BEVEL : BEVEL; // a tighter turn for a loop that small
+    const bevel = Math.min(BEVEL, Math.floor(Math.abs(b - a) / 2) - 1); // a tighter turn for a loop to itself
     const points: Point[] = [
       [a, mainY],
       [a, y - side * bevel],
