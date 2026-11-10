@@ -54,3 +54,9 @@ export function adapterFor(binding: RoleBinding, lane: Lane): Bound {
           : commandAgent(account);
   return { adapter, agent: account.agent, account: name };
 }
+
+/** The command line of the factor server for one start of a lane. Which lane it serves is fixed here. */
+export const serverFor = (root: string, run: string, lane: string, laneDir: string, account: string) => [
+  ...[process.execPath, process.argv[1] ?? "", "mcp", "--workspace", root, "--run", run],
+  ...["--lane", lane, "--lane-dir", laneDir, "--account", account],
+];

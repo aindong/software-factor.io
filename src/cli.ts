@@ -5,7 +5,7 @@ import { join, relative } from "node:path";
 // MCP server can offer the same ones (ADR 0008).
 import { parseArgs } from "node:util";
 import { judge, type Verdict } from "./core/agents/guard.ts";
-import { accountCommand, roleCommand, sessionsCommand } from "./core/commands.ts";
+import { accountCommand, memoryCommand, roleCommand, sessionsCommand } from "./core/commands.ts";
 import { openDb } from "./core/db.ts";
 import { decide } from "./core/engine/inbox.ts";
 import { handoffPath, riskLine } from "./core/engine/report.ts";
@@ -16,6 +16,7 @@ import { UserError } from "./core/errors.ts";
 import { interrupt } from "./core/exec.ts";
 import { repoRoot } from "./core/git.ts";
 import { init } from "./core/init.ts";
+import { serve } from "./core/mcp.ts";
 import { reportFiles } from "./core/schema/check-files.ts";
 import { openInbox, readStatus } from "./core/store.ts";
 import { loadWorkspace } from "./core/workspace.ts";
@@ -33,6 +34,9 @@ Usage: softwarefactor <command>
                            is empty, several runs at once
   stop <run>               Stop a run that is working or waiting
   status                   Show tasks, runs, lanes, gates and where the evidence is
+  memory list | keep <id> | drop <id>
+                           Show what the project remembers and what agents have proposed, and keep
+                           or drop a proposed note
   sessions [run]           Show each start of an agent: account, model, tokens by kind and cost,
                            with a total per run and per account
   inbox                    Show what waits for a person
@@ -58,6 +62,8 @@ Exit codes for run and for a decision: 0 the task is done or dropped, 1 it stopp
 const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g;
 const say = (line: string) => console.log(line.replace(CONTROL, ""));
 
+const READ_ONLY = new Set(["check", "status", "sessions", "inbox"]);
+const LISTS = new Set(["memory", "account", "role"]);
 const EXIT = { none: 0, done: 0, dropped: 0, running: 0, stopped: 1, waiting: 3 } as const;
 
 /**
@@ -88,7 +94,7 @@ function guard(args: string[]): number {
     const { tool_name, tool_input } = call as Record<string, unknown>;
     verdict = judge(
       { tool: tool_name, input: tool_input },
-      { worktree, laneDir, access, defaultBranch: named.protect ?? [] },
+      { worktree, laneDir, access, defaultBranch: named.protect ?? [], self: process.argv[1] },
     );
   } catch (error) {
     verdict = {
@@ -101,8 +107,30 @@ function guard(args: string[]): number {
   return 2;
 }
 
+/** The factor MCP server for one lane. An agent's CLI starts it: see docs/memory.md. */
+async function mcpCommand(args: string[]): Promise<number> {
+  const named: Record<string, string> = {};
+  for (let i = 0; i < args.length; i += 2) named[(args[i] ?? "").replace(/^--/, "")] = args[i + 1] ?? "";
+  const { workspace: root, run, lane, "lane-dir": laneDir, account } = named;
+  if (!root || !run || !lane || !laneDir) {
+    console.error("softwarefactor mcp needs --workspace, --run, --lane and --lane-dir: the lane it serves.");
+    return 1;
+  }
+  // started from inside a lane, it serves that lane and no other
+  const { FACTOR_RUN_ID: inRun, FACTOR_LANE: inLane } = process.env;
+  if ((inRun && inRun !== run) || (inLane && inLane !== lane)) {
+    console.error(
+      "softwarefactor mcp was started inside one lane to serve another. It serves its own lane only.",
+    );
+    return 1;
+  }
+  await serve({ root, run, lane, laneDir, account: account || undefined });
+  return 0;
+}
+
 async function main(): Promise<number> {
   if (process.argv[2] === "guard") return guard(process.argv.slice(3));
+  if (process.argv[2] === "mcp") return mcpCommand(process.argv.slice(3));
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: {
@@ -129,6 +157,16 @@ async function main(): Promise<number> {
     console.log(HELP);
     return command || values.help ? 0 : 1;
   }
+  // Inside a run only looking is allowed: an agent, or a command a lane runs, must not approve its
+  // own work, keep its own note or change who works a role. (A wall for accidents and plain
+  // attempts: a shell can drop the variable.)
+  const looks = READ_ONLY.has(command) || (positionals[1] === "list" && LISTS.has(command));
+  if (process.env.FACTOR_RUN_ID && !looks) {
+    throw new UserError(
+      `"softwarefactor ${command}" was started from inside a run, where only a person's commands that look are allowed.`,
+      "Run it yourself, in a terminal of your own.",
+    );
+  }
 
   if (command === "init") {
     const r = init(cwd);
@@ -151,6 +189,16 @@ async function main(): Promise<number> {
 
   if (command === "account") return accountCommand(positionals.slice(1), values, say);
   if (command === "role") return roleCommand(loadWorkspace(cwd), positionals.slice(1), values, say);
+
+  if (command === "memory") {
+    const ws = loadWorkspace(cwd);
+    const db = openDb(ws.dbPath);
+    try {
+      return memoryCommand(ws, db, positionals.slice(1), say);
+    } finally {
+      db.close();
+    }
+  }
 
   if (command === "sessions") {
     const db = openDb(loadWorkspace(cwd).dbPath);

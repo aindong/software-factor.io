@@ -1,5 +1,6 @@
 // What an agent is told: the lane's instructions, the task, what earlier lanes left, why it is here
 // again, and, for a real agent, where and how to hand off.
+import { memorySection, notesSection, proposedNotes, readMemory } from "../memory.ts";
 import type { Lane } from "../schema/workflow.ts";
 import type { Ctx } from "./lane.ts";
 import { valueAt } from "./transition.ts";
@@ -25,6 +26,10 @@ export function promptFor(
   const parts = [ctx.ws.prompts[lane.id] ?? "", `# Task\n\n${ctx.task.title}\n\n${ctx.task.body}`];
   const inputs = Object.entries(inputsOf(ctx, lane));
   if (inputs.length > 0) parts.push(`# Inputs\n\n${inputs.map(([k, v]) => `${k}: ${v}`).join("\n")}`);
+  const memory = memorySection(readMemory(ctx.ws.factorDir));
+  if (memory) parts.push(memory);
+  const left = notesSection(proposedNotes(ctx.db, ctx.run.id));
+  if (left) parts.push(left);
   if (notes.length > 0) parts.push(`# Why you are here again\n\n${notes.map((n) => `- ${n}`).join("\n")}`);
   const last = ctx.state.last;
   if (last && last.lane !== lane.id) {
@@ -61,7 +66,7 @@ export function promptFor(
 }
 
 /** What a real agent must be told that the scripted one is not: where and how to hand off. */
-export function handoffHelp(lane: Lane, handoffPath: string, evidenceDir: string): string {
+export function handoffHelp(lane: Lane, handoffPath: string, evidenceDir: string, server: boolean): string {
   const outputs = Object.entries(lane.outputs ?? {}).map(([name, o]) => `${name} (${o.type})`);
   return `
 # How to hand off
@@ -78,6 +83,11 @@ If you cannot write that file, end your last message with the same JSON object i
 - Evidence is "file:<committed path>", "commit:HEAD", "gate:<lane>.<gate>" or "attached:<file name>" for a file you put in ${evidenceDir}
 - ${outputs.length > 0 ? `Add "outputs" with: ${outputs.join(", ")}.` : 'Leave "outputs" out: this lane declares none.'}
 - If the repository has a CLAUDE.md or AGENTS.md at its top, read it first: it holds the project's own rules.
+- ${
+    server
+      ? "You have the tools of the factor server: handoff_write (instead of the file above), ask_question, evidence_attach, memory_read, and memory_note to leave a fact for the lanes after you."
+      : "This agent has no factor server: use the file."
+  }
 - No other keys. The host checks the hand-off, and its own gates decide whether the lane passes.
 - ${
     lane.agent?.access === "write"

@@ -5,6 +5,7 @@
 // gates still judge everything that is committed.
 import { existsSync, lstatSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { FACTOR_TOOLS, mcpName } from "./factor-tools.ts";
 import {
   DOWNLOAD_AS_COMMAND,
   OWNED_IN_SHELL,
@@ -25,6 +26,8 @@ export interface Where {
   access: "read" | "write";
   /** The branches an agent must not push to or move, besides main and master. */
   defaultBranch: string | string[];
+  /** The path of the factory's own program, which an agent may not run, move or change. */
+  self?: string;
 }
 export interface Verdict {
   allow: boolean;
@@ -75,6 +78,11 @@ const WRAPPERS = new Set([
 // Commands whose other words are text, such as a commit message: "sudo" there is only a word.
 const TEXT_ONLY = new Set(["git", "echo", "printf", "grep", "rg"]);
 const SUPERUSER = new Set(["sudo", "doas"]);
+const FACTORY = "softwarefactor";
+const FACTORY_COMMANDS = new Set([
+  ...["init", "collect", "run", "stop", "approve", "reject", "send-back", "answer"],
+  ...["account", "role", "memory", "mcp", "guard"],
+]);
 const READS_CONFIG = new Set(["--get", "--get-all", "--get-regexp", "--list", "-l"]);
 const GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--exec-path"]);
 const GIT_ELSEWHERE = /^--(git-dir|work-tree|namespace|config-env)(=|$)/;
@@ -240,6 +248,9 @@ function judgeShell(command: unknown, where: Where): Verdict {
       "This command names something that git, the factory or an agent CLI owns, such as .git or CLI settings. Use git commands, and leave the rest alone.",
     );
   }
+  if (where.self && command.includes(where.self)) {
+    return deny("The factory's own program may not be run, moved or changed by an agent.");
+  }
   if (SECRET_IN_SHELL.some((p) => p.test(command))) {
     return deny("This command names a file or a store that holds secrets. An agent may not read those.");
   }
@@ -274,6 +285,17 @@ function judgeShell(command: unknown, where: Where): Verdict {
     if (SUPERUSER.has(first) || (!TEXT_ONLY.has(first) && rest.some((w) => SUPERUSER.has(nameOf(w))))) {
       return deny("sudo is not allowed. An agent works with the rights of its own user.");
     }
+    // The factory's command is for people: an agent that runs it could approve or keep its own
+    // work. Only the command counts, not the word: as the command itself, or before one of its
+    // own subcommands. Quoted text is left out, so a test's name with the word in it is fine.
+    const bare = part
+      .replace(/"[^"]*"|'[^']*'/g, " ")
+      .trim()
+      .split(/\s+/);
+    const runsFactory = bare.some((w, i) => nameOf(w) === FACTORY && FACTORY_COMMANDS.has(bare[i + 1] ?? ""));
+    if (first === FACTORY || runsFactory) {
+      return deny("The softwarefactor command is for people. Use the tools of the factor server.");
+    }
     if (first === "cd" || first === "pushd") moved = true;
     const verdict =
       first === "rm" || first === "find"
@@ -300,6 +322,8 @@ export function judge(call: ToolCall, where: Where): Verdict {
     if (pathKey) return judgeWrite(values[pathKey], where);
     if (tool === "Bash") return judgeShell(values.command, where);
     if (READS.has(tool)) return judgeRead(tool, values, where);
+    // the factory's own server: its tools check their own input, and it has none that changes the rules
+    if (FACTOR_TOOLS.some((name) => mcpName(name) === tool)) return ALLOW;
     return deny(`The guard has no rule for the tool "${tool}", so it is denied.`);
   } catch (error) {
     return deny(`The guard could not check this tool call, so it is denied: ${(error as Error).message}`);

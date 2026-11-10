@@ -17,6 +17,8 @@ export interface AgentJob {
   hostDir: string;
   /** What the agent's process may see beyond the basics: the run's slot and where to hand off. Never a key. */
   env: Record<string, string>;
+  /** The command line of the factor MCP server for this lane, for a CLI that can be given one. */
+  server?: string[];
   /** Branches the agent must not push to or move. */
   protect?: string[];
   /** How many times this lane's agent has been started in this run before now. */
@@ -58,6 +60,8 @@ export interface AgentExit {
 }
 
 export interface AgentAdapter {
+  /** True when this CLI is given the factor MCP server. */
+  server?: boolean;
   /** False when nothing stands between this agent and the host but the gates. */
   guarded?: boolean;
   run(job: AgentJob): Promise<AgentExit>;

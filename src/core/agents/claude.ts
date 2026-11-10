@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Account } from "../accounts.ts";
 import { type Choice, count, handoffFromText, LIMIT, profileEnv, quote, runCli } from "./cli.ts";
+import { FACTOR_TOOLS, mcpName } from "./factor-tools.ts";
 import type { AgentAdapter } from "./types.ts";
 
 /** The settings files of a profile folder, as one text. */
@@ -23,6 +24,7 @@ const WRITE_TOOLS = ["Write", "Edit", "NotebookEdit"];
 export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
   return {
     guarded: true,
+    server: true,
     async run(job) {
       const canWrite = job.lane.agent?.access === "write";
       // The hook runs this same program, so the guard is the one the tests cover. The lane is on
@@ -39,6 +41,7 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
       const guard = `${self.map(quote).join(" ")} || exit 2`;
       const hooks = { PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: guard }] }] };
       const tools = [...READ_TOOLS, ...(canWrite ? WRITE_TOOLS : [])].join(",");
+      const server = job.server ?? [];
       const args = [
         "-p",
         "--output-format",
@@ -54,10 +57,13 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
         "--setting-sources",
         "user",
         "--strict-mcp-config",
+        // the one MCP server there is: the factory's own, for this lane
+        "--mcp-config",
+        JSON.stringify({ mcpServers: { factor: { command: server[0], args: server.slice(1) } } }),
         "--tools", // the only tools there are for this run
         tools,
         "--allowedTools", // and they need no approval: nobody is there to give one
-        tools,
+        [tools, ...FACTOR_TOOLS.map(mcpName)].join(","),
       ]; // never --bare: it skips hooks, so the guard would not run. And no permission mode that skips checks.
       const env = profileEnv("CLAUDE_CONFIG_DIR", account.profile, ".claude");
       const settingsBefore = settingsOf(account.profile);

@@ -14,6 +14,7 @@ const messageOf = (e: Event | undefined) => {
 export function codexAgent(account: Account, choice: Choice): AgentAdapter {
   return {
     guarded: true, // by the CLI's sandbox, not by the factory's guard
+    server: true,
     async run(job) {
       const canWrite = job.lane.agent?.access === "write";
       const args = [
@@ -23,11 +24,19 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
         job.cwd,
         "-s",
         canWrite ? "workspace-write" : "read-only",
+        "--ignore-user-config", // the run's settings are the factory's: no MCP server of the user's own comes along
         "-c",
         'approval_policy="never"',
         ...(choice.model ? ["-m", choice.model] : []),
         ...(choice.effort ? ["-c", `model_reasoning_effort="${choice.effort}"`] : []),
         ...(canWrite ? ["--add-dir", job.laneDir] : []),
+        // the factor server for this lane, in the form of the CLI's config file: a string and a list
+        ...(job.server
+          ? [
+              ...["-c", `mcp_servers.factor.command=${JSON.stringify(job.server[0])}`],
+              ...["-c", `mcp_servers.factor.args=${JSON.stringify(job.server.slice(1))}`],
+            ]
+          : []),
         "-", // the prompt comes on stdin
       ];
       const out = await runCli(

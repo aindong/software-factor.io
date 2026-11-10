@@ -9,6 +9,21 @@ const PROFILE_ENV = { claude: "CLAUDE_CONFIG_DIR", codex: "CODEX_HOME", kimi: "K
 const KEPT = /^(FACTOR_|CLAUDE_|CODEX_|KIMI_|ANTHROPIC_|OPENAI_|AWS_)/;
 const say = (o) => process.stdout.write(`${JSON.stringify(o)}\n`);
 
+/** The MCP server named "factor" in the flags a CLI got, in each CLI's own way of naming one. */
+function serverOf(kind, argv) {
+  if (kind === "claude") {
+    const at = argv.indexOf("--mcp-config");
+    return at < 0 ? undefined : JSON.parse(argv[at + 1]).mcpServers?.factor;
+  }
+  const setting = (key) => {
+    const found = argv.find((a) => a.startsWith(`mcp_servers.factor.${key}=`));
+    return found === undefined ? undefined : JSON.parse(found.slice(found.indexOf("=") + 1));
+  };
+  return setting("command") === undefined
+    ? undefined
+    : { command: setting("command"), args: setting("args") };
+}
+
 export async function standin(kind) {
   const profile = process.env[PROFILE_ENV[kind]];
   if (!profile || !existsSync(profile)) {
@@ -51,6 +66,37 @@ export async function standin(kind) {
       writeFileSync(process.env.FACTOR_HANDOFF, JSON.stringify(a.handoff));
     } else if (a.final) {
       final = typeof a.final === "string" ? a.final : JSON.stringify(a.final);
+    } else if (a.mcp) {
+      // call a tool of the MCP server this CLI was given for the run, as the real CLI would
+      const server = serverOf(kind, argv);
+      const send = [
+        {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          params: { protocolVersion: "2025-06-18", capabilities: {} },
+        },
+        { jsonrpc: "2.0", method: "notifications/initialized" },
+        {
+          jsonrpc: "2.0",
+          id: 2,
+          method: "tools/call",
+          params: { name: a.mcp.tool, arguments: a.mcp.args ?? {} },
+        },
+      ];
+      const input = `${send.map((m) => JSON.stringify(m)).join("\n")}\n`;
+      // with a bare environment: a real CLI does not pass its own on to a server
+      const bare = { PATH: process.env.PATH, HOME: process.env.HOME };
+      const r = server
+        ? spawnSync(server.command, server.args, { input, encoding: "utf8", env: bare })
+        : undefined;
+      const answers = (r?.stdout ?? "")
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => JSON.parse(l));
+      const line = { tool: a.mcp.tool, server, answer: answers.find((m) => m.id === 2), stderr: r?.stderr };
+      appendFileSync(join(profile, "mcp.jsonl"), `${JSON.stringify(line)}\n`);
     } else if (a.sh) {
       spawnSync("sh", ["-c", a.sh], { stdio: "ignore" }); // a shell command, as an agent with a shell can run
     } else if (a.spawn) {
