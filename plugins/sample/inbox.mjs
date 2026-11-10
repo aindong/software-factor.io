@@ -1,9 +1,13 @@
 // The collector sample/inbox@1. It runs in the workspace, reads its settings from FACTOR_WITH,
 // and prints the tasks it found as a JSON list. It changes nothing.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 
 const { folder = "inbox" } = JSON.parse(process.env.FACTOR_WITH ?? "{}");
+if (isAbsolute(folder) || folder.split(/[\\/]/).includes("..")) {
+  console.error(`The folder "${folder}" must be inside the workspace.`);
+  process.exit(1);
+}
 const tasks = [];
 for (const file of existsSync(folder) ? readdirSync(folder).sort() : []) {
   if (!file.endsWith(".md")) continue;

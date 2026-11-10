@@ -120,7 +120,9 @@ export async function runLane(
       const tipBefore = branchTip(ws.root, run.branch);
       const outputsFile = join(ctx.outDir, `${tag}.outputs.json`);
       rmSync(outputsFile, { force: true }); // an earlier lane may have left a file here in this lane's name
-      const minutes = (lane.with as CommandSettings | undefined)?.timeoutMinutes ?? 10;
+      // a plugin's settings are not checked by the schema: only a real number of minutes is taken
+      const asked = (lane.with as CommandSettings | undefined)?.timeoutMinutes;
+      const minutes = typeof asked === "number" && asked > 0 ? asked : 10;
       const result = await sh(command, {
         cwd: run.worktree,
         env: hostEnv(ws.config.gateEnv, {

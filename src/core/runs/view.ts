@@ -154,7 +154,9 @@ function busyWith(
   open: LaneRow | undefined,
   def: LaneDef | undefined,
 ): Partial<Now> {
-  if (def?.uses?.startsWith("core/command")) return { phase: "command" };
+  // a plugin's lane type is a command too
+  if (def?.uses?.startsWith("core/command") || (def?.uses && !def.uses.startsWith("core/")))
+    return { phase: "command" };
   if (def?.uses?.startsWith("core/wait")) return { phase: "wait" };
   if (!open) return {};
   const events = all<{ kind: string; at: string; data: string }>(

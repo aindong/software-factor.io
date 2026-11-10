@@ -9,3 +9,8 @@ export const oneLine = (text: string, max = 500) => {
 
 /** An amount in dollars as it is, to the millionth, with at least two places: never a small one as nothing. */
 export const money = (usd: number) => `$${usd.toFixed(6).replace(/(\.\d{2}\d*?)0+$/, "$1")}`;
+
+const LINE_SEPARATORS = [String.fromCharCode(0x2028), String.fromCharCode(0x2029)];
+/** Whether a text is shown as it is: no control character, no line end, nothing that reorders or hides text. */
+export const showsAsIs = (text: string) =>
+  text.replace(UNSAFE, "") === text && !LINE_SEPARATORS.some((c) => text.includes(c));

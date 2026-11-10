@@ -8,18 +8,24 @@ import { z } from "zod";
 import { UserError } from "../errors.ts";
 import { insidePath } from "../schema/builtins.ts";
 import { parseWorkflow } from "../schema/parse.ts";
+import { showsAsIs } from "../text.ts";
 
 export const MANIFEST = "factor-plugin.json";
 const MOST_FILES = 500;
 const MOST_BYTES = 5_000_000;
+// left out of a plugin wherever they are: they are the machine's, not the plugin's
+const NOT_ITS_OWN = new Set([".git", ".DS_Store"]);
 
 const typeKey = z.string().regex(/^[a-z][a-z0-9-]*@[1-9][0-9]*$/, {
   message: 'Name a type as "<name>@<major version>", such as "board@1".',
 });
+// What is shown must be what runs: no line break (a second, forged line of the summary), no
+// escape, and no character that reorders or hides text.
+const line = z.string().min(1).refine(showsAsIs, { message: "Keep it to one line of plain characters." });
 const Type = z.strictObject({
-  description: z.string().min(1),
+  description: line,
   // a shell command line, run like a command lane's. The plugin's folder is in FACTOR_PLUGIN_DIR.
-  run: z.string().min(1),
+  run: line,
 });
 export const Manifest = z.strictObject({
   name: z
@@ -31,7 +37,7 @@ export const Manifest = z.strictObject({
   version: z
     .string()
     .regex(/^\d+\.\d+\.\d+$/, { message: 'Write the version as three numbers, such as "1.2.0".' }),
-  description: z.string().min(1),
+  description: line,
   collectors: z.record(typeKey, Type).optional(),
   gates: z.record(typeKey, Type).optional(),
   lanes: z.record(typeKey, Type).optional(),
@@ -44,29 +50,35 @@ export interface Plugin {
   manifest: Manifest;
   /** The sha256 of every file's path and content: what was shown is what this names. */
   hash: string;
-  /** Its files, relative to the folder, sorted. */
+  /** Its files, relative to the folder, in the order they are hashed. */
   files: string[];
   /** The workflows it brings, by their own names. */
   workflows: { name: string; file: string; commands: string[] }[];
 }
 
-/** Every plain file under a folder, sorted. A link is refused: it could lead anywhere. */
-function filesIn(dir: string, under = ""): string[] {
-  return readdirSync(join(dir, under))
-    .sort()
-    .flatMap((name) => {
-      const rel = under ? `${under}/${name}` : name;
-      const stat = lstatSync(join(dir, rel));
-      if (stat.isSymbolicLink())
-        throw new UserError(`The plugin holds a link (${rel}).`, "A plugin is plain files only.");
-      if (stat.isDirectory()) return name === ".git" && !under ? [] : filesIn(dir, rel);
-      if (!stat.isFile())
-        throw new UserError(
-          `The plugin holds something that is no file (${rel}).`,
-          "A plugin is plain files only.",
-        );
-      return [rel];
-    });
+/** Every plain file under a folder, each folder's names in order. A link is refused: it could lead anywhere. It stops once there are too many. */
+function filesIn(dir: string, under = "", found: string[] = []): string[] {
+  for (const name of readdirSync(join(dir, under)).sort()) {
+    if (NOT_ITS_OWN.has(name)) continue;
+    const rel = under ? `${under}/${name}` : name;
+    const stat = lstatSync(join(dir, rel));
+    if (stat.isSymbolicLink())
+      throw new UserError(`The plugin holds a link (${rel}).`, "A plugin is plain files only.");
+    if (stat.isDirectory()) filesIn(dir, rel, found);
+    else if (stat.isFile()) found.push(rel);
+    else
+      throw new UserError(
+        `The plugin holds something that is no file (${rel}).`,
+        "A plugin is plain files only.",
+      );
+    if (found.length > MOST_FILES) {
+      throw new UserError(
+        `The plugin holds more than ${MOST_FILES} files.`,
+        "A plugin is commands and workflows, not data.",
+      );
+    }
+  }
+  return found;
 }
 
 /** Every command line a workflow would run on the host: its lanes', its gates', its waits', its MCP servers'. */
@@ -114,23 +126,22 @@ export function readPlugin(dir: string): Plugin {
     );
   }
   const files = filesIn(dir);
-  if (files.length > MOST_FILES)
-    throw new UserError(`The plugin holds ${files.length} files.`, `A plugin holds at most ${MOST_FILES}.`);
   const hash = createHash("sha256");
   let bytes = 0;
   for (const file of files) {
-    const content = readFileSync(join(dir, file));
-    bytes += content.length;
+    bytes += lstatSync(join(dir, file)).size; // before the file is read
     if (bytes > MOST_BYTES)
       throw new UserError("The plugin is over 5 MB.", "A plugin is commands and workflows, not data.");
+    const content = readFileSync(join(dir, file));
     hash.update(`${file}\0${content.length}\0`).update(content);
   }
   const workflows = (parsed.data.workflows ?? []).map((file) => {
-    if (!files.includes(file))
+    if (!files.includes(file)) {
       throw new UserError(
         `The plugin names a workflow that is not in it: ${file}`,
         'Fix the manifest\'s "workflows".',
       );
+    }
     let workflow: unknown;
     try {
       workflow = JSON.parse(readFileSync(join(dir, file), "utf8"));
@@ -143,6 +154,20 @@ export function readPlugin(dir: string): Plugin {
       throw new UserError(
         `The plugin's workflow ${file} does not pass the checker${first ? `: ${first.path}: ${first.message}` : ""}.`,
         "A workflow a plugin brings must be valid as it is.",
+      );
+    }
+    // only the workflow's own file is copied into the workspace: it must hold everything it needs
+    const inFile = checked.workflow.lanes.find(
+      (lane) =>
+        typeof lane.agent?.prompt === "object" ||
+        (lane.panel?.members ?? []).some(
+          (member) => typeof (member as { prompt?: unknown }).prompt === "object",
+        ),
+    );
+    if (inFile) {
+      throw new UserError(
+        `The plugin's workflow ${checked.workflow.name} keeps the prompt of lane "${inFile.id}" in a file beside it.`,
+        "A workflow a plugin brings holds its prompts in the workflow file itself.",
       );
     }
     return { name: checked.workflow.name, file, commands: commandsOf(workflow as Record<string, unknown>) };

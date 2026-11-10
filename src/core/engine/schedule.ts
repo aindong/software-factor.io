@@ -2,7 +2,6 @@
 // queued tasks, as many at once as there are free slots.
 
 import { randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { openDb } from "../db.ts";
 import { saveRunFile } from "../evidence.ts";

@@ -4,28 +4,47 @@
 // the command that shows the plugin again.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { z } from "zod";
 import { UserError } from "../errors.ts";
 import { own } from "../schema/builtins.ts";
 import { factorHome, type Workspace } from "../workspace.ts";
 import { addsOf, type Plugin, readPlugin } from "./manifest.ts";
 
-export interface LockEntry {
-  version: string;
-  source: string;
-  sha256: string;
-  /** For a plugin from a git repository: the commit it was read at. */
-  commit?: string;
-}
-export type Lock = Record<string, LockEntry>;
+// The lock is a shared file: it can arrive with a pull or a merge. Every value in it is held to
+// a shape before it is used, so none can pass for an option to git or for a command to copy.
+const LockEntry = z.strictObject({
+  version: z.string().regex(/^\d+\.\d+\.\d+$/),
+  source: z.string().regex(/^(?!-)[A-Za-z0-9_.~/#@-]+$/),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  // for a plugin from a git repository: the commit it was read at
+  commit: z
+    .string()
+    .regex(/^[0-9a-f]{40,64}$/)
+    .optional(),
+});
+export type LockEntry = z.infer<typeof LockEntry>;
+const LockFile = z.record(z.string().regex(/^[a-z][a-z0-9-]*$/), LockEntry);
+export type Lock = z.infer<typeof LockFile>;
 export const lockPath = (ws: { factorDir: string }) => join(ws.factorDir, "plugins.lock.json");
 
+/** The lock, or nothing when there is none. A lock that is not one is refused, never read as empty: the next add would write over it. */
 export function readLock(ws: { factorDir: string }): Lock {
+  if (!existsSync(lockPath(ws))) return {};
+  let lock: unknown;
   try {
-    const lock: unknown = JSON.parse(readFileSync(lockPath(ws), "utf8"));
-    return typeof lock === "object" && lock !== null && !Array.isArray(lock) ? (lock as Lock) : {};
+    lock = JSON.parse(readFileSync(lockPath(ws), "utf8"));
   } catch {
-    return {};
+    lock = undefined;
   }
+  const parsed = LockFile.safeParse(lock);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new UserError(
+      `.factor/plugins.lock.json is not a lock the factory wrote (at ${issue?.path.join(".") || "the file"}).`,
+      "Take the file back to its last good version, or remove the entry and add the plugin again.",
+    );
+  }
+  return parsed.data;
 }
 
 /** Where a plugin's files are kept: a folder for each content, so one machine can hold two versions. */
@@ -34,7 +53,24 @@ export const installDir = (name: string, hash: string) =>
 
 const KIND = { collector: "collectors", gate: "gates", lane: "lanes" } as const;
 const WORD = { collector: "collector", gate: "gate", lane: "lane type" } as const;
-const read = new Map<string, Plugin>(); // a plugin's files are hashed once in a process
+
+/**
+ * Whether an installed version fits what a workflow asks for. The forms read are "^1.2.0",
+ * "~1.2.0", "1", "1.x", "1.2.x" and "1.2.0": the major version must be the one installed.
+ */
+export function fits(range: string, version: string): boolean | "unread" {
+  const m = /^([\^~]?)(\d+)(?:\.(\d+|x|\*))?(?:\.(\d+|x|\*))?$/.exec(range.trim());
+  if (!m) return "unread";
+  const [, op, major, minor, patch] = m;
+  const [vMajor = 0, vMinor = 0, vPatch = 0] = version.split(".").map(Number);
+  if (Number(major) !== vMajor) return false;
+  const wantMinor = minor === undefined || minor === "x" || minor === "*" ? undefined : Number(minor);
+  const wantPatch = patch === undefined || patch === "x" || patch === "*" ? undefined : Number(patch);
+  if (wantMinor === undefined) return true;
+  if (op === "^") return vMinor > wantMinor || (vMinor === wantMinor && vPatch >= (wantPatch ?? 0));
+  if (vMinor !== wantMinor) return false; // "~1.2.0", "1.2.x" and "1.2.0" keep the minor version
+  return op === "~" || wantPatch === undefined ? vPatch >= (wantPatch ?? 0) : vPatch === wantPatch;
+}
 
 /** The plugin a workspace may use under a name. Throws, with the way out, when it may not. */
 export function pluginOf(ws: Workspace, name: string): Plugin {
@@ -47,15 +83,13 @@ export function pluginOf(ws: Workspace, name: string): Plugin {
       `See what it holds and install it with: ${again}`,
     );
   }
-  const dir = installDir(name, allowed);
-  let plugin = read.get(dir);
-  if (!plugin) {
-    try {
-      plugin = readPlugin(dir);
-    } catch {
-      plugin = undefined; // a link planted in it, a manifest that no longer reads: it is not what was installed
-    }
-    if (plugin) read.set(dir, plugin);
+  // Hashed at every use, not once: a lane runs with the person's rights and could have rewritten
+  // a gate since the run began. (At most 5 MB, so this is cheap.)
+  let plugin: Plugin | undefined;
+  try {
+    plugin = readPlugin(installDir(name, allowed));
+  } catch {
+    plugin = undefined; // a link planted in it, a manifest that no longer reads: it is not what was installed
   }
   if (plugin?.hash !== allowed) {
     throw new UserError(
@@ -70,8 +104,14 @@ export function pluginOf(ws: Workspace, name: string): Plugin {
     );
   }
   const range = own(ws.workflow.plugins, name);
-  const major = /\d+/.exec(range ?? "")?.[0];
-  if (major !== undefined && major !== plugin.manifest.version.split(".")[0]) {
+  const fit = range === undefined ? true : fits(range, plugin.manifest.version);
+  if (fit === "unread") {
+    throw new UserError(
+      `"${range}" (for the plugin "${name}") is not a range the factory reads.`,
+      'Write it as "^1.2.0", "~1.2.0", "1.x" or "1" under "plugins" in the workflow.',
+    );
+  }
+  if (!fit) {
     throw new UserError(
       `The workflow asks for the plugin "${name}" ${range}, and ${plugin.manifest.version} is installed.`,
       'Install a version that fits, or change "plugins" in the workflow.',

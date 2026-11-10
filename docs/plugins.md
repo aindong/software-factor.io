@@ -21,15 +21,17 @@ it was read from and at which commit, every type it adds, and every command line
 the workflows it brings included. It ends with the command that installs exactly what was shown:
 
 ```
-Nothing was installed. To install it: softwarefactor add acme/factor-board --yes --hash 3fa9c1d2e4b7
+Nothing was installed. To install it: softwarefactor add acme/factor-board --yes --hash 456e70a6…(64 characters)
 ```
 
-With `--hash`, the install is refused if the source has changed since you read the summary. `--yes` alone
-installs what the source gives now, after printing the same summary.
+With `--hash` (the whole sha256 the summary showed), the install is refused if the source has changed since you
+read it. `--yes` alone installs what the source gives now, after printing the same summary: use it only for a
+source you trust without reading.
 
 What `--yes` does:
 
 - copies the plugin's files into the factory's own folder on your machine (`~/.factor/plugins/<name>/<hash>/`),
+  read-only,
 - records in `.factor/local.json` (yours, not shared) that you allowed those files in this workspace,
 - pins the plugin in `.factor/plugins.lock.json` (shared, beside the workflows): name, version, source, the
   sha256 of its files, and the commit for a git source,
@@ -56,8 +58,12 @@ A plugin's commands run on your machine with your rights, like a command lane's.
 
 - You see every command before anything is installed, and nothing of the plugin runs during `add`.
 - A plugin is used only when three things agree: the files installed on this machine, the hash you allowed in
-  this workspace, and the hash the lock pins. If a file changes, or a pull brings a lock that pins something
-  you have not seen, `collect` and `run` refuse with the command that shows the plugin again.
+  this workspace, and the hash the lock pins. The files are hashed again at every use, also in the middle of a
+  run. If a file changes, or a pull brings a lock that pins something you have not seen, `collect` and `run`
+  refuse with the command that shows the plugin again.
+- Nothing of a repository runs while it is fetched: no hooks, no large-file filter. The lock is checked value by
+  value before it is used, and a lock that is not one is refused, not read as empty.
+- A manifest's command and descriptions are one line of plain characters, so the summary shows them as they are.
 - A plugin holds plain files only: a link is refused. It holds at most 500 files and 5 MB.
 - An agent in a lane is denied the `softwarefactor` command, and with it `add` and `allow`.
 - A run does not start if its workflow uses a plugin that is not installed, allowed and pinned here.
@@ -78,7 +84,8 @@ A workflow lists the plugin with the major version it was written for, and names
 }
 ```
 
-A workflow that asks for another major version than the one installed is refused, with both named.
+The range is written as `^1.2.0`, `~1.2.0`, `1.x`, `1.2.x`, `1` or `1.2.0`. A workflow that asks for a version
+the installed one does not fit is refused, with both named.
 
 ## Write one
 
@@ -111,15 +118,19 @@ A workflow that asks for another major version than the one installed is refused
   prints is kept as the gate's evidence. It also gets `FACTOR_BASE`, the commit the run started from, and
   `FACTOR_HEAD`, the commit it checks.
 - A **lane type** runs in the run's worktree, like a command lane. Exit 0 passes the lane.
-- A **workflow** it brings must pass `softwarefactor check` as it is.
+- A **workflow** it brings must pass `softwarefactor check` as it is, and hold its prompts in the workflow file
+  itself: only that file is copied.
+- Command lanes and gates of the workspace are given the variables named in `gateEnv` of `.factor/factory.json`.
+  A plugin's commands get the same, and the summary names them.
 
 `plugins/sample` in this repository is a small plugin with one of each, to read and copy.
 
 ## The directory
 
 The directory is one JSON file: `directory/index.json` in the factory's repository. Each entry is a name, a
-description and a source. `softwarefactor add <name>` looks the name up and adds that source, and refuses if
-the plugin it finds there has another name. To use an index of your own, set `FACTOR_DIRECTORY` to a file or an
+description and a source, which is a repository (an index cannot name a folder on your machine).
+`softwarefactor add <name>` looks the name up and adds that source, and refuses if the plugin it finds there has
+another name. To use an index of your own, set `FACTOR_DIRECTORY` to a file or an
 address. To be listed, open a pull request that adds a line.
 
 ## Skills
@@ -141,10 +152,14 @@ $ softwarefactor allow --skill review
 ```
 
 When a run starts, the factory runs `npx skills add acme/skills -s code-review -a <agent> -y --copy` (version
-1.7.6 of `skills`) in the run's worktree, once for each agent that works a lane naming the skill. The folders
-it creates are kept out of the run's change (they are added to the repository's `.git/info/exclude`). If the
-workflow later names another source for the skill, you are asked again. The approval is of the source as named,
-not of what it holds tomorrow.
+1.7.6 of `skills`) in the run's worktree, once for each agent that works a lane naming the skill. The source is
+a repository as `owner/repo`. The skill's folder, and a file the installer leaves at the top of the worktree,
+are kept out of the run's change (they are named in the repository's `.git/info/exclude`). If the workflow later
+names another source for the skill, you are asked again.
+
+The approval is of the source as named, not of what it holds tomorrow: `npx skills` takes the tip of the
+repository at every run, and the files it installs are not hashed. If that is not enough for a lane that can
+write, keep the skill in the agent's profile instead (`"from": "profile"`), where you put it yourself.
 
 ## Not built
 

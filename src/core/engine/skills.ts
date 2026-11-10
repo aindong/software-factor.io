@@ -4,7 +4,7 @@
 // machine first, by its source and name, and is asked again when the workflow changes either.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { accountOf, rolesOf } from "../agents/index.ts";
 import { MINUTE_MS } from "../clock.ts";
@@ -19,7 +19,12 @@ import type { Workspace } from "../workspace.ts";
 const SKILLS = "skills@1.7.6";
 // the names `npx skills` has for the agents the factory runs. The scripted agent stands in for Claude Code.
 const AGENT = { claude: "claude-code", codex: "codex", kimi: "kimi-code-cli", fake: "claude-code" } as const;
-const PLAIN = /^(?!-)[A-Za-z0-9@_.:/-]+$/; // nothing npx could read as an option
+// a repository on GitHub and a plain name: nothing npx could read as an option, an address or a path on this machine
+const REPO = /^(?!-)(?!\.)[A-Za-z0-9_.-]+\/(?!-)(?!\.)[A-Za-z0-9_.-]+$/;
+const NAME = /^(?!-)[A-Za-z0-9_.-]+$/;
+// where `npx skills` puts a skill for the agents the factory runs
+const SKILL_DIR = /^(\.claude|\.agents|\.kimi-code)\/skills\/[A-Za-z0-9_.-]+\//;
+const TOP_FILE = /^[A-Za-z0-9_.-]+$/; // a file of its own at the top of the worktree, such as its lock
 
 export interface Needed {
   name: string;
@@ -58,9 +63,9 @@ export function skillsNeeded(ws: Workspace): Needed[] {
 
 /** What stands in the way of a skill being installed here, or nothing. */
 export function skillProblem(ws: Workspace, s: Needed): UserError | undefined {
-  if (!PLAIN.test(s.source) || (s.skill !== undefined && !PLAIN.test(s.skill))) {
+  if (!REPO.test(s.source) || (s.skill !== undefined && !NAME.test(s.skill))) {
     return new UserError(
-      `The source of the skill "${s.name}" (${shown(s)}) is not a repository name.`,
+      `The source of the skill "${s.name}" (${shown(s)}) is not a repository.`,
       "Name it as owner/repo, and the skill by its plain name.",
     );
   }
@@ -85,7 +90,8 @@ export function installSkills(ws: Workspace, worktree: string): void {
         {
           cwd: worktree,
           encoding: "utf8",
-          env: hostEnv(),
+          // what npx needs to reach the network from behind a proxy, and nothing else of the person's
+          env: hostEnv(["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy"]),
           timeout: 5 * MINUTE_MS,
         },
       );
@@ -96,15 +102,28 @@ export function installSkills(ws: Workspace, worktree: string): void {
       }
     }
     // What it put there is not the run's work: git is told to leave it out, for this repository
-    // only. (A worktree has no ignore list of its own, so the lines also hold in the main checkout.)
-    const added = untracked(worktree).filter((path) => !before.has(path));
-    if (added.length > 0) {
+    // (a worktree has no ignore list of its own, so the lines also hold in the main checkout).
+    // Only a skill's own folder and a file of the installer's at the top are named, each exactly:
+    // a line made from any other path could hide the agent's real work.
+    const lines = new Set<string>();
+    for (const path of untracked(worktree)) {
+      if (before.has(path)) continue;
+      const folder = SKILL_DIR.exec(path)?.[0];
+      if (folder) lines.add(`/${folder}`);
+      else if (TOP_FILE.test(path)) lines.add(`/${path}`);
+    }
+    if (lines.size > 0) {
       const exclude = git(worktree, "rev-parse", "--path-format=absolute", "--git-path", "info/exclude");
       mkdirSync(dirname(exclude), { recursive: true });
-      appendFileSync(
-        exclude,
-        `# skills the factory installed for a run\n${[...new Set(added.map((p) => `/${dirname(p)}/`))].join("\n")}\n`,
-      );
+      const text = existsSync(exclude) ? readFileSync(exclude, "utf8") : "";
+      const fresh = [...lines].filter((l) => !text.split("\n").includes(l));
+      if (fresh.length > 0) {
+        // after a line end: the file's last pattern must not run into the first new one
+        appendFileSync(
+          exclude,
+          `${text === "" || text.endsWith("\n") ? "" : "\n"}# skills the factory installed for a run\n${fresh.join("\n")}\n`,
+        );
+      }
     }
   }
 }

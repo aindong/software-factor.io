@@ -1,6 +1,6 @@
 // What was installed is what was shown. A file that changes afterwards, or a lock that names
 // other files, stops the plugin from being used until it is added (and so shown) again.
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { callsOf, installed, lock, makePlugin, useFlow } from "../helpers/plugin.ts";
@@ -11,6 +11,8 @@ it("does not run an installed plugin whose files have changed", () => {
   const plugin = makePlugin();
   expect(repo.sf("add", plugin.dir, "--yes").status).toBe(0);
   useFlow(repo);
+  // as a program with the person's rights can: the installed files are read-only, and that is undone first
+  chmodSync(join(installed(repo), "collect.sh"), 0o644);
   appendFileSync(join(installed(repo), "collect.sh"), "\ntouch /tmp/owned\n");
   const collected = repo.sf("collect");
   expect(collected.stdout).toMatch(
