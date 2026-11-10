@@ -33,6 +33,12 @@ export interface RunState {
   spent: { ms: number; tokens: number; usd: number };
   /** Measured once per run: how many tests the base commit runs, by command. Null when it could not be read. */
   memo?: Record<string, number | null>;
+  /** The run's risk so far, from what lanes stated and what the host knows. */
+  risk?: { level: string; door: string; why: string; blastRadius?: string; raised: string[] };
+  /** What lanes said is still open, for the person who takes over. */
+  open?: { lane: string; text: string }[];
+  /** The last accepted hand-off, shown to the lane that comes next. */
+  last?: { lane: string; summary: string; open: string[]; claims: string[] };
   /** Set when a person rejected the work, so the end of the run can say so. */
   rejected?: boolean;
 }

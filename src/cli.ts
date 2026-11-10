@@ -6,6 +6,7 @@ import { join, relative } from "node:path";
 import { parseArgs } from "node:util";
 import { openDb } from "./core/db.ts";
 import { decide } from "./core/engine/inbox.ts";
+import { handoffPath, riskLine } from "./core/engine/report.ts";
 import { collect } from "./core/engine/run.ts";
 import { runNext } from "./core/engine/schedule.ts";
 import { stopRun } from "./core/engine/stop.ts";
@@ -163,6 +164,9 @@ async function main(): Promise<number> {
       for (const r of view.runs) {
         say(`  ${r.id}  ${r.status.padEnd(8)} ${r.title}  (branch ${r.branch})`);
         if (r.stop_reason) say(`    ${r.stop_code ?? "ended"}: ${r.stop_reason}`);
+        say(`    ${riskLine(r.risk ? JSON.parse(r.risk) : null)}`);
+        const report = handoffPath(ws, r.id);
+        if (existsSync(report)) say(`    hand-off: ${relative(ws.root, report)}`);
         for (const l of r.lanes) {
           say(`    ${l.lane}  ${l.outcome ?? "running"}${l.note ? `  ${l.note}` : ""}`);
           for (const g of l.gates) {

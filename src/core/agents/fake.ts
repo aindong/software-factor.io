@@ -1,7 +1,7 @@
 // The scripted agent: it does exactly what its script says, with no model. Tests, the quick start
 // and the evals run on it, so the engine and every gate can be proven for free (ADR 0010).
 import { existsSync, lstatSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, resolve, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import type { FakeAction, RoleBinding } from "../config.ts";
 import { commitAll } from "../git.ts";
 import type { AgentAdapter, AgentJob } from "./types.ts";
@@ -56,6 +56,9 @@ export function fakeAgent(binding: RoleBinding): AgentAdapter {
           commitAll(job.cwd, action.commit);
         } else if ("handoff" in action) {
           writeFileSync(job.handoffPath, `${JSON.stringify(action.handoff, null, 2)}\n`);
+        } else if ("attach" in action) {
+          mkdirSync(job.evidenceDir, { recursive: true });
+          writeFileSync(join(job.evidenceDir, action.attach.name), action.attach.content);
         } else if ("sleep" in action) {
           await nap(action.sleep, job.signal);
         } else if ("usage" in action) {

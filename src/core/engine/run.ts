@@ -14,6 +14,7 @@ import type { Lane } from "../schema/workflow.ts";
 import * as store from "../store.ts";
 import type { Workspace } from "../workspace.ts";
 import { type Ctx, halted, runLane } from "./lane.ts";
+import { writeRunHandoff } from "./report.ts";
 import { slotEnv } from "./slots.ts";
 import { addNote, type Parked, type RunState, type StopCode } from "./state.ts";
 import { tierOf } from "./tier.ts";
@@ -88,6 +89,8 @@ export function finish(
     rmSync(ctx.outDir, { recursive: true, force: true });
   }
   ctx.log.push(`run ${run.id} ${status}: ${reason}`);
+  if (status !== "running")
+    ctx.log.push(`  hand-off: ${writeRunHandoff(ws, db, run, ctx.task, state, status, code, reason)}`);
   return { status, runId: run.id, code, reason, log: ctx.log };
 }
 

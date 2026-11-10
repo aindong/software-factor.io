@@ -11,6 +11,7 @@ import { Checkouts, SetupFailed } from "../gates/checkout.ts";
 import { resolveCommand } from "../gates/command.ts";
 import { runGate } from "../gates/index.ts";
 import { branchTip, gitConfigFingerprint, headOf } from "../git.ts";
+import { checkHandoff, combineRisk, type Handoff, type RunRisk } from "../handoff.ts";
 import type { CommandSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
 import * as store from "../store.ts";
@@ -42,6 +43,7 @@ export function halted(ctx: Ctx): { code: "interrupted" | "stopped_by_person"; r
 }
 
 const MAX_FILE_BYTES = 1_000_000;
+const HANDOFF = "hand-off"; // a rejected hand-off goes back to the agent like a failed repair gate
 const REPAIR_HEAD = 1500;
 const REPAIR_TAIL = 4500;
 
@@ -74,7 +76,20 @@ function promptFor(ctx: Ctx, lane: Lane, notes: string[], repair?: { gate: strin
   const inputs = Object.entries(inputsOf(ctx, lane));
   if (inputs.length > 0) parts.push(`# Inputs\n\n${inputs.map(([k, v]) => `${k}: ${v}`).join("\n")}`);
   if (notes.length > 0) parts.push(`# Why you are here again\n\n${notes.map((n) => `- ${n}`).join("\n")}`);
-  if (repair) {
+  const last = ctx.state.last;
+  if (last && last.lane !== lane.id) {
+    const open = last.open.length > 0 ? `\n\nStill open:\n${last.open.map((o) => `- ${o}`).join("\n")}` : "";
+    const claims =
+      last.claims.length > 0
+        ? `\n\nIt claims, with evidence the host checked:\n${last.claims.map((c) => `- ${c}`).join("\n")}`
+        : "";
+    parts.push(`# Hand-off from the lane "${last.lane}"\n\n${last.summary}${open}${claims}`);
+  }
+  if (repair?.gate === HANDOFF) {
+    parts.push(
+      `# Your hand-off was rejected\n\nThe host checks every hand-off before using it. Fix this and hand off again.\n\n${repair.output}`,
+    );
+  } else if (repair) {
     parts.push(
       `# The gate "${repair.gate}" failed on your work\n\nFix what it reports, commit, and hand off again.\n\n${repair.output}`,
     );
@@ -162,6 +177,7 @@ export async function runLane(
       const entry = state.entries[lane.id] ?? 0;
       state.entries[lane.id] = entry + 1;
       const agentHandoff = join(ctx.outDir, `${tag}${nth(agentStarts)}.json`);
+      const evidenceDir = join(ctx.outDir, "evidence");
       const prompt = promptFor(ctx, lane, notes, repair);
       saveRunFile(ws, run.id, "prompts", `${tag}${nth(agentStarts)}.md`, prompt);
       store.addEvent(db, run.id, "lane.agent", { lane: lane.id, handoffPath: agentHandoff });
@@ -182,6 +198,7 @@ export async function runLane(
           cwd: run.worktree,
           prompt,
           handoffPath: agentHandoff,
+          evidenceDir,
           entry,
           signal: limit.signal,
         })
@@ -214,23 +231,62 @@ export async function runLane(
         crashes += 1; // a crash, not a round: start the agent again
         continue;
       }
+      let said: Handoff | undefined;
       if (handoff) {
+        const stem = `${tag}${nth(agentStarts)}`;
         // the host keeps its own copy: the record never points at a file an agent can rewrite
-        handoffPath = saveRunFile(
-          ws,
-          run.id,
-          "handoffs",
-          `${tag}${nth(agentStarts)}.json`,
-          handoff.text,
-        ).path;
-        outputs = (handoff.value.outputs as Record<string, unknown> | undefined) ?? {};
+        handoffPath = saveRunFile(ws, run.id, "handoffs", `${stem}.json`, handoff.text).path;
+        // nothing in a hand-off is used until the host has checked it (ADR 0006)
+        const checked = checkHandoff(
+          {
+            ws,
+            runId: run.id,
+            tag: stem,
+            base: run.base_commit,
+            head: branchTip(ws.root, run.branch),
+            gates: state.gates,
+            evidenceDir,
+          },
+          lane,
+          handoff.value,
+        );
+        if (checked.handoff) {
+          said = checked.handoff;
+          outputs = said.outputs ?? {};
+          for (const claim of checked.claims) store.addClaim(db, run.id, laneRun, claim.text, claim.evidence);
+          state.last = {
+            lane: lane.id,
+            summary: said.summary,
+            open: said.open ?? [],
+            claims: checked.claims.map((c) => `${c.text} (${c.evidence.map((e) => e.ref).join(", ")})`),
+          };
+          state.open = [
+            ...(state.open ?? []).filter((o) => o.lane !== lane.id),
+            ...(said.open ?? []).map((text) => ({ lane: lane.id, text })),
+          ];
+          if (said.risk) {
+            state.risk = combineRisk(state.risk as RunRisk | undefined, said.risk, {
+              tier: ctx.facts().tier,
+              oneWayLane: lane.oneWay === true,
+            });
+            store.setRunRisk(db, run.id, state.risk);
+          }
+        } else {
+          const why = checked.problems.join("\n");
+          if (exit.exitCode === 0 && repairs < (lane.limits?.repairRounds ?? 0)) {
+            repairs += 1;
+            repair = { gate: HANDOFF, output: why };
+            continue;
+          }
+          failWith(`the hand-off was rejected: ${checked.problems.join(" ")}`);
+        }
       }
-      const said = handoff?.value;
       if (exit.exitCode !== 0) failWith(`the agent exited ${exit.exitCode}`);
-      else if (!said) failWith("the agent left no hand-off");
-      else if (said.outcome === "needsPerson") [outcome, note] = ["needsPerson", String(said.summary ?? "")];
-      else if (said.outcome !== "pass") failWith(String(said.summary ?? "the agent reported failure"));
-      else note = String(said.summary ?? "");
+      else if (!handoff) failWith("the agent left no hand-off");
+      else if (!said) failWith("the hand-off was rejected");
+      else if (said.outcome === "needsPerson") [outcome, note] = ["needsPerson", said.summary];
+      else if (said.outcome !== "pass") failWith(said.summary);
+      else note = said.summary;
     }
     {
       const halt = halted(ctx);
