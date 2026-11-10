@@ -1,5 +1,5 @@
 // A throwaway git repository and a way to call the command against it, for acceptance tests.
-import { execFileSync, spawnSync } from "node:child_process";
+import { type ChildProcess, execFileSync, spawn, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -220,3 +220,33 @@ echo "# pass $pass"
 echo "# fail $fail"
 [ "$fail" -eq 0 ]
 `;
+
+/** Start the command without waiting for it, for tests where two things must happen at once. */
+export function background(
+  repo: Repo,
+  ...args: string[]
+): { child: ChildProcess; exit: Promise<number | null> } {
+  const child = spawn(process.execPath, [CLI, ...args], {
+    cwd: repo.dir,
+    env: { ...process.env, FACTOR_HOME: repo.home, NO_COLOR: "1", ...repo.env },
+    stdio: "ignore",
+  });
+  return { child, exit: new Promise((done) => child.on("exit", (code) => done(code))) };
+}
+
+/** Wait until `check` is true, looking every 100 ms, for at most `ms`. */
+export async function until(check: () => boolean, ms = 10_000): Promise<boolean> {
+  for (let waited = 0; waited < ms; waited += 100) {
+    try {
+      if (check()) return true;
+    } catch {
+      // the database may not exist yet
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return false;
+}
+export const alive = (name: string) => spawnSync("pgrep", ["-f", name]).status === 0;
+/** A sleep no other process uses, so a leftover cannot be mistaken for this test's. */
+export const uniqueNap = (seconds: number) =>
+  `sleep ${seconds}.${process.pid}${Math.floor(Math.random() * 1e6)}`;
