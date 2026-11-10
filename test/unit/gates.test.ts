@@ -17,6 +17,13 @@ describe("matching a path against a pattern", () => {
     ["src/*.ts", "src/a.ts", true],
     ["src/*.ts", "src/a/b.ts", false],
     ["check.sh", "scripts/check.sh", false],
+    ["./check.sh", "check.sh", true],
+    ["/.github/", ".github/a.yml", true],
+    ["**/secrets/", "a/secrets/k.pem", true],
+    [".claude/", ".Claude/settings.json", true],
+    ["CLAUDE.md", "claude.md", true],
+    ["file?.txt", "file1.txt", false],
+    ["file?.txt", "file?.txt", true],
   ])("%s against %s is %s", (pattern, path, expected) => {
     expect(matches(pattern, path)).toBe(expected);
   });
@@ -37,6 +44,26 @@ describe("reading how many tests ran", () => {
     ["go", "--- PASS: TestA (0.00s)\n--- PASS: TestB (0.00s)\n--- FAIL: TestC (0.00s)\n", 3],
   ])("from %s", (_runner, output, count) => {
     expect(countTests(output)).toBe(count);
+  });
+
+  it.each([
+    ["vitest, skipped tests left out", "      Tests  2 skipped | 39 passed (41)\n", 39],
+    ["jest, skipped tests left out", "Tests:       2 skipped, 3 passed, 5 total\n", 3],
+    ["two packages, two summaries", "      Tests  10 passed (10)\n\n      Tests  7 passed (7)\n", 17],
+    ["node:test with skipped tests", "# tests 6\n# pass 4\n# fail 1\n# skipped 1\n", 5],
+    [
+      "coloured output",
+      "\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m3 passed\u001b[39m\u001b[22m\u001b[90m (3)\u001b[39m\n",
+      3,
+    ],
+  ])("counts only tests that ran: %s", (_name, output, count) => {
+    expect(countTests(output)).toBe(count);
+  });
+
+  it("gives nothing for a pattern that captures no whole number, or is not a valid pattern", () => {
+    expect(countTests("ran no checks", "ran (\\S+) checks")).toBeUndefined();
+    expect(countTests("ran 4 checks", "ran (")).toBeUndefined();
+    expect(countTests("ran 4 checks", "ran \\d+ checks")).toBeUndefined();
   });
 
   it("gives nothing when there is no count", () => {
