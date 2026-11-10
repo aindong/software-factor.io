@@ -94,7 +94,6 @@ export function useFlow(repo: Repo, change: (workflow: Json) => void = () => {})
   repo.write(".factor/factory.json", `${JSON.stringify({ ...factory, workflow: "acme-flow" }, null, 2)}\n`);
 }
 
-export const installed = (repo: Repo, name = "acme") => join(repo.home, "plugins", name);
 export const lock = (repo: Repo) =>
   existsSync(join(repo.dir, ".factor/plugins.lock.json"))
     ? repo.json<Record<string, { version: string; source: string; sha256: string; commit?: string }>>(
@@ -117,4 +116,10 @@ export function gitHost(plugin: Plugin, owner: string, name: string, sub = "", b
   mkdirSync(join(base, owner), { recursive: true });
   execFileSync("git", ["clone", "-q", "--bare", work, join(base, owner, `${name}.git`)]);
   return `file://${base}/`;
+}
+
+/** Where the plugin is installed: a folder for each content, so two workspaces can hold two versions. Before it is installed, the folder its versions would be in. */
+export function installed(repo: Repo, name = "acme"): string {
+  const pinned = lock(repo)[name]?.sha256;
+  return pinned ? join(repo.home, "plugins", name, pinned.slice(0, 16)) : join(repo.home, "plugins", name);
 }

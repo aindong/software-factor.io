@@ -17,6 +17,8 @@ it.each([
   "softwarefactor add acme/board --yes",
   "npx softwarefactor add acme/board --yes",
   "npx softwarefactor allow --skill review",
+  "timeout 9 softwarefactor add acme/board --yes",
+  "env FOO=1 npx softwarefactor add acme/board",
   `echo x >> ${homedir()}/.factor/plugins/acme/gate.sh`,
   "echo '{}' > .factor/plugins.lock.json",
 ])("denies an agent: %s", (command) => {

@@ -42,7 +42,7 @@ it("installs an allowed skill into the worktree for the lane's agent, and keeps 
   const r = repo.sf("run");
   expect(repo.rows("select status from runs"), r.stdout + r.stderr).toEqual([{ status: "done" }]);
   expect(calls(log)).toEqual([
-    "[--yes][skills@1][add][acme/skills][-s][code-review][-a][claude-code][-y][--copy]",
+    "[--yes][skills@1.7.6][add][acme/skills][-s][code-review][-a][claude-code][-y][--copy]",
   ]);
   const { worktree, branch } = repo.rows<{ worktree: string; branch: string }>(
     "select worktree, branch from runs",
@@ -61,4 +61,23 @@ it("asks again when the workflow names another source for the skill", () => {
   const r = repo.sf("run");
   expect(r.status).toBe(1);
   expect(r.stderr).toMatch(/skill "review" .*someone-else\/skills.*has changed since it was allowed/);
+});
+
+it("stops the run when the skill cannot be installed, and refuses a source that npx could read as an option", () => {
+  const { repo } = withSkill();
+  expect(repo.sf("allow", "--skill", "review").status).toBe(0);
+  standIn(repo, "npx", "echo 'could not find the skill' >&2; exit 1");
+  const r = repo.sf("run");
+  expect(r.stdout + r.stderr).toMatch(/skill "review".*could not find the skill/s);
+  expect(repo.rows<{ status: string }>("select status from runs").every((x) => x.status !== "done")).toBe(
+    true,
+  );
+
+  const odd = withSkill().repo;
+  edit(odd, (w) => {
+    w.skills = { review: { from: "repo", source: "--registry=https://example.com", skill: "code-review" } };
+  });
+  const refused = odd.sf("allow", "--skill", "review");
+  expect(refused.status).toBe(1);
+  expect(refused.stderr).toMatch(/source/);
 });

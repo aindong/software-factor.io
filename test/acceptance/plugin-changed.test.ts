@@ -39,3 +39,35 @@ it("does not run a plugin when the lock names other files than the ones that wer
   expect(repo.sf("collect").stdout).toMatch(/collector board: could not collect: the plugin "acme" .*lock/);
   expect(callsOf(plugin)).toEqual([]);
 });
+
+it("does not run a plugin whose files and lock were changed together: this machine allowed other files", () => {
+  const repo = flowRepo({ lanes: [] });
+  const plugin = makePlugin();
+  expect(repo.sf("add", plugin.dir, "--yes").status).toBe(0);
+  useFlow(repo);
+  // someone changes the plugin, installs it elsewhere, and the new lock arrives here with a pull
+  const other = flowRepo({ lanes: [] });
+  other.home = repo.home;
+  appendFileSync(join(plugin.dir, "collect.sh"), "\necho changed >> /dev/null\n");
+  expect(other.sf("add", plugin.dir, "--yes").status).toBe(0);
+  writeFileSync(join(repo.dir, ".factor/plugins.lock.json"), other.read(".factor/plugins.lock.json"));
+  const r = repo.sf("collect");
+  expect(r.stdout).toMatch(/collector board: could not collect: the plugin "acme" .*softwarefactor add/);
+  expect(callsOf(plugin)).toEqual([]);
+});
+
+it("does not run a plugin that is on the machine but was never allowed in this workspace", () => {
+  const first = flowRepo({ lanes: [] });
+  const plugin = makePlugin();
+  expect(first.sf("add", plugin.dir, "--yes").status).toBe(0);
+  // a second workspace on the same machine, with the same lock and no approval of its own
+  const second = flowRepo({ lanes: [] });
+  second.home = first.home;
+  useFlow(second);
+  writeFileSync(join(second.dir, ".factor/plugins.lock.json"), first.read(".factor/plugins.lock.json"));
+  const r = second.sf("run");
+  expect(r.status).toBe(1);
+  expect(r.stderr).toMatch(/plugin "acme" is not installed on this machine|not allowed/);
+  expect(r.stderr).toContain("softwarefactor add");
+  expect(callsOf(plugin)).toEqual([]);
+});

@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
+import { calls, standIn } from "../helpers/collect.ts";
 import { gitHost, installed, lock, makePlugin } from "../helpers/plugin.ts";
 import { commandLane, flowRepo } from "../helpers/repo.ts";
 
@@ -53,4 +54,21 @@ it("says so when the repository, the ref or the folder is not there", () => {
     expect(r.stderr, source).toMatch(said);
   }
   expect(lock(repo)).toEqual({});
+});
+
+it("refuses a source that git could read as an option or another transport, before git is called", () => {
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
+  const log = standIn(repo, "git", "exit 9");
+  for (const source of [
+    "--upload-pack=touch/x",
+    "acme/tools#--upload-pack=x",
+    "ext::sh/-c/x",
+    "acme/tools/../../etc",
+    "-acme/tools",
+    "acme/-tools",
+  ]) {
+    const r = repo.sf("add", source, "--yes");
+    expect(r.status, source).toBe(1);
+  }
+  expect(calls(log).filter((c) => c.includes("clone"))).toEqual([]);
 });
