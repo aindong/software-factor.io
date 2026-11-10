@@ -130,6 +130,27 @@ const MIGRATIONS = [
     duration_ms integer not null
   );
   `,
+  // what agents left for later lanes, and which lane was given which memory entry
+  `
+  create table memory_notes (
+    id integer primary key,
+    run_id text not null,
+    lane text not null,
+    account text,
+    title text not null,
+    body text not null,
+    status text not null,
+    created_at text not null
+  );
+  create table memory_reads (
+    id integer primary key,
+    run_id text not null,
+    lane text not null,
+    account text,
+    entry text not null,
+    at text not null
+  );
+  `,
 ];
 
 export type Db = DatabaseSync;

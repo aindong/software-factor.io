@@ -5,6 +5,7 @@
 // gates still judge everything that is committed.
 import { existsSync, lstatSync, realpathSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { FACTOR_TOOLS, mcpName } from "./factor-tools.ts";
 import {
   DOWNLOAD_AS_COMMAND,
   OWNED_IN_SHELL,
@@ -300,6 +301,8 @@ export function judge(call: ToolCall, where: Where): Verdict {
     if (pathKey) return judgeWrite(values[pathKey], where);
     if (tool === "Bash") return judgeShell(values.command, where);
     if (READS.has(tool)) return judgeRead(tool, values, where);
+    // the factory's own server: its tools check their own input, and it has none that changes the rules
+    if (FACTOR_TOOLS.some((name) => mcpName(name) === tool)) return ALLOW;
     return deny(`The guard has no rule for the tool "${tool}", so it is denied.`);
   } catch (error) {
     return deny(`The guard could not check this tool call, so it is denied: ${(error as Error).message}`);

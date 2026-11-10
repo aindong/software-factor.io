@@ -14,6 +14,7 @@ import {
 import { LocalConfig } from "./config.ts";
 import type { Db } from "./db.ts";
 import { UserError } from "./errors.ts";
+import { dropNote, keepNote, proposedNotes, readMemory } from "./memory.ts";
 import { own } from "./schema/builtins.ts";
 import { getRun, type Session, sessionsOf } from "./store.ts";
 import type { Workspace } from "./workspace.ts";
@@ -244,5 +245,34 @@ export function sessionsCommand(db: Db, runId: string | undefined, say: (line: s
       `  ${(account ?? "(the scripted agent)").padEnd(22)} ${mine.length} session${mine.length === 1 ? "" : "s"}  ${sum(mine, "tokens")} tokens  ${known}`,
     );
   }
+  return 0;
+}
+
+/** `memory list | keep <id> | drop <id>`: the project's memory, and the notes agents have proposed. */
+export function memoryCommand(ws: Workspace, db: Db, args: string[], say: (line: string) => void): number {
+  const [action, id] = args;
+  if (action === "list") {
+    const kept = readMemory(ws.factorDir);
+    const notes = proposedNotes(db);
+    if (kept.length + notes.length === 0)
+      say("Nothing yet. Memory files go in .factor/memory/, as markdown.");
+    for (const e of kept) say(`kept      ${e.id.padEnd(34)} ${e.title}`);
+    for (const n of notes) {
+      say(
+        `proposed  ${String(n.id).padEnd(5)} ${n.title}  (run ${n.run_id}, lane ${n.lane}, account ${n.account ?? "none"})`,
+      );
+    }
+    return 0;
+  }
+  if ((action !== "keep" && action !== "drop") || !id) {
+    throw new UserError(
+      '"memory" needs list, keep <id> or drop <id>.',
+      "See the ids with `softwarefactor memory list`.",
+    );
+  }
+  if (action === "drop") {
+    dropNote(db, id);
+    say(`dropped note ${id}`);
+  } else say(`kept as ${keepNote(ws.factorDir, db, id)}: read it over, then commit it`);
   return 0;
 }

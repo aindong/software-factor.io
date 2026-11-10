@@ -5,7 +5,7 @@ import { join, relative } from "node:path";
 // MCP server can offer the same ones (ADR 0008).
 import { parseArgs } from "node:util";
 import { judge, type Verdict } from "./core/agents/guard.ts";
-import { accountCommand, roleCommand, sessionsCommand } from "./core/commands.ts";
+import { accountCommand, memoryCommand, roleCommand, sessionsCommand } from "./core/commands.ts";
 import { openDb } from "./core/db.ts";
 import { decide } from "./core/engine/inbox.ts";
 import { handoffPath, riskLine } from "./core/engine/report.ts";
@@ -16,6 +16,7 @@ import { UserError } from "./core/errors.ts";
 import { interrupt } from "./core/exec.ts";
 import { repoRoot } from "./core/git.ts";
 import { init } from "./core/init.ts";
+import { serve } from "./core/mcp.ts";
 import { reportFiles } from "./core/schema/check-files.ts";
 import { openInbox, readStatus } from "./core/store.ts";
 import { loadWorkspace } from "./core/workspace.ts";
@@ -33,6 +34,9 @@ Usage: softwarefactor <command>
                            is empty, several runs at once
   stop <run>               Stop a run that is working or waiting
   status                   Show tasks, runs, lanes, gates and where the evidence is
+  memory list | keep <id> | drop <id>
+                           Show what the project remembers and what agents have proposed, and keep
+                           or drop a proposed note
   sessions [run]           Show each start of an agent: account, model, tokens by kind and cost,
                            with a total per run and per account
   inbox                    Show what waits for a person
@@ -101,8 +105,22 @@ function guard(args: string[]): number {
   return 2;
 }
 
+/** The factor MCP server for one lane. An agent's CLI starts it: see docs/memory.md. */
+async function mcpCommand(args: string[]): Promise<number> {
+  const named: Record<string, string> = {};
+  for (let i = 0; i < args.length; i += 2) named[(args[i] ?? "").replace(/^--/, "")] = args[i + 1] ?? "";
+  const { workspace: root, run, lane, "lane-dir": laneDir, account } = named;
+  if (!root || !run || !lane || !laneDir) {
+    console.error("softwarefactor mcp needs --workspace, --run, --lane and --lane-dir: the lane it serves.");
+    return 1;
+  }
+  await serve({ root, run, lane, laneDir, account: account || undefined });
+  return 0;
+}
+
 async function main(): Promise<number> {
   if (process.argv[2] === "guard") return guard(process.argv.slice(3));
+  if (process.argv[2] === "mcp") return mcpCommand(process.argv.slice(3));
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: {
@@ -151,6 +169,16 @@ async function main(): Promise<number> {
 
   if (command === "account") return accountCommand(positionals.slice(1), values, say);
   if (command === "role") return roleCommand(loadWorkspace(cwd), positionals.slice(1), values, say);
+
+  if (command === "memory") {
+    const ws = loadWorkspace(cwd);
+    const db = openDb(ws.dbPath);
+    try {
+      return memoryCommand(ws, db, positionals.slice(1), say);
+    } finally {
+      db.close();
+    }
+  }
 
   if (command === "sessions") {
     const db = openDb(loadWorkspace(cwd).dbPath);

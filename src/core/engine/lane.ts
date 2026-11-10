@@ -158,7 +158,8 @@ export async function runLane(
       if (!binding) throw new Error(`no binding for lane ${lane.id}`);
       const { adapter, agent, account } = adapterFor(binding, lane);
       const prompt =
-        promptFor(ctx, lane, notes, repair) + (account ? handoffHelp(lane, agentHandoff, evidenceDir) : "");
+        promptFor(ctx, lane, notes, repair) +
+        (account ? handoffHelp(lane, agentHandoff, evidenceDir, adapter.server === true) : "");
       saveRunFile(ws, run.id, "prompts", `${stem}.md`, prompt);
       store.addEvent(db, run.id, "lane.agent", { lane: lane.id, handoffPath: agentHandoff });
       if (adapter.guarded === false && agentStarts === 1) {
@@ -195,6 +196,13 @@ export async function runLane(
             FACTOR_DEFAULT_BRANCH: currentBranch(ws.root),
           },
           protect: account ? protectedBranches(ws.root) : undefined,
+          // the factor server for this lane: which lane it serves is fixed here, on its command line
+          server: account
+            ? [
+                ...[process.execPath, process.argv[1] ?? "", "mcp", "--workspace", ws.root, "--run", run.id],
+                ...["--lane", lane.id, "--lane-dir", laneDir, "--account", account],
+              ]
+            : undefined,
           entry,
           signal: limit.signal,
           pidFile: ctx.control.pidFile,

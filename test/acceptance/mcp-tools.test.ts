@@ -54,7 +54,7 @@ describe("what an agent can do through the server", () => {
     expect(run.status, run.stdout + run.stderr).toBe(0);
     expect(trail(repo)).toEqual(["look:pass"]);
     const kept = join(repo.dir, ".factor/runs", runRow(repo)?.id ?? "", "evidence");
-    expect(readFileSync(join(kept, "notes.txt"), "utf8")).toBe("seen at 10:00");
+    expect(readFileSync(join(kept, "01-look-attached-1.txt"), "utf8")).toBe("seen at 10:00"); // the host's copy
   });
 
   it("refuses an attachment that is not a plain file name, or too large", () => {
@@ -63,8 +63,8 @@ describe("what an agent can do through the server", () => {
       tool("evidence_attach", { name: "big.txt", text: "x".repeat(1_100_000) }),
       tool("handoff_write", { handoff: { outcome: "pass", summary: "ok" } }),
     ]);
-    const [escape, big] = mcpOf(profile);
-    expect(escape?.answer?.result?.isError).toBe(true);
+    const [outside, big] = mcpOf(profile);
+    expect(outside?.answer?.result?.isError).toBe(true);
     expect(big?.answer?.result?.isError).toBe(true);
   });
 
