@@ -66,13 +66,14 @@ a release, and after a change to a gate, the guard or the engine.
 
 ## The gate `core/no-secrets@1`
 
-The gate reads every commit of a lane's change, not only what the change leaves: a commit keeps what a later
-commit removes. It fails when a line that a commit added holds something shaped like a token, a private key, or
+The gate reads every commit of a lane's change and each commit's message, not only what the change leaves: a
+commit keeps what a later commit removes. It fails when a line that a commit added holds something shaped like a token, a private key, or
 a password in a URL. A line that the base commit already holds in that file does not count. The gate's record
 names the file, the line, the commit and the first four characters, never the whole match.
 
-It can be wrong in both directions. A URL to `localhost` or an example host, and a URL parameter whose value is
-one plain word (`?key=YOUR_API_KEY`), are let through. Other text of the same shape is not, such as a test's
+It can be wrong in both directions. A password in a URL to `localhost` or an example host, and a URL parameter
+whose value is one plain word (`?key=YOUR_API_KEY`), are let through. A token of a known shape is never let
+through, wherever the URL points. Other text of the same shape is not, such as a test's
 made-up password in a database URL: change the text, or leave the gate out of that lane.
 
 ## What it does not cover

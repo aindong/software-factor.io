@@ -155,24 +155,28 @@ export function commandsIn(settings: unknown, path = "with"): { name: string; pa
 // Text that looks like a credential. A shared workflow must never carry one. Token prefixes must
 // start a word, so ordinary words such as "risk-assessment" do not match.
 const START = "(?<![A-Za-z0-9_-])";
-export const SECRET = new RegExp(
-  [
-    `${START}gh[pousr]_[A-Za-z0-9]{20,}`,
-    `${START}github_pat_\\w{20,}`,
-    `${START}glpat-[\\w-]{16,}`,
-    `${START}(sk|rk|pk)_(live|test)_[A-Za-z0-9]{16,}`,
-    `${START}sk-(ant|proj)-[\\w-]{20,}`,
-    `${START}sk-(?=[A-Za-z0-9]*\\d)[A-Za-z0-9]{32,}`,
-    `${START}AKIA[0-9A-Z]{16}`,
-    `${START}xox[abprs]-[A-Za-z0-9-]{10,}`,
-    "-----BEGIN [A-Z ]*PRIVATE KEY( BLOCK)?-----",
-    `${START}eyJ[\\w-]{10,}\\.[\\w-]{10,}\\.[\\w-]{10,}`,
-    // a secret as a URL parameter or in the user part, unless the value is read from the environment
-    "[?&;][\\w.-]*(key|token|secret|password|passwd|auth)=(?!\\$)[^&\\s]{6,}",
-    "://[^/\\s:@]+:(?!\\$)[^/\\s:@]{3,}@",
-  ].join("|"),
-  "i",
-);
+const TOKEN_SHAPES = [
+  `${START}gh[pousr]_[A-Za-z0-9]{20,}`,
+  `${START}github_pat_\\w{20,}`,
+  `${START}glpat-[\\w-]{16,}`,
+  `${START}(sk|rk|pk)_(live|test)_[A-Za-z0-9]{16,}`,
+  `${START}sk-(ant|proj)-[\\w-]{20,}`,
+  `${START}sk-(?=[A-Za-z0-9]*\\d)[A-Za-z0-9]{32,}`,
+  `${START}AKIA[0-9A-Z]{16}`,
+  `${START}xox[abprs]-[A-Za-z0-9-]{10,}`,
+  "-----BEGIN [A-Z ]*PRIVATE KEY( BLOCK)?-----",
+  `${START}eyJ[\\w-]{10,}\\.[\\w-]{10,}\\.[\\w-]{10,}`,
+];
+// a secret as a URL parameter or in the user part, unless the value is read from the environment
+const URL_SHAPES = [
+  "[?&;][\\w.-]*(key|token|secret|password|passwd|auth)=(?!\\$)[^&\\s]{6,}",
+  "://[^/\\s:@]+:(?!\\$)[^/\\s:@]{3,}@",
+];
+/** A token by its own shape, wherever it stands. */
+export const TOKEN = new RegExp(TOKEN_SHAPES.join("|"), "i");
+/** A secret by where it stands in a URL. An example in a README has this shape too. */
+export const URL_SECRET = new RegExp(URL_SHAPES.join("|"), "i");
+const SECRET = new RegExp([...TOKEN_SHAPES, ...URL_SHAPES].join("|"), "i");
 const SECRET_KEY =
   /^(password|passwd|secret|token|api[_-]?key|access[_-]?token|private[_-]?key|client[_-]?secret)$/i;
 // Under these keys every value is the name of an environment variable or a reference, never a secret.

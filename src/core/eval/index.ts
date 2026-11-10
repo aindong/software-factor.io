@@ -43,6 +43,10 @@ export async function evalCommand(
         "Name a result that `softwarefactor eval --save` wrote.",
       );
     before = parsed.data;
+    if (before.broken)
+      say(
+        `${flags.compare} was saved with ${oneLine(before.broken, 80)} broken on purpose: it is no result to compare with.`,
+      );
   }
   if (flags.break !== undefined) {
     const gate = Object.hasOwn(GATES, flags.break) ? GATES[flags.break] : undefined;
