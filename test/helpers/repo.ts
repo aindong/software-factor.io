@@ -1,6 +1,14 @@
 // A throwaway git repository and a way to call the command against it, for acceptance tests.
 import { type ChildProcess, execFileSync, spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -412,3 +420,60 @@ export function editWorkflow(repo: Repo, change: (workflow: Record<string, Json>
 /** The sessions of the workspace, oldest first. */
 export const sessionRows = (repo: Repo, columns = "lane, tokens") =>
   repo.rows<Record<string, unknown>>(`select ${columns} from sessions order by id`);
+
+// ---- the interface's server
+
+/** Build the interface once, when it is not built yet: the server serves it from dist/ui. */
+export function ensureUi(): void {
+  if (existsSync(resolve("dist/ui/index.html"))) return;
+  execFileSync("pnpm", ["run", "-s", "build:ui"], { stdio: "ignore" });
+}
+
+export interface Ui {
+  url: string;
+  /** The token the page carries, read from the page as a browser would. */
+  token: string;
+  /** Call the API as the page does. */
+  api: (
+    path: string,
+    init?: { method?: string; body?: unknown; headers?: Record<string, string> },
+  ) => Promise<Response>;
+  stop: () => Promise<void>;
+}
+/** Start `softwarefactor ui` on a free port and wait until it answers. */
+export async function startUi(repo: Repo): Promise<Ui> {
+  ensureUi();
+  const child = spawn(process.execPath, [CLI, "ui", "--port", "0"], {
+    cwd: repo.dir,
+    env: { ...process.env, FACTOR_HOME: repo.home, NO_COLOR: "1", ...repo.env },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let out = "";
+  child.stdout?.on("data", (chunk) => {
+    out += chunk;
+  });
+  child.stderr?.on("data", (chunk) => {
+    out += chunk;
+  });
+  const found = () => /http:\/\/127\.0\.0\.1:\d+/.exec(out)?.[0];
+  for (let waited = 0; waited < 10_000 && !found(); waited += 50) await new Promise((r) => setTimeout(r, 50));
+  const url = found();
+  if (!url) throw new Error(`the interface did not start: ${out}`);
+  const page = await (await fetch(url)).text();
+  const token = /name="factor-token" content="([^"]+)"/.exec(page)?.[1] ?? "";
+  return {
+    url,
+    token,
+    api: (path, init = {}) =>
+      fetch(`${url}${path}`, {
+        method: init.method ?? "GET",
+        headers: { "x-factor-token": token, "content-type": "application/json", ...init.headers },
+        body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      }),
+    stop: () =>
+      new Promise((done) => {
+        child.on("exit", () => done());
+        child.kill("SIGTERM");
+      }),
+  };
+}
