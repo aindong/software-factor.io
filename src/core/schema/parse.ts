@@ -42,7 +42,14 @@ function fixFor(path: PropertyKey[], issue: Issue, input: unknown): string {
   }
   if (issue.code === "custom") return issue.message;
   if (issue.code === "invalid_key") {
-    return 'Name it with letters and digits only, starting with a lowercase letter, such as "planPath".';
+    const parent = String(path.at(-2) ?? "");
+    if (parent === "inputs" || parent === "outputs") {
+      return 'Name it with letters and digits only, starting with a lowercase letter, such as "planPath".';
+    }
+    if (parent === "commands") {
+      return 'Start the name with a letter and use letters, digits, ".", ":", "_" and "-", such as "test:e2e".';
+    }
+    return 'Name it with lowercase letters, digits and dashes, starting with a letter, such as "open-pr".';
   }
   const last = String(path.at(-1) ?? "");
   const value = valueAt(input, path);
@@ -56,7 +63,7 @@ function fixFor(path: PropertyKey[], issue: Issue, input: unknown): string {
   if (last === "when") {
     return 'Write the condition as data, such as { "ref": "change.tier", "in": ["ui"] }. Expressions in strings are not allowed.';
   }
-  if (last === "id" || last === "to" || last === "name") {
+  if (last === "id" || last === "to" || (last === "name" && path.length === 1)) {
     return 'Use lowercase letters, digits and dashes, starting with a letter, such as "open-pr".';
   }
   if (last === "version") return `Write "version": ${WORKFLOW_VERSION}, as a number.`;
@@ -110,7 +117,11 @@ export function parseWorkflow(input: unknown): ParseResult {
         fix: fixFor(path, issue, input),
       }));
     const seen = new Set<string>();
-    return { problems: problems.filter((p) => !seen.has(p.path + p.fix) && seen.add(p.path + p.fix)) };
+    return {
+      problems: problems.filter(
+        (p) => !seen.has(p.path + p.message + p.fix) && seen.add(p.path + p.message + p.fix),
+      ),
+    };
   }
   const problems = checkWorkflow(parsed.data);
   return problems.length > 0 ? { problems } : { workflow: parsed.data, problems };

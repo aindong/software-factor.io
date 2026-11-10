@@ -1,5 +1,7 @@
 // Rules about how a task moves between lanes: targets exist, loops are bounded, conditions
 // compare against values that can occur, every lane is reachable and some path finishes.
+
+import { own } from "./builtins.ts";
 import type { Problem } from "./check.ts";
 import {
   CHANGE_TIERS,
@@ -27,7 +29,7 @@ export function checkRef(
   ref: string,
 ): (string | number | boolean)[] | undefined {
   const [head, kind, name] = ref.split(".");
-  if (head === "change") {
+  if (ref === "change.tier") {
     if (!w.lanes.some((l) => l.agent?.access === "write")) {
       add(
         path,
@@ -38,7 +40,7 @@ export function checkRef(
     return [...CHANGE_TIERS];
   }
   if (ref === "task.source") return w.collectors.map((c) => c.id);
-  if (head === "task" || !head || !name) return undefined;
+  if (ref === "task.labels" || !head || !name) return undefined;
   const lane = w.lanes[index.get(head) ?? -1];
   if (!lane) {
     add(
@@ -58,7 +60,7 @@ export function checkRef(
     }
     return ["pass", "fail"];
   }
-  const output = lane.outputs?.[name];
+  const output = own(lane.outputs, name);
   if (!output) {
     add(
       path,

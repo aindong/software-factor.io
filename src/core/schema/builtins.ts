@@ -102,32 +102,45 @@ export const BUILTINS: Record<Kind, Record<string, z.ZodType | null>> = {
   },
 };
 
-/** Every workspace command a settings object names. */
-export function commandsIn(settings: unknown): string[] {
+/** A record's own entry. Plain indexing would also find inherited names such as "constructor". */
+export function own<T>(record: Record<string, T> | undefined, key: string): T | undefined {
+  return record !== undefined && Object.hasOwn(record, key) ? record[key] : undefined;
+}
+
+/** Every workspace command a settings object names, with where it is named. */
+export function commandsIn(settings: unknown, path = "with"): { name: string; path: string }[] {
   if (typeof settings !== "object" || settings === null) return [];
   const s = settings as { command?: unknown; until?: unknown };
-  return [...(typeof s.command === "string" ? [s.command] : []), ...commandsIn(s.until)];
+  const here = typeof s.command === "string" ? [{ name: s.command, path: `${path}.command` }] : [];
+  return [...here, ...commandsIn(s.until, `${path}.until`)];
 }
 
 // Text that looks like a credential. A shared workflow must never carry one. Token prefixes must
-// start a word and contain a digit, so ordinary words such as "risk-assessment" do not match.
+// start a word, so ordinary words such as "risk-assessment" do not match.
 const START = "(?<![A-Za-z0-9_-])";
 const SECRET = new RegExp(
   [
     `${START}gh[pousr]_[A-Za-z0-9]{20,}`,
     `${START}github_pat_\\w{20,}`,
     `${START}glpat-[\\w-]{16,}`,
-    `${START}(sk|rk|pk)[-_](live_|test_|ant-|proj-)?(?=[\\w-]*\\d)[\\w-]{20,}`,
+    `${START}(sk|rk|pk)_(live|test)_[A-Za-z0-9]{16,}`,
+    `${START}sk-(ant|proj)-[\\w-]{20,}`,
+    `${START}sk-(?=[A-Za-z0-9]*\\d)[A-Za-z0-9]{32,}`,
     `${START}AKIA[0-9A-Z]{16}`,
     `${START}xox[abprs]-[A-Za-z0-9-]{10,}`,
-    "-----BEGIN [A-Z ]*PRIVATE KEY-----",
+    "-----BEGIN [A-Z ]*PRIVATE KEY( BLOCK)?-----",
     `${START}eyJ[\\w-]{10,}\\.[\\w-]{10,}\\.[\\w-]{10,}`,
-    "[?&;](api[_-]?key|access[_-]?token|token|secret|password|passwd|auth)=[^&\\s]{6,}",
+    // a secret as a URL parameter or in the user part, unless the value is read from the environment
+    "[?&;][\\w.-]*(key|token|secret|password|passwd|auth)=(?!\\$)[^&\\s]{6,}",
+    "://[^/\\s:@]+:(?!\\$)[^/\\s:@]{3,}@",
   ].join("|"),
   "i",
 );
 const SECRET_KEY =
   /^(password|passwd|secret|token|api[_-]?key|access[_-]?token|private[_-]?key|client[_-]?secret)$/i;
+// Under these keys every value is the name of an environment variable or a reference, never a secret.
+const NAMES_ONLY = new Set(["env", "headersEnv", "inputs"]);
+const MAX_DEPTH = 40;
 
 export interface SecretHit {
   path: string;
@@ -136,16 +149,22 @@ export interface SecretHit {
 }
 
 /** Every string in the file that looks like a secret, or sits under a key named like one. */
-export function findSecrets(value: unknown, path = "", key = ""): SecretHit[] {
+export function findSecrets(value: unknown, path = "", key = "", namesOnly = false, depth = 0): SecretHit[] {
+  if (depth > MAX_DEPTH) return [];
   if (typeof value === "string") {
     const match = SECRET.exec(value);
     if (match) return [{ path: path || "(top)", shown: `${match[0].slice(0, 8)}...` }];
-    if (SECRET_KEY.test(key) && value.length > 0) return [{ path, shown: `the value of "${key}"` }];
+    if (!namesOnly && SECRET_KEY.test(key) && value.length > 0)
+      return [{ path, shown: `the value of "${key}"` }];
     return [];
   }
-  if (Array.isArray(value)) return value.flatMap((v, i) => findSecrets(v, `${path}[${i}]`, key));
+  if (Array.isArray(value)) {
+    return value.flatMap((v, i) => findSecrets(v, `${path}[${i}]`, key, namesOnly, depth + 1));
+  }
   if (typeof value === "object" && value !== null) {
-    return Object.entries(value).flatMap(([k, v]) => findSecrets(v, path ? `${path}.${k}` : k, k));
+    return Object.entries(value).flatMap(([k, v]) =>
+      findSecrets(v, path ? `${path}.${k}` : k, k, namesOnly || NAMES_ONLY.has(k), depth + 1),
+    );
   }
   return [];
 }

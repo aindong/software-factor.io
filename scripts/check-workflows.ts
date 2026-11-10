@@ -1,6 +1,6 @@
 // Checks workflow files against the schema and its rules. With no arguments, checks workflows/*.json.
 import { readdirSync, readFileSync } from "node:fs";
-import { parseWorkflow } from "../src/core/schema/parse.ts";
+import { type Problem, parseWorkflow } from "../src/core/schema/parse.ts";
 
 const args = process.argv.slice(2);
 const files =
@@ -13,18 +13,34 @@ const files =
 
 let failed = 0;
 for (const file of files) {
-  let problems: { path: string; message: string; fix: string }[];
+  let problems: Problem[];
+  let text: string | undefined;
+  let json: unknown;
   try {
-    problems = parseWorkflow(JSON.parse(readFileSync(file, "utf8"))).problems;
+    text = readFileSync(file, "utf8");
   } catch (error) {
     problems = [
       {
         path: "(file)",
-        message: `Cannot read as JSON: ${(error as Error).message}`,
-        fix: "Fix the JSON syntax.",
+        message: `Cannot read the file: ${(error as Error).message}`,
+        fix: "Check the path.",
       },
     ];
   }
+  if (text !== undefined) {
+    try {
+      json = JSON.parse(text);
+    } catch (error) {
+      problems = [
+        {
+          path: "(file)",
+          message: `Not valid JSON: ${(error as Error).message}`,
+          fix: "Fix the JSON syntax.",
+        },
+      ];
+    }
+  }
+  problems ??= parseWorkflow(json).problems;
   if (problems.length === 0) {
     console.log(`ok    ${file}`);
     continue;

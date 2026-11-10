@@ -1,6 +1,6 @@
 // Rules a JSON shape cannot express: references that must exist, settings each built-in accepts,
 // who may write and who checks it (ADR 0005, ADR 0012). Every problem names the place and the fix.
-import { BUILTINS, commandsIn, findSecrets } from "./builtins.ts";
+import { BUILTINS, commandsIn, findSecrets, own } from "./builtins.ts";
 import { checkRef, checkTransitions } from "./transitions.ts";
 import type { Workflow } from "./workflow.ts";
 
@@ -23,7 +23,7 @@ export function checkWorkflow(w: Workflow): Problem[] {
   function checkUses(kind: Kind, path: string, uses: string, settings: unknown) {
     const namespace = uses.split("/")[0] ?? "";
     if (namespace !== "core") {
-      if (!w.plugins?.[namespace]) {
+      if (!own(w.plugins, namespace)) {
         add(
           `${path}.uses`,
           `"${uses}" comes from the plugin "${namespace}", which this workflow does not list.`,
@@ -33,7 +33,7 @@ export function checkWorkflow(w: Workflow): Problem[] {
       return;
     }
     const known = BUILTINS[kind];
-    if (!(uses in known)) {
+    if (!Object.hasOwn(known, uses)) {
       add(
         `${path}.uses`,
         `There is no built-in ${kind} "${uses}".`,
@@ -46,10 +46,10 @@ export function checkWorkflow(w: Workflow): Problem[] {
       if (settings !== undefined) add(`${path}.with`, `"${uses}" takes no settings.`, 'Remove "with".');
       return;
     }
-    for (const name of commandsIn(settings)) {
-      if (!w.commands?.[name]) {
+    for (const { name, path: at } of commandsIn(settings)) {
+      if (!own(w.commands, name)) {
         add(
-          `${path}.with.command`,
+          `${path}.${at}`,
           `The workspace command "${name}" is not declared.`,
           `Add "${name}": { "description": "what it must do" } to the top-level "commands".`,
         );
@@ -98,7 +98,7 @@ export function checkWorkflow(w: Workflow): Problem[] {
     collectorIds.add(c.id);
     checkUses("collector", `collectors[${i}]`, c.uses, c.with);
     const server = c.uses === "core/mcp-query@1" ? c.with?.server : undefined;
-    if (typeof server === "string" && !w.mcp?.[server]) {
+    if (typeof server === "string" && !own(w.mcp, server)) {
       add(
         `collectors[${i}].with.server`,
         `MCP server "${server}" is not declared.`,
@@ -112,7 +112,7 @@ export function checkWorkflow(w: Workflow): Problem[] {
 
   for (const [role, def] of Object.entries(w.roles)) {
     for (const other of def.differentVendorFrom ?? []) {
-      if (!w.roles[other] || other === role) {
+      if (!own(w.roles, other) || other === role) {
         add(
           `roles.${role}.differentVendorFrom`,
           `"${other}" is not another declared role.`,
@@ -150,7 +150,7 @@ export function checkWorkflow(w: Workflow): Problem[] {
     }
 
     const declared = (role: string | undefined, path: string) => {
-      if (role && !w.roles[role]) {
+      if (role && !own(w.roles, role)) {
         add(path, `Role "${role}" is not declared.`, `Add "${role}": { "description": "..." } to "roles".`);
       }
     };
@@ -161,7 +161,7 @@ export function checkWorkflow(w: Workflow): Problem[] {
     ] as const) {
       const key = kind === "Skill" ? "skills" : "mcp";
       for (const name of names) {
-        if (!(name in known)) {
+        if (!Object.hasOwn(known, name)) {
           add(
             `${at}.agent.${key}`,
             `${kind} "${name}" is not declared.`,
@@ -216,7 +216,7 @@ export function checkWorkflow(w: Workflow): Problem[] {
 
     const laneGates = lane.gates ?? [];
     for (const g of laneGates) {
-      if (!w.gates?.[g]) {
+      if (!own(w.gates, g)) {
         add(
           `${at}.gates`,
           `Gate "${g}" is not defined.`,
@@ -231,7 +231,7 @@ export function checkWorkflow(w: Workflow): Problem[] {
         'Add a gate id to "gates", or set agent.access to "read".',
       );
     }
-    const repairs = laneGates.filter((g) => w.gates?.[g]?.onFail === "repair");
+    const repairs = laneGates.filter((g) => own(w.gates, g)?.onFail === "repair");
     if (repairs.length > 0 && !lane.agent) {
       add(
         `${at}.gates`,
@@ -292,21 +292,26 @@ export function checkWorkflow(w: Workflow): Problem[] {
     for (const [name, ref] of Object.entries(lane.inputs ?? {})) {
       checkRef(w, index, add, `${at}.inputs.${name}`, ref);
     }
-    // outputs reach commands as FACTOR_OUTPUT_<NAME>, so two names must not differ only by case
-    const upper = Object.keys(lane.outputs ?? {}).map((n) => n.toUpperCase());
-    if (new Set(upper).size !== upper.length) {
-      add(
-        `${at}.outputs`,
-        `Two outputs of lane "${lane.id}" differ only by capital letters.`,
-        "Rename one: both would become the same FACTOR_OUTPUT_ variable.",
-      );
+    // values reach commands as FACTOR_OUTPUT_<NAME> and FACTOR_INPUT_<NAME>, so two names must not
+    // differ only by case
+    for (const [kind, names] of [
+      ["outputs", Object.keys(lane.outputs ?? {})],
+      ["inputs", Object.keys(lane.inputs ?? {})],
+    ] as const) {
+      if (new Set(names.map((n) => n.toUpperCase())).size !== names.length) {
+        add(
+          `${at}.${kind}`,
+          `Two ${kind} of lane "${lane.id}" differ only by capital letters.`,
+          `Rename one: both would become the same FACTOR_${kind === "outputs" ? "OUTPUT" : "INPUT"}_ variable.`,
+        );
+      }
     }
   });
 
   checkTransitions(w, index, problems);
   const seen = new Set<string>();
   return problems.filter((p) => {
-    const key = `${p.path}\n${p.fix}`;
+    const key = `${p.path}\n${p.message}\n${p.fix}`;
     return seen.has(key) ? false : seen.add(key) !== undefined;
   });
 }

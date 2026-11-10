@@ -28,7 +28,7 @@ describe("the published JSON Schema", () => {
   const validate = new Ajv({ strict: false }).compile(published);
 
   it("is the one generated from the Zod source", () => {
-    expect(published).toEqual(workflowJsonSchema());
+    expect(published, "stale: run `pnpm run schema:gen`").toEqual(workflowJsonSchema());
   });
 
   it.each(examples)("accepts %s", (name) => {
