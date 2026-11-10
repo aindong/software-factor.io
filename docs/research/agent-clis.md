@@ -164,6 +164,9 @@ Checked from `codex exec --help` (0.167.0): with `-` as the prompt, or with none
 from stdin. Checked from `claude --help` (2.1.311): `--tools` sets the built-in tools that exist for the run,
 `--allowedTools` and `--disallowedTools` set which need no approval or are refused.
 
+Codex's `turn.completed.usage` also has `cache_write_input_tokens` (0 in the run above). The adapter takes it,
+like `cached_input_tokens`, to be a part of `input_tokens`. Not verified: no run here has shown it above 0.
+
 ## What we take
 
 Source: https://code.claude.com/docs/en/headless and the sections above.

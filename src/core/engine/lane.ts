@@ -17,6 +17,7 @@ import { readObject } from "../safe-read.ts";
 import type { CommandSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
 import * as store from "../store.ts";
+import { oneLine } from "../text.ts";
 import type { Workspace } from "../workspace.ts";
 import { asText, HANDOFF, handoffHelp, inputsOf, promptFor } from "./prompt.ts";
 import { recordSession } from "./session.ts";
@@ -50,14 +51,6 @@ export function halted(ctx: Ctx): { code: "interrupted" | "stopped_by_person"; r
 const REPAIR_HEAD = 1500;
 const REPAIR_TAIL = 4500;
 const LIMIT_HOLD_MS = 60 * 60_000; // shortcut: a CLI that reports its limit is held for an hour. Read its reset time when one is seen.
-
-// biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
-const UNSAFE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]+/g;
-/** Agent text on one line and bounded, for notes, logs and reports: it cannot forge a line of its own. */
-export const oneLine = (text: string, max = 500) => {
-  const flat = text.replace(UNSAFE, " ").replace(/\s+/g, " ").trim();
-  return flat.length > max ? `${flat.slice(0, max)}...` : flat;
-};
 
 export async function runLane(
   ctx: Ctx,
@@ -452,3 +445,5 @@ export async function runLane(
     if (!again) return done();
   }
 }
+
+export { oneLine };

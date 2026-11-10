@@ -27,7 +27,6 @@ export function kimiAgent(account: Account, choice: Choice): AgentAdapter {
       // shortcut: usage is not read, because what the CLI prints for it is not documented. Add it once seen.
       return {
         exitCode: out.exitCode,
-        usage: { tokens: 0, usd: 0, costReported: false },
         model: choice.model,
         error,
         // no hold on a limit: its diagnostics carry the model's own words, which could say anything
@@ -52,7 +51,7 @@ export function commandAgent(account: Account): AgentAdapter {
         pidFile: job.pidFile,
       });
       writeFileSync(join(job.hostDir, "output.log"), result.output);
-      return { exitCode: result.exitCode, usage: { tokens: 0, usd: 0, costReported: false } };
+      return { exitCode: result.exitCode };
     },
   };
 }

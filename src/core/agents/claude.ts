@@ -90,7 +90,8 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
       else handoffFromText(job, text);
       return {
         exitCode: out.exitCode,
-        usage: {
+        // a run that was cut off prints no result: what it used is then not known
+        usage: result && {
           ...usage,
           tokens,
           usd: Number(result?.total_cost_usd) || 0,

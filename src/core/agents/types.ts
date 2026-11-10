@@ -41,6 +41,7 @@ export interface Usage {
 
 export interface AgentExit {
   exitCode: number;
+  /** Left out when the agent gave no usage: its tokens and cost are then unknown, not zero. */
   usage?: Usage;
   /** The model that worked, when the CLI says it or the binding names it. */
   model?: string;

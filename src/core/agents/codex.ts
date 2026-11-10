@@ -45,15 +45,18 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
           e.type === "turn.completed" ? (e.usage as Record<string, unknown> | undefined) : undefined;
         if (used) {
           // cached input is part of the input the CLI reports, and reasoning is part of its output
+          // (that the cache-write count is part of input too is assumed: no run has shown it above 0)
           const cached = Number(used.cached_input_tokens) || 0;
-          usage.input += (Number(used.input_tokens) || 0) - cached;
+          const written = Number(used.cache_write_input_tokens) || 0;
+          usage.input += (Number(used.input_tokens) || 0) - cached - written;
           usage.cacheRead += cached;
+          usage.cacheWrite += written;
           usage.output += Number(used.output_tokens) || 0;
         }
         const item = e.type === "item.completed" ? (e.item as Event | undefined) : undefined;
         if (item?.type === "agent_message" && typeof item.text === "string") last = item.text;
       }
-      const tokens = usage.input + usage.cacheRead + usage.output;
+      const tokens = usage.input + usage.cacheRead + usage.cacheWrite + usage.output;
       // an error event can be a retry the CLI recovered from: it counts only when no turn finished after it
       const failedAt = out.events.findLastIndex((e) => e.type === "turn.failed" || e.type === "error");
       const doneAt = out.events.findLastIndex((e) => e.type === "turn.completed");
@@ -65,7 +68,8 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
       else handoffFromText(job, last);
       return {
         exitCode: out.exitCode,
-        usage: { ...usage, tokens, usd: 0, costReported: false }, // the CLI reports no cost: the host prices the tokens
+        // the CLI reports no cost: the host prices the tokens. No finished turn means no usage at all.
+        usage: doneAt < 0 ? undefined : { ...usage, tokens, usd: 0, costReported: false },
         model: choice.model, // the CLI does not print the model it used
         sessionId: typeof started?.thread_id === "string" ? started.thread_id : undefined,
         error,

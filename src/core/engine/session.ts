@@ -8,6 +8,7 @@ import { saveRunFile } from "../evidence.ts";
 import { priceOf } from "../prices.ts";
 import { readTail } from "../safe-read.ts";
 import * as store from "../store.ts";
+import { oneLine } from "../text.ts";
 import type { Ctx } from "./lane.ts";
 
 const MAX_TRANSCRIPT = Number(process.env.FACTOR_TRANSCRIPT_MAX_BYTES) || 50_000_000;
@@ -29,9 +30,17 @@ export function recordSession(
     cacheRead: used?.cacheRead ?? 0,
     cacheWrite: used?.cacheWrite ?? 0,
   };
+  // the scripted agent names its own cost, and none named is none: it runs no model
   const reported = used !== undefined && used.costReported !== false;
-  const priced = reported ? undefined : priceOf(exit.model, counts);
+  // with no usage at all there is nothing to price: the cost is unknown, not zero
+  const priced = reported || used === undefined ? undefined : priceOf(exit.model, counts);
   const usd = reported ? used.usd : (priced ?? null);
+  const limit = ws.workflow.limits.usd;
+  if (usd === null && limit !== undefined) {
+    ctx.log.push(
+      `  ${at.lane}: the cost of this session is unknown, so it is not counted against the limit of ${limit} dollars`,
+    );
+  }
 
   // the CLI's output sits in a folder the agent can reach: it is read without following a link
   let transcript: { path: string; sha256: string } | undefined;
@@ -40,13 +49,18 @@ export function recordSession(
     // a transcript over the cap keeps its end, where the result is, from the first whole line
     const whole = raw.cut ? raw.data.subarray(raw.data.indexOf(10) + 1) : raw.data;
     const mark = `${JSON.stringify({ type: "factor.cut", bytes: raw.size, kept: whole.length })}\n`;
-    transcript = saveRunFile(
-      ws,
-      run.id,
-      "sessions",
-      `${at.stem}.jsonl`,
-      raw.cut ? Buffer.concat([Buffer.from(mark), whole]) : whole,
-    );
+    try {
+      transcript = saveRunFile(
+        ws,
+        run.id,
+        "sessions",
+        `${at.stem}.jsonl`,
+        raw.cut ? Buffer.concat([Buffer.from(mark), whole]) : whole,
+      );
+    } catch {
+      // something is already where the transcript goes: the host did not put it there, and keeps none
+      ctx.log.push(`  ${at.lane}: the transcript could not be kept: a file was already in its place`);
+    }
   }
   if (bound.account) recordUsage(bound.account, tokens); // counted for the account, whatever came of the lane
   store.addEvent(db, run.id, "lane.session", {
@@ -62,8 +76,9 @@ export function recordSession(
     try: at.try,
     account: bound.account ?? null,
     agent: bound.agent,
-    model: exit.model ?? null,
-    session_id: exit.sessionId ?? null,
+    // both are the CLI's words: kept on one line, so they cannot forge a line of a report
+    model: exit.model === undefined ? null : oneLine(exit.model, 100),
+    session_id: exit.sessionId === undefined ? null : oneLine(exit.sessionId, 100),
     input_tokens: counts.input,
     output_tokens: counts.output,
     cache_read_tokens: counts.cacheRead,
