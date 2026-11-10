@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { addLane, connect, removeLane, renameLane, updateLane } from "../../src/core/floor/edit.ts";
+import {
+  addLane,
+  connect,
+  hadConditions,
+  removeLane,
+  renameLane,
+  updateLane,
+} from "../../src/core/floor/edit.ts";
 import { parseWorkflow } from "../../src/core/schema/parse.ts";
 
 type Json = Record<string, unknown>;
@@ -161,5 +168,39 @@ describe("renaming a lane whose id is not an id", () => {
       z: "make.outputs.q",
     });
     expect(lane(renamed, "make")?.on.pass).toBe("build-ui");
+  });
+});
+
+describe("what an edit leaves for the checker to say", () => {
+  it("reports a value that still names a removed lane, with its fix, and changes nothing else", () => {
+    const w = removeLane(start(), "impact");
+    const said = parseWorkflow(w).problems;
+    expect(said.length).toBeGreaterThan(0);
+    expect(said.every((p) => p.path.includes("inputs") && p.fix.length > 0)).toBe(true);
+    expect(JSON.stringify(lane(w, "review")?.inputs)).toContain("impact.outputs."); // kept: the developer decides
+  });
+
+  it("replaces the conditions of an outcome that is connected again, and says that it did", () => {
+    const before = start();
+    expect(JSON.stringify(lane(before, "review")?.on.pass)).toContain("when");
+    expect(hadConditions(before, "review", "pass")).toBe(true);
+    expect(hadConditions(before, "review", "fail")).toBe(false);
+    expect(lane(connect(before, "review", "pass", "ship"), "review")?.on.pass).toBe("ship");
+  });
+
+  it("keeps a lane placed after a lane with conditions clean under the checker", () => {
+    expect(problems(addLane(start(), { after: "review", kind: "agent" }))).toEqual([]);
+  });
+
+  it("removes the agent's settings when they are set to nothing", () => {
+    expect(lane(updateLane(start(), "build", { agent: undefined }), "build")).not.toHaveProperty("agent");
+  });
+
+  it("works on JSON that is not a workflow yet", () => {
+    expect(addLane({}, { kind: "agent" }).lanes).toHaveLength(1);
+    expect(removeLane({ lanes: "x" }, "a")).toEqual({ lanes: "x" });
+    expect(connect({ lanes: [7, { id: "a", on: {} }] }, "a", "pass", "@done").lanes).toEqual([
+      { id: "a", on: { pass: "@done" } },
+    ]);
   });
 });

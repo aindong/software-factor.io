@@ -24,8 +24,11 @@ describe("saving a workflow through the interface", () => {
     expect(answer.status).toBe(422);
     const { problems } = await jsonOf<Problems>(answer);
     expect(problems[0]).toMatchObject({ path: expect.stringContaining("lanes[0].on.pass") });
-    expect(problems[0]?.message).toBeTruthy();
-    expect(problems[0]?.fix).toBeTruthy();
+    for (const problem of problems) {
+      expect(problem.path).toBeTruthy();
+      expect(problem.message).toBeTruthy();
+      expect(problem.fix).toBeTruthy();
+    }
     expect(repo.read(path)).toBe(before);
   });
 

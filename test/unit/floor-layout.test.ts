@@ -154,3 +154,145 @@ describe("a workflow that does not pass the checker yet", () => {
       expect(drawable(doc)).toBeUndefined();
   });
 });
+
+// Shapes the shipped workflows do not hold: built here, and held to the same rules.
+const on = (pass: unknown, fail: unknown = "@stop", extra: Record<string, unknown> = {}) => ({
+  pass,
+  fail,
+  ...extra,
+});
+const lanesOf = (count: number) =>
+  Array.from({ length: count }, (_, i) => ({
+    id: `l${i}`,
+    on: on(
+      i === count - 1 ? "@done" : `l${i + 1}`,
+      i > 0 ? [{ to: "l0", maxRounds: 1 }, { to: "@stop" }] : "@stop",
+    ),
+  }));
+const shapes: [string, unknown][] = [
+  ["one lane", { lanes: [{ id: "a", on: on("@done") }] }],
+  [
+    "a lane that leads to itself, first on the line",
+    {
+      lanes: [
+        { id: "a", on: on("b", [{ to: "a", maxRounds: 1 }, { to: "@stop" }]) },
+        { id: "b", on: on("@done") },
+      ],
+    },
+  ],
+  [
+    "a lane with five ways out, one of them to itself",
+    {
+      lanes: [
+        {
+          id: "a",
+          on: on("b", [
+            { to: "a", maxRounds: 1 },
+            { to: "b", when: { ref: "task.source", in: ["x"] } },
+            { to: "c", when: { ref: "task.source", in: ["y"] } },
+            { to: "@stop" },
+          ]),
+        },
+        { id: "b", on: on("c") },
+        { id: "c", on: on("@done") },
+      ],
+    },
+  ],
+  ["twenty lanes that all loop back to the first", { lanes: lanesOf(20) }],
+  [
+    "a lane that asks a person and is sent to another lane",
+    {
+      lanes: [
+        { id: "a", on: on("b", "@stop", { needsPerson: "c" }) },
+        { id: "b", on: on("c") },
+        { id: "c", on: on("@done", "@stop", { needsPerson: "@inbox" }) },
+      ],
+    },
+  ],
+  [
+    "a pass with three conditions",
+    {
+      lanes: [
+        {
+          id: "a",
+          on: on([
+            { to: "c", when: { ref: "task.source", in: ["x"] } },
+            { to: "d", when: { ref: "task.source", in: ["y"] } },
+            { to: "@drop", when: { ref: "task.source", in: ["z"] } },
+            { to: "b" },
+          ]),
+        },
+        { id: "b", on: on("c") },
+        { id: "c", on: on("d") },
+        { id: "d", on: on("@done") },
+      ],
+    },
+  ],
+  [
+    "a pass that goes back",
+    {
+      lanes: [
+        { id: "a", on: on("b") },
+        { id: "b", on: on([{ to: "a", maxRounds: 2 }, { to: "@done" }]) },
+      ],
+    },
+  ],
+];
+
+describe.each(shapes)("the map of %s", (_name, doc) => {
+  const floor = layout(drawable(doc) as Workflow);
+  const at = new Map(floor.stations.map((s) => [s.id, s]));
+  const all = segments(floor);
+
+  it("keeps every line at 0, 45 or 90 degrees, and no stretch of no length", () => {
+    for (const { a, b } of all) {
+      const [dx, dy] = [Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])];
+      expect(dx === 0 || dy === 0 || dx === dy).toBe(true);
+      expect(dx + dy).toBeGreaterThan(0);
+    }
+  });
+
+  it("starts and ends every line inside its own stations", () => {
+    for (const line of floor.lines) {
+      const [first, last] = [line.points[0], line.points.at(-1)];
+      expect(
+        Math.abs((first?.[0] ?? 0) - (at.get(line.from)?.x ?? 0)),
+        `${line.key} leaves`,
+      ).toBeLessThanOrEqual(24);
+      expect(
+        Math.abs((last?.[0] ?? 0) - (at.get(line.to)?.x ?? 0)),
+        `${line.key} arrives`,
+      ).toBeLessThanOrEqual(24);
+    }
+  });
+
+  it("runs no two lines along the same stretch, across or up and down, unless they lead to the same station", () => {
+    for (const axis of [0, 1] as const) {
+      const other = axis === 0 ? 1 : 0;
+      const along = all.filter(({ a, b }) => a[other] === b[other] && a[axis] !== b[axis]);
+      for (const [i, s] of along.entries()) {
+        for (const t of along.slice(i + 1)) {
+          if (s.line === t.line || s.a[other] !== t.a[other]) continue;
+          if (s.line.to === t.line.to && s.line.outcome === t.line.outcome) continue;
+          const shared =
+            Math.min(Math.max(s.a[axis], s.b[axis]), Math.max(t.a[axis], t.b[axis])) -
+            Math.max(Math.min(s.a[axis], s.b[axis]), Math.min(t.a[axis], t.b[axis]));
+          expect(shared, `${s.line.key} and ${t.line.key}`).toBeLessThanOrEqual(0);
+        }
+      }
+    }
+  });
+
+  it("passes no line through a station that is not its own", () => {
+    for (const { line, a, b } of all) {
+      for (const s of floor.stations) {
+        if (s.id === line.from || s.id === line.to) continue;
+        // the distance from the station to the segment
+        const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+        const t = Math.max(0, Math.min(1, ((s.x - a[0]) * dx + (s.y - a[1]) * dy) / (dx * dx + dy * dy)));
+        const near = Math.hypot(s.x - (a[0] + t * dx), s.y - (a[1] + t * dy));
+        expect(near, `${line.key} near ${s.id}`).toBeGreaterThanOrEqual(17);
+      }
+    }
+  });
+});

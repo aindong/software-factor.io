@@ -23,9 +23,24 @@ describe("the built interface, with no network", () => {
       const text = readFileSync(file, "utf8");
       const loaded =
         text.match(
-          /(?:src|href)="https?:\/\/[^"]+"|url\(\s*["']?https?:\/\/[^)]+\)|@import\s+["']https?:/g,
+          /(?:src|href)=["'](?:https?:)?\/\/[^"']+["']|url\(\s*["']?(?:https?:)?\/\/[^)]+\)|@import\s+["'](?:https?:)?\/\//g,
         ) ?? [];
       expect(loaded, file).toEqual([]);
+    }
+  });
+
+  it("has no address in its script but the names of standards and of the format itself", () => {
+    // namespaces and schema names are identifiers, not places the page goes to, and React's error
+    // text names its own documentation: none of them is fetched
+    const known =
+      /^https?:\/\/(www\.w3\.org\/|json-schema\.org\/|softwarefactor\.io\/schema\/|react\.dev\/errors\/)/;
+    for (const file of files("dist/ui").filter((f) => f.endsWith(".js"))) {
+      const found = readFileSync(file, "utf8").match(/https?:\/\/[A-Za-z0-9][A-Za-z0-9./_-]+/g) ?? [];
+      expect(
+        found.filter((address) => !known.test(address)),
+        file,
+      ).toEqual([]);
+      expect(readFileSync(file, "utf8")).not.toMatch(/\bfetch\(\s*["'`]https?:/);
     }
   });
 
