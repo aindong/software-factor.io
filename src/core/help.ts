@@ -27,7 +27,9 @@ Usage: softwarefactor <command>
   status                   Show tasks, runs, lanes, gates and where the evidence is
   runs [run] [--diff]      Show every run with one sentence on what is happening, or one run lane by
                            lane, or what it changed
-  cost                     Show tokens and cost by lane, by task and by account
+  cost [--check]           Show tokens and cost by task, lane, account and model, the cache hit
+                           rate, the cost per landed task and the runs that cost most and did
+                           not land. --check proves it against the session records
   plugins                  Show what is built in: lane types, gate types, collectors, agents, workflows
   ui [--port N]            Open the interface in a browser: the factory floor, on this machine only
   memory list | keep <id> | drop <id>

@@ -49,21 +49,9 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
         true,
       );
 
-      const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+      const usage = codexUsage(out.events);
       let last = "";
       for (const e of out.events) {
-        const used =
-          e.type === "turn.completed" ? (e.usage as Record<string, unknown> | undefined) : undefined;
-        if (used) {
-          // cached input is part of the input the CLI reports, and reasoning is part of its output
-          // (that the cache-write count is part of input too is assumed: no run has shown it above 0)
-          const cached = count(used.cached_input_tokens);
-          const written = count(used.cache_write_input_tokens);
-          usage.input += Math.max(0, count(used.input_tokens) - cached - written);
-          usage.cacheRead += cached;
-          usage.cacheWrite += written;
-          usage.output += count(used.output_tokens);
-        }
         const item = e.type === "item.completed" ? (e.item as Event | undefined) : undefined;
         if (item?.type === "agent_message" && typeof item.text === "string") last = item.text;
       }
@@ -91,4 +79,22 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
       };
     },
   };
+}
+
+/** The four kinds of tokens, added over every turn the CLI finished. */
+export function codexUsage(events: Record<string, unknown>[]) {
+  const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  for (const e of events) {
+    const used = e.type === "turn.completed" ? (e.usage as Record<string, unknown> | undefined) : undefined;
+    if (!used) continue;
+    // cached input is part of the input the CLI reports, and reasoning is part of its output
+    // (that the cache-write count is part of input too is assumed: no run has shown it above 0)
+    const cached = count(used.cached_input_tokens);
+    const written = count(used.cache_write_input_tokens);
+    usage.input += Math.max(0, count(used.input_tokens) - cached - written);
+    usage.cacheRead += cached;
+    usage.cacheWrite += written;
+    usage.output += count(used.output_tokens);
+  }
+  return usage;
 }

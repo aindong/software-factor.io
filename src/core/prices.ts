@@ -18,6 +18,34 @@ export type Price = z.infer<typeof Price>;
 const PricesFile = z.record(z.string().min(1), Price);
 
 /**
+ * Read on 2026-11-11 from the model table of the claude-api skill (cached 2026-10-06), first-party
+ * API prices in dollars per million tokens. Writing the cache costs 1.25 times the input price
+ * and reading it a tenth, except where the skill names another price (Fable 5.1, Opus 5.5).
+ * The Claude CLI prints its own cost, so these are used only when it printed none.
+ * shortcut: a cache write is priced as one kept for 5 minutes (one kept for an hour costs 2 times the input), and Haiku 5.5 as a prompt up to 100,000 tokens. Split the rows when a session's cost is off by that.
+ */
+const claude = (input: number, output: number, cacheRead = input / 10): Price => ({
+  input,
+  output,
+  cacheRead,
+  cacheWrite: input * 1.25,
+});
+const CLAUDE: Record<string, Price> = {
+  "claude-fable-5-1": claude(10, 50, 0.25),
+  "claude-fable-5": claude(10, 50),
+  "claude-opus-5-5": claude(4, 20, 0.2),
+  "claude-opus-5": claude(5, 25),
+  "claude-opus-4-8": claude(5, 25),
+  "claude-opus-4-7": claude(5, 25),
+  "claude-opus-4-6": claude(5, 25),
+  "claude-sonnet-5-5": claude(2, 10),
+  "claude-sonnet-5": claude(2, 10),
+  "claude-sonnet-4-6": claude(3, 15),
+  "claude-haiku-5-5": claude(0.1, 0.5),
+  "claude-haiku-4-5": claude(1, 5),
+};
+
+/**
  * Read on 2026-11-10 from https://developers.openai.com/api/docs/pricing: the standard tier, in
  * dollars per million tokens, for the models the Codex CLI lists.
  * shortcut: these are the prices up to 272,000 input tokens. Past that the page lists about double. Add the long rows when a session is that large.
@@ -32,6 +60,7 @@ const LIST: Record<string, Price> = {
   "gpt-5.6-terra": { input: 2, cacheRead: 0.2, output: 12 },
   "gpt-5.6-luna": { input: 0.2, cacheRead: 0.02, output: 1.2 },
   "gpt-5.3-codex": { input: 1.75, cacheRead: 0.175, output: 14 }, // refused for a ChatGPT login on 0.167.0
+  ...CLAUDE,
 };
 
 export function readPrices(): Record<string, Price> {
@@ -58,7 +87,13 @@ export interface TokenCounts {
 export function priceOf(model: string | undefined, used: TokenCounts): number | undefined {
   // its own entry only: "constructor" is a name every object answers to
   const prices = readPrices();
-  const price = model !== undefined && Object.hasOwn(prices, model) ? prices[model] : undefined;
+  // a CLI may print a model with its context size behind it ("claude-opus-5-5[1m]"), and a Claude
+  // model with its date. The name as printed comes first, so a person's own entry is the one used.
+  const plain = model?.replace(/\[\w+\]$/, "");
+  const named = [model, plain, plain?.startsWith("claude-") ? plain.replace(/-\d{8}$/, "") : undefined].find(
+    (name) => name !== undefined && Object.hasOwn(prices, name),
+  );
+  const price = named === undefined ? undefined : prices[named];
   if (!price) return undefined;
   const perToken =
     used.input * price.input +

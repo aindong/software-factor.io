@@ -76,13 +76,7 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
 
       const result = out.events.findLast((e) => e.type === "result");
       const text = typeof result?.result === "string" ? result.result : "";
-      const used = (result?.usage ?? {}) as Record<string, unknown>;
-      const usage = {
-        input: count(used.input_tokens),
-        output: count(used.output_tokens),
-        cacheRead: count(used.cache_read_input_tokens),
-        cacheWrite: count(used.cache_creation_input_tokens),
-      };
+      const usage = claudeUsage(out.events) ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
       const tokens = usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
       // the model that did most of the work, by the CLI's own account
       const models = Object.entries(
@@ -117,5 +111,18 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
         said,
       };
     },
+  };
+}
+
+/** The four kinds of tokens in the last result the CLI printed, or nothing when it printed none. */
+export function claudeUsage(events: Record<string, unknown>[]) {
+  const result = events.findLast((e) => e.type === "result");
+  if (!result) return undefined;
+  const used = (result.usage ?? {}) as Record<string, unknown>;
+  return {
+    input: count(used.input_tokens),
+    output: count(used.output_tokens),
+    cacheRead: count(used.cache_read_input_tokens),
+    cacheWrite: count(used.cache_creation_input_tokens),
   };
 }

@@ -13,7 +13,8 @@ import {
   roleCommand,
   sessionsCommand,
 } from "./core/commands.ts";
-import { costCommand, pluginsCommand, runsCommand } from "./core/commands-view.ts";
+import { pluginsCommand, runsCommand } from "./core/commands-view.ts";
+import { costCheck, costCommand } from "./core/cost.ts";
 import { openDb } from "./core/db.ts";
 import { decide } from "./core/engine/inbox.ts";
 import { handoffPath, riskLine } from "./core/engine/report.ts";
@@ -170,6 +171,7 @@ async function main(): Promise<number> {
       effort: { type: "string" },
       port: { type: "string" },
       diff: { type: "boolean" },
+      check: { type: "boolean" },
       item: { type: "string" },
     },
   });
@@ -297,7 +299,7 @@ async function main(): Promise<number> {
     const ws = loadWorkspace(cwd);
     const db = openDb(ws.dbPath);
     try {
-      if (command === "cost") return costCommand(db, say);
+      if (command === "cost") return values.check ? costCheck(ws, db, say) : costCommand(db, say);
       return runsCommand(db, ws.root, positionals[1], values.diff === true, say);
     } finally {
       db.close();
