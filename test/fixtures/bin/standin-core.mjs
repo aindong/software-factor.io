@@ -85,6 +85,7 @@ export async function standin(kind) {
       num_turns: 3,
       duration_ms: 1200,
       total_cost_usd: 0.42,
+      modelUsage: { "claude-standin-1": { inputTokens: 100, outputTokens: 50, costUSD: 0.42 } },
       usage: {
         input_tokens: 100,
         output_tokens: 50,
