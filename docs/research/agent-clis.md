@@ -172,7 +172,7 @@ held two finished turns with running totals.
 
 ## Checked by real runs on 2026-11-10
 
-Source: the runs recorded in /Volumes/leo-exe/projects/aindong/software-factorio/.agent/evidence/2026-11-10-phase3-exit/exit-check.md,
+Source: the runs recorded in .agent/evidence/2026-11-10-phase3-exit/exit-check.md,
 and https://learn.chatgpt.com/docs/config-file/config-reference for the approval setting.
 
 Claude Code 2.1.311, started by the factory as

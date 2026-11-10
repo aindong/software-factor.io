@@ -55,7 +55,7 @@ Source: https://www.aihero.dev/cohorts/software-factories-for-real-engineers-xdy
 
 ## 5. IndyDevDan: Tiny Software Factories
 
-Sources: /Volumes/leo-exe/projects/aindong/software-factorio/.agent/sources/tiny-software-factories.md (from the two video descriptions only, transcripts not read), plus https://agenticengineer.com and https://agenticengineer.com/tactical-agentic-coding.
+Sources: .agent/sources/tiny-software-factories.md (from the two video descriptions only, transcripts not read), plus https://agenticengineer.com and https://agenticengineer.com/tactical-agentic-coding.
 
 - **From the local notes.** In the loop, near the loop, out of the loop. Proactive agents: a durable agent plus a trigger. Cron prompts: a name, a schedule, a prompt. Agent access parity: what a person can click, the agent can call. The core four: context, model, prompt, tools. Specialised sub-agents with their own model, tools, and hard time and spend budgets, every run traced. A data flywheel from every human signal. Liquid software that person and agent can reshape. The agent can change its own settings, which is risky.
 - **Stance.** "Done wrong" on purpose: ship fast with one agent, cron, a JSON config and SQLite on one box.
@@ -111,7 +111,7 @@ Sources: /Volumes/leo-exe/projects/aindong/software-factorio/.agent/sources/tiny
 - https://stripe.dev/blog/minions-stripes-one-shot-end-to-end-coding-agents-part-2
 - https://builders.ramp.com/post/why-we-built-our-background-agent
 - https://www.aihero.dev/cohorts/software-factories-for-real-engineers-xdy1m
-- /Volumes/leo-exe/projects/aindong/software-factorio/.agent/sources/tiny-software-factories.md
+- .agent/sources/tiny-software-factories.md
 - https://agenticengineer.com
 - https://agenticengineer.com/tactical-agentic-coding
 - https://factory.strongdm.ai/
