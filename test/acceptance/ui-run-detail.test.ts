@@ -109,7 +109,7 @@ describe("one run", () => {
     expect(Buffer.from(await shot.arrayBuffer()).toString("base64")).toBe(PIXEL);
     const log = await file(done, lanes[0]?.gates[0]?.output ?? "");
     expect(log.headers.get("content-type")).toMatch(/^text\/plain/);
-    expect(await log.text()).toContain("# exit 0");
+    expect(await log.text()).toMatch(/^\$ true\n# gate verify/);
     const handoff = await file(done, lanes[0]?.handoff ?? "");
     expect(handoff.headers.get("content-type")).toMatch(/^text\/plain/);
     expect(await handoff.text()).toContain("Added the feature file.");

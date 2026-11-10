@@ -1,0 +1,177 @@
+// One sentence for what a run is doing now, for the list of runs. It is made from the record
+// alone. What an agent is doing is read from the last lines of its CLI's output, in the shapes
+// Claude Code and Codex print. Those lines are the agent's words: they are cut to one line, and
+// a line that is not understood is skipped.
+import type { Parked } from "../engine/state.ts";
+import { oneLine } from "../text.ts";
+
+export interface Now {
+  status: "running" | "waiting" | "done" | "dropped" | "stopped";
+  stopCode?: string | null;
+  reason?: string | null;
+  /** The lane the run is at, by the name people see. */
+  lane?: string;
+  parked?: Parked["kind"];
+  /** What the open lane is busy with. */
+  phase?: "agent" | "gates" | "command" | "panel";
+  gatesDone?: number;
+  gatesTotal?: number;
+  members?: number;
+  /** The last part of the agent's output file. */
+  tail?: string;
+  /** The run is marked as moving, but the process that moved it is not there. */
+  gone?: boolean;
+}
+
+const MAX = 160;
+const MAX_LINE = 1_000_000;
+
+/** One line of at most `max` characters, never cut inside a character. */
+function clip(text: string, max: number): string {
+  const flat = oneLine(text, Number.MAX_SAFE_INTEGER);
+  if (flat.length <= max) return flat;
+  let cut = flat.slice(0, max - 3);
+  const last = cut.charCodeAt(cut.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) cut = cut.slice(0, -1); // half of a pair
+  return `${cut}...`;
+}
+
+const FACTOR: Record<string, string> = {
+  memory_read: "reading what the project remembers",
+  memory_note: "leaving a note for later lanes",
+  handoff_write: "handing off",
+  ask_question: "asking a person",
+  evidence_attach: "attaching evidence",
+};
+type Loose = Record<string, unknown>;
+const object = (v: unknown): Loose | undefined =>
+  typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Loose) : undefined;
+const text = (v: unknown) => (typeof v === "string" && v !== "" ? v : undefined);
+const command = (given: unknown) => {
+  const whole = text(given);
+  if (!whole) return undefined;
+  // Codex wraps every command in a login shell
+  const inner = /^\S*(?:zsh|bash|sh) -lc (['"])([\s\S]*)\1$/.exec(whole)?.[2] ?? whole;
+  return `running \`${clip(inner.split("\n")[0] ?? "", 80)}\``;
+};
+const file = (given: unknown) => {
+  const path = text(given);
+  return path ? clip(oneLine(path, Number.MAX_SAFE_INTEGER).split("/").slice(-2).join("/"), 80) : undefined;
+};
+
+/** What one tool call is, in words. Nothing when the call has not what it takes to say. */
+function claudeTool(name: string, input: Loose): string | undefined {
+  if (name === "Bash") return command(input.command);
+  if (name === "Read") return file(input.file_path) && `reading ${file(input.file_path)}`;
+  if (name === "Write" || name === "Edit" || name === "NotebookEdit") {
+    const path = file(input.file_path ?? input.notebook_path);
+    return path && `writing ${path}`;
+  }
+  if (name === "Grep") return text(input.pattern) && `searching for "${clip(text(input.pattern) ?? "", 60)}"`;
+  if (name === "Glob")
+    return text(input.pattern) && `looking for files like "${clip(text(input.pattern) ?? "", 60)}"`;
+  return FACTOR[name.replace(/^mcp__factor__/, "")] && name.startsWith("mcp__factor__")
+    ? FACTOR[name.slice("mcp__factor__".length)]
+    : `using ${clip(name, 40)}`;
+}
+
+function lineSays(line: string): string | undefined {
+  if (line.length > MAX_LINE) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    return undefined; // cut in the middle, or not JSON
+  }
+  const event = object(parsed);
+  if (!event) return undefined;
+  if (event.type === "assistant") {
+    // Claude Code: the last tool the message uses. Talk is passed over.
+    const content = object(event.message)?.content;
+    for (const part of Array.isArray(content) ? [...content].reverse() : []) {
+      const use = object(part);
+      const name = use?.type === "tool_use" ? text(use.name) : undefined;
+      const said = name ? claudeTool(name, object(use?.input) ?? {}) : undefined;
+      if (said) return said;
+    }
+    return undefined;
+  }
+  if (event.type === "item.started" || event.type === "item.completed") {
+    const item = object(event.item);
+    if (item?.type === "command_execution") return command(item.command);
+    if (item?.type === "file_change") return "changing files";
+    if (item?.type === "mcp_tool_call") {
+      return (item.server === "factor" && FACTOR[text(item.tool) ?? ""]) || "using a tool";
+    }
+  }
+  return undefined;
+}
+
+/** The latest thing the agent did, from the tail of its output. Nothing when nothing there is understood. */
+export function activityOf(tail: string): string | undefined {
+  const lines = tail.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const said = lineSays(lines[i] ?? "");
+    if (said) return said;
+  }
+  return undefined;
+}
+
+// why a run stopped, when the record gives no reason of its own
+const STOPPED: Record<string, string> = {
+  lane_failed: "a lane failed",
+  rejected: "a person rejected the work",
+  out_of_rounds: "a loop ran out of rounds",
+  no_progress: "a round brought no new work",
+  budget_minutes: "out of its time budget",
+  budget_tokens: "out of its token budget",
+  budget_usd: "out of its cost budget",
+  gate_stop: "a gate said stop",
+  git_config_changed: "git's configuration changed during the run",
+  interrupted: "the factory was interrupted",
+  crashed: "the process that ran it ended without a word",
+};
+const WAITS: Record<Parked["kind"], string> = {
+  "approve-before": "waits for your approval before it runs",
+  "approve-after": "has finished and waits for your approval",
+  answer: "asked a question and waits for your answer",
+  wait: "waits for its condition and looks again by itself",
+  account: "waits for its account's limit to lift",
+};
+const ended = (sentence: string) => (/[.!?]$/.test(sentence) ? sentence : `${sentence}.`);
+
+function words(now: Now): string {
+  const lane = now.lane ? clip(now.lane, 60) : undefined;
+  const reason = now.reason ? oneLine(now.reason, Number.MAX_SAFE_INTEGER) : "";
+  if (now.status === "done") return "Done.";
+  if (now.status === "dropped") return reason ? `Dropped: ${reason}` : "Dropped.";
+  if (now.status === "stopped") {
+    if (now.stopCode === "stopped_by_person") return "Stopped by a person.";
+    const why = reason || STOPPED[now.stopCode ?? ""];
+    return why ? `Stopped: ${why}` : now.stopCode ? `Stopped (${clip(now.stopCode, 40)}).` : "Stopped.";
+  }
+  if (now.status === "waiting") {
+    if (!lane) return "Waiting.";
+    return `${lane} ${now.parked ? WAITS[now.parked] : "waits"}.`;
+  }
+  if (now.gone) {
+    const gone = "its process is gone. The next `softwarefactor run` takes the run up again or ends it.";
+    return lane ? `${lane}: ${gone}` : `I${gone.slice(1)}`;
+  }
+  if (!lane) return "Starting.";
+  if (now.phase === "command") return `${lane}: its command is running.`;
+  if (now.phase === "panel") {
+    const n = now.members ?? 0;
+    return `${lane}: ${n} ${n === 1 ? "reviewer is" : "reviewers are"} at work.`;
+  }
+  if (now.phase === "gates") {
+    return (now.gatesTotal ?? 0) > 0
+      ? `${lane}: the agent has finished and its gates are running (${now.gatesDone ?? 0} of ${now.gatesTotal} done).`
+      : `${lane}: the agent has finished and the host is checking its work.`;
+  }
+  if (now.phase === "agent") return `${lane}: the agent is ${activityOf(now.tail ?? "") ?? "working"}.`;
+  return `${lane}: working.`;
+}
+
+/** One line of at most 160 characters that says where the run is and what is happening. */
+export const sentenceOf = (now: Now): string => clip(ended(words(now)), MAX);

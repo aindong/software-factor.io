@@ -1,0 +1,395 @@
+// The runs as the interface shows them: the list, and one run with everything behind it. Read
+// from the record and from the run's folder, changing nothing. What the record holds is not
+// trusted to be whole: a state that does not parse or a workflow that is gone still gives a row.
+import { execFileSync } from "node:child_process";
+import { lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import type { Db } from "../db.ts";
+import { isAlive } from "../engine/recover.ts";
+import type { RunState } from "../engine/state.ts";
+import { hostEnv } from "../exec.ts";
+import { drawable } from "../floor/layout.ts";
+import { readTail } from "../safe-read.ts";
+import type { GateRecord, InboxItem, Outcome, Run, Session } from "../store.ts";
+import { type Now, sentenceOf } from "./sentence.ts";
+import { kindOf } from "./track.ts";
+
+const MOST = 50;
+const TAIL = 64_000;
+const MAX_FILE = 50_000_000;
+const MAX_DIFF = 1_000_000;
+const NAME = /^[a-z][a-z0-9-]*$/;
+const COMMIT = /^[0-9a-f]{7,64}$/;
+
+export interface RunRow {
+  id: string;
+  task: string;
+  workflow: string;
+  status: Run["status"];
+  stopCode: string | null;
+  reason: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  visits: { lane: string; outcome: Outcome | null }[];
+  /** The lane the run is at: working in it, waiting at it, or stopped in it. Nothing when it is done. */
+  at: string | null;
+  sentence: string;
+  tokens: number;
+  usd: number;
+  /** A session of the run has no known cost: `usd` is then less than the whole. */
+  usdUnknown: boolean;
+}
+interface Evidence {
+  ref: string;
+  ok: boolean;
+  path?: string;
+}
+export interface RunDetail extends RunRow {
+  branch: string;
+  lanes: {
+    id: number;
+    lane: string;
+    outcome: Outcome | null;
+    note: string | null;
+    tokens: number;
+    usd: number;
+    durationMs: number;
+    startedAt: string;
+    endedAt: string | null;
+    gates: {
+      gate: string;
+      status: string;
+      command: string | null;
+      exitCode: number | null;
+      durationMs: number;
+      attempt: number;
+      output: string;
+    }[];
+    claims: { text: string; evidence: Evidence[] }[];
+    sessions: {
+      agent: string;
+      account: string | null;
+      model: string | null;
+      tokens: number;
+      usd: number | null;
+      usdSource: string;
+      transcript: string | null;
+    }[];
+    handoff: string | null;
+  }[];
+  inbox: { id: number; lane: string; kind: string; body: string }[];
+  files: { path: string; name: string; size: number; visit: number }[];
+}
+
+type Row = Run & { title: string | null; started_at: string; ended_at: string | null };
+type LaneRow = {
+  id: number;
+  lane: string;
+  outcome: Outcome | null;
+  note: string | null;
+  handoff_path: string | null;
+  started_at: string;
+  ended_at: string | null;
+  tokens: number;
+  usd: number;
+  duration_ms: number;
+};
+type LaneDef = { id: string; name?: string; uses?: string; gates?: string[]; panel?: unknown };
+
+const all = <T>(db: Db, sql: string, ...args: (string | number)[]) =>
+  db.prepare(sql).all(...args) as unknown as T[];
+const parsed = <T>(text: string | null, otherwise: T): T => {
+  try {
+    const value: unknown = JSON.parse(text ?? "");
+    return typeof value === "object" && value !== null ? (value as T) : otherwise;
+  } catch {
+    return otherwise;
+  }
+};
+
+/** Reads each workflow's lanes once, as far as they can be read. */
+function laneReader(root: string): (workflow: string) => LaneDef[] {
+  const known = new Map<string, LaneDef[]>();
+  return (workflow) => {
+    let lanes = known.get(workflow);
+    if (!lanes) {
+      lanes = [];
+      try {
+        const file = join(root, ".factor", "workflows", `${workflow}.json`);
+        if (NAME.test(workflow))
+          lanes = (drawable(JSON.parse(readFileSync(file, "utf8")))?.lanes ?? []) as LaneDef[];
+      } catch {
+        // the workflow is gone or broken: lanes go by their ids
+      }
+      known.set(workflow, lanes);
+    }
+    return lanes;
+  };
+}
+
+function rowOf(db: Db, run: Row, lanesOf: (workflow: string) => LaneDef[]): RunRow {
+  const visits = all<LaneRow>(db, "select * from lane_runs where run_id = ? order by seq, id", run.id);
+  const state = parsed<Partial<RunState>>(run.state, {});
+  const open = visits.findLast((v) => v.ended_at === null);
+  const at =
+    run.status === "running"
+      ? (open?.lane ?? state.next ?? null)
+      : run.status === "waiting"
+        ? (state.parked?.lane ?? state.next ?? null)
+        : run.status === "stopped"
+          ? (visits.at(-1)?.lane ?? null)
+          : null;
+  const def = lanesOf(run.workflow).find((l) => l.id === at);
+  const now: Now = {
+    status: run.status,
+    stopCode: run.stop_code,
+    reason: run.stop_reason,
+    lane: at ? (def?.name ?? at) : undefined,
+    parked: state.parked?.kind,
+  };
+  if (run.status === "running") {
+    now.gone = run.pid !== process.pid && !isAlive(run.pid);
+    const members = (def?.panel as { members?: unknown[] } | undefined)?.members;
+    if (def?.uses?.startsWith("core/command")) now.phase = "command";
+    else if (Array.isArray(members)) Object.assign(now, { phase: "panel", members: members.length });
+    else if (open && !now.gone) {
+      // the last word on this run's agents: one was started, or one has ended
+      const last = db
+        .prepare(
+          "select kind, data from events where run_id = ? and kind in ('lane.agent', 'lane.session') order by id desc limit 1",
+        )
+        .get(run.id) as { kind: string; data: string } | undefined;
+      if (last?.kind === "lane.session") {
+        const done = db
+          .prepare(
+            "select count(*) as n from gate_results where lane_run_id = ? and attempt = (select max(attempt) from gate_results where lane_run_id = ?)",
+          )
+          .get(open.id, open.id) as { n: number };
+        Object.assign(now, { phase: "gates", gatesDone: done.n, gatesTotal: def?.gates?.length ?? 0 });
+      } else {
+        now.phase = "agent";
+        const handoff = parsed<{ handoffPath?: unknown }>(last?.data ?? null, {}).handoffPath;
+        if (typeof handoff === "string") {
+          // the CLI's raw output is in the host's folder beside the lane's: read, never followed
+          const stream = join(`${dirname(handoff)}.host`, "stream.jsonl");
+          now.tail = readTail(stream, TAIL)?.data.toString("utf8");
+        }
+      }
+    }
+  }
+  const unknown = db
+    .prepare("select count(*) as n from sessions where run_id = ? and usd is null")
+    .get(run.id) as { n: number };
+  return {
+    id: run.id,
+    task: run.title ?? "",
+    workflow: run.workflow,
+    status: run.status,
+    stopCode: run.stop_code,
+    reason: run.stop_reason,
+    startedAt: run.started_at,
+    endedAt: run.ended_at,
+    visits: visits.map((v) => ({ lane: v.lane, outcome: v.outcome })),
+    at,
+    sentence: sentenceOf(now),
+    tokens: visits.reduce((sum, v) => sum + v.tokens, 0),
+    usd: Math.round(visits.reduce((sum, v) => sum + v.usd, 0) * 1e6) / 1e6,
+    usdUnknown: unknown.n > 0,
+  };
+}
+
+const RUNS = "select runs.*, tasks.title from runs left join tasks on tasks.id = runs.task_id";
+
+/** Every run that is moving or waiting, and the latest ended ones up to 50 in all, the newest first. */
+export function listRuns(db: Db, root: string): RunRow[] {
+  const active = all<Row>(db, `${RUNS} where runs.status in ('running', 'waiting')`);
+  const ended = all<Row>(
+    db,
+    `${RUNS} where runs.status not in ('running', 'waiting') order by runs.started_at desc, runs.rowid desc limit ?`,
+    Math.max(0, MOST - active.length),
+  );
+  const lanesOf = laneReader(root);
+  return [...active, ...ended]
+    .sort((a, b) => (a.started_at < b.started_at ? 1 : a.started_at > b.started_at ? -1 : 0))
+    .map((run) => rowOf(db, run, lanesOf));
+}
+
+const runFolder = (root: string, id: string) => join(root, ".factor", "runs", id);
+
+/** The run's own evidence files: plain files with one name, in a folder that is no link. */
+function evidenceFiles(root: string, id: string): { path: string; file: string; size: number }[] {
+  const dir = join(runFolder(root, id), "evidence");
+  try {
+    if (realpathSync(dir) !== join(realpathSync(root), ".factor", "runs", id, "evidence")) return [];
+    return readdirSync(dir)
+      .sort()
+      .flatMap((file) => {
+        const stat = lstatSync(join(dir, file));
+        return stat.isFile() && stat.nlink === 1
+          ? [{ path: relative(root, join(dir, file)), file, size: stat.size }]
+          : [];
+      });
+  } catch {
+    return []; // no evidence yet
+  }
+}
+
+export function runDetail(db: Db, root: string, id: string): RunDetail | undefined {
+  const run = db.prepare(`${RUNS} where runs.id = ?`).get(id) as Row | undefined;
+  if (!run) return undefined;
+  const named = new Map<string, { name: string; visit: number }>();
+  const lanes = all<LaneRow>(db, "select * from lane_runs where run_id = ? order by seq, id", id).map((l) => {
+    const gates = all<GateRecord>(db, "select * from gate_results where lane_run_id = ? order by id", l.id);
+    const claims = all<{ text: string; evidence: string }>(
+      db,
+      "select text, evidence from claims where lane_run_id = ? order by id",
+      l.id,
+    ).map((c) => ({ text: c.text, evidence: parsed<Evidence[]>(c.evidence, []) }));
+    for (const g of gates) named.set(g.output_path, { name: basename(g.output_path), visit: l.id });
+    for (const e of claims.flatMap((c) => c.evidence)) {
+      if (e.path && e.ref?.startsWith("attached:")) named.set(e.path, { name: e.ref.slice(9), visit: l.id });
+    }
+    return {
+      id: l.id,
+      lane: l.lane,
+      outcome: l.outcome,
+      note: l.note,
+      tokens: l.tokens,
+      usd: l.usd,
+      durationMs: l.duration_ms,
+      startedAt: l.started_at,
+      endedAt: l.ended_at,
+      gates: gates.map((g) => ({
+        gate: g.gate,
+        status: g.status,
+        command: g.command,
+        exitCode: g.exit_code,
+        durationMs: g.duration_ms,
+        attempt: g.attempt,
+        output: g.output_path,
+      })),
+      claims,
+      sessions: all<Session>(db, "select * from sessions where lane_run_id = ? order by id", l.id).map(
+        (s) => ({
+          agent: s.agent,
+          account: s.account,
+          model: s.model,
+          tokens: s.tokens,
+          usd: s.usd,
+          usdSource: s.usd_source,
+          transcript: s.transcript_path,
+        }),
+      ),
+      handoff: l.handoff_path,
+    };
+  });
+  return {
+    ...rowOf(db, run, laneReader(root)),
+    branch: run.branch,
+    lanes,
+    inbox: all<InboxItem>(db, "select * from inbox where run_id = ? and status = 'open' order by id", id).map(
+      (i) => ({ id: i.id, lane: i.lane, kind: i.kind, body: i.body }),
+    ),
+    files: evidenceFiles(root, id).map((f) => ({
+      path: f.path,
+      name: named.get(f.path)?.name ?? f.file,
+      size: f.size,
+      visit: named.get(f.path)?.visit ?? 0,
+    })),
+  };
+}
+
+const TYPES: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  avif: "image/avif",
+  webm: "video/webm",
+  mp4: "video/mp4",
+  mov: "video/quicktime",
+};
+
+/**
+ * A file of a run, by its path from the workspace's root, as the record gives it. Only a plain
+ * file with one name inside that run's own folder, with no link on the way. An image or a video
+ * has its own type. Everything else is plain text or a download: never a page.
+ */
+export function runFile(
+  db: Db,
+  root: string,
+  id: string,
+  path: string,
+): { data: Buffer; type: string; download?: string } | undefined {
+  if (!path || !db.prepare("select 1 from runs where id = ?").get(id)) return undefined;
+  const base = runFolder(root, id);
+  const file = resolve(root, path);
+  if (!file.startsWith(`${base}${sep}`)) return undefined;
+  try {
+    const within = relative(base, dirname(file));
+    if (realpathSync(dirname(file)) !== join(realpathSync(root), ".factor", "runs", id, within))
+      return undefined;
+  } catch {
+    return undefined; // the folder is not there
+  }
+  const read = readTail(file, MAX_FILE);
+  if (!read) return undefined;
+  const kind = kindOf(basename(file));
+  const ext = /\.([A-Za-z0-9]+)$/.exec(file)?.[1]?.toLowerCase() ?? "";
+  if (kind === "image" || kind === "recording") {
+    return { data: read.data, type: TYPES[ext] ?? "application/octet-stream" };
+  }
+  if (kind === "text") return { data: read.data, type: "text/plain; charset=utf-8" };
+  return {
+    data: read.data,
+    type: "application/octet-stream",
+    download: basename(file).replace(/[^A-Za-z0-9._-]/g, "_"),
+  };
+}
+
+/** What the run changed, from its base commit to its head, as a diff. A note says why when there is none. */
+export function runDiff(
+  db: Db,
+  root: string,
+  id: string,
+): { diff: string; cut: boolean; note?: string } | undefined {
+  const run = db.prepare("select base_commit, head_commit from runs where id = ?").get(id) as
+    | { base_commit: string; head_commit: string | null }
+    | undefined;
+  if (!run) return undefined;
+  const none = (note: string) => ({ diff: "", cut: false, note });
+  if (!run.head_commit) return none("This run has made no commit yet.");
+  // only a commit's id is ever handed to git: never a word that could be an option
+  if (!COMMIT.test(run.base_commit) || !COMMIT.test(run.head_commit)) {
+    return none("The record of this run holds no commit to compare.");
+  }
+  try {
+    const diff = execFileSync(
+      "git",
+      [
+        "-c",
+        "core.hooksPath=/dev/null",
+        "-c",
+        "core.fsmonitor=false",
+        "diff",
+        "--no-color",
+        "--no-ext-diff",
+        "--no-textconv",
+        run.base_commit,
+        run.head_commit,
+        "--",
+      ],
+      {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        env: hostEnv(),
+        maxBuffer: 64_000_000,
+      },
+    );
+    return { diff: diff.slice(0, MAX_DIFF), cut: diff.length > MAX_DIFF };
+  } catch {
+    return none("The run's commits are no longer in this repository.");
+  }
+}

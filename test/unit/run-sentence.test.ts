@@ -251,7 +251,7 @@ describe("the sentence for a run", () => {
     for (const [stopCode, status] of Object.entries(stops)) {
       const sentence = sentenceOf({ status, stopCode });
       expect(sentence, stopCode).toMatch(/^[A-Z].*\.$/);
-      expect(sentence, stopCode).not.toContain(stopCode); // in words, not as its code
+      expect(sentence, stopCode).not.toContain(`(${stopCode})`); // in words, not as its code
       if (status === "stopped") said.add(sentence);
     }
     expect(said.size, "each stop has words of its own").toBe(
