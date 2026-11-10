@@ -1,6 +1,6 @@
 // Runs one lane: an agent (with retries after a crash and repairs after a failed gate) or a host
 // command, then the lane's gates. Only the host's gates can pass a lane (ADR 0005).
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fakeAgent } from "../agents/fake.ts";
 import { MINUTE_MS } from "../clock.ts";
@@ -11,6 +11,7 @@ import { Checkouts, SetupFailed } from "../gates/checkout.ts";
 import { resolveCommand } from "../gates/command.ts";
 import { runGate } from "../gates/index.ts";
 import { branchTip, gitConfigFingerprint, headOf } from "../git.ts";
+import { checkHandoff, combineRisk, type Handoff, outputProblems, type RunRisk } from "../handoff.ts";
 import type { CommandSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
 import * as store from "../store.ts";
@@ -42,6 +43,7 @@ export function halted(ctx: Ctx): { code: "interrupted" | "stopped_by_person"; r
 }
 
 const MAX_FILE_BYTES = 1_000_000;
+const HANDOFF = "hand-off"; // a rejected hand-off goes back to the agent like a failed repair gate
 const REPAIR_HEAD = 1500;
 const REPAIR_TAIL = 4500;
 
@@ -59,6 +61,14 @@ function readObject(path: string): { text: string; value: Record<string, unknown
   }
 }
 
+// biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
+const UNSAFE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]+/g;
+/** Agent text on one line and bounded, for notes, logs and reports: it cannot forge a line of its own. */
+export const oneLine = (text: string, max = 500) => {
+  const flat = text.replace(UNSAFE, " ").replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max)}...` : flat;
+};
+
 const asText = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v ?? ""));
 
 /** The values a lane declared as inputs, read from what earlier lanes left. */
@@ -74,7 +84,33 @@ function promptFor(ctx: Ctx, lane: Lane, notes: string[], repair?: { gate: strin
   const inputs = Object.entries(inputsOf(ctx, lane));
   if (inputs.length > 0) parts.push(`# Inputs\n\n${inputs.map(([k, v]) => `${k}: ${v}`).join("\n")}`);
   if (notes.length > 0) parts.push(`# Why you are here again\n\n${notes.map((n) => `- ${n}`).join("\n")}`);
-  if (repair) {
+  const last = ctx.state.last;
+  if (last && last.lane !== lane.id) {
+    // Another agent wrote this. It is quoted line by line, so it cannot pass for the host or the person.
+    const body = [
+      last.summary,
+      ...(last.open.length > 0 ? ["", "Still open:", ...last.open.map((o) => `- ${o}`)] : []),
+      ...(last.claims.length > 0
+        ? [
+            "",
+            "It claims (the host checked that this evidence exists, not that it proves the claim):",
+            ...last.claims.map((c) => `- ${c}`),
+          ]
+        : []),
+    ];
+    parts.push(
+      `# Hand-off from the lane "${last.lane}" (written by that lane's agent, not by the host or a person)\n\n${body
+        .join("\n")
+        .split("\n")
+        .map((l) => `> ${l}`)
+        .join("\n")}`,
+    );
+  }
+  if (repair?.gate === HANDOFF) {
+    parts.push(
+      `# Your hand-off was rejected\n\nThe host checks every hand-off before using it. Fix this and hand off again.\n\n${repair.output}`,
+    );
+  } else if (repair) {
     parts.push(
       `# The gate "${repair.gate}" failed on your work\n\nFix what it reports, commit, and hand off again.\n\n${repair.output}`,
     );
@@ -141,6 +177,7 @@ export async function runLane(
       const command = resolveCommand(ws, (lane.with ?? {}) as CommandSettings, `Lane "${lane.id}"`);
       const tipBefore = branchTip(ws.root, run.branch);
       const outputsFile = join(ctx.outDir, `${tag}.outputs.json`);
+      rmSync(outputsFile, { force: true }); // an earlier lane may have left a file here in this lane's name
       const minutes = (lane.with as CommandSettings).timeoutMinutes ?? 10;
       const result = await sh(command, {
         cwd: run.worktree,
@@ -154,6 +191,11 @@ export async function runLane(
           result.timedOut ? `out of time after ${minutes} minutes` : `command exited ${result.exitCode}`,
         );
       outputs = readObject(outputsFile)?.value ?? {};
+      const wrong = outputProblems(lane, outputs);
+      if (wrong.length > 0) {
+        outputs = {};
+        failWith(oneLine(`the command's outputs were rejected: ${wrong.join(" ")}`));
+      }
       if ((lane.gates ?? []).length === 0 && branchTip(ws.root, run.branch) !== tipBefore) {
         failWith("its command committed to the run's branch, and the lane has no gate to check that commit");
       }
@@ -161,7 +203,14 @@ export async function runLane(
       agentStarts += 1;
       const entry = state.entries[lane.id] ?? 0;
       state.entries[lane.id] = entry + 1;
-      const agentHandoff = join(ctx.outDir, `${tag}${nth(agentStarts)}.json`);
+      // each start of an agent gets a fresh folder of its own for its hand-off and evidence, so
+      // nothing an earlier lane left there can be taken for this lane's
+      const laneDir = join(ctx.outDir, `${tag}${nth(agentStarts)}`);
+      rmSync(laneDir, { recursive: true, force: true });
+      const evidenceDir = join(laneDir, "evidence");
+      mkdirSync(evidenceDir, { recursive: true });
+      const agentHandoff = join(laneDir, "handoff.json");
+      db.prepare("delete from claims where lane_run_id = ?").run(laneRun); // an earlier attempt's claims are replaced
       const prompt = promptFor(ctx, lane, notes, repair);
       saveRunFile(ws, run.id, "prompts", `${tag}${nth(agentStarts)}.md`, prompt);
       store.addEvent(db, run.id, "lane.agent", { lane: lane.id, handoffPath: agentHandoff });
@@ -182,6 +231,7 @@ export async function runLane(
           cwd: run.worktree,
           prompt,
           handoffPath: agentHandoff,
+          evidenceDir,
           entry,
           signal: limit.signal,
         })
@@ -214,23 +264,71 @@ export async function runLane(
         crashes += 1; // a crash, not a round: start the agent again
         continue;
       }
+      let said: Handoff | undefined;
       if (handoff) {
+        const stem = `${tag}${nth(agentStarts)}`;
         // the host keeps its own copy: the record never points at a file an agent can rewrite
-        handoffPath = saveRunFile(
-          ws,
-          run.id,
-          "handoffs",
-          `${tag}${nth(agentStarts)}.json`,
-          handoff.text,
-        ).path;
-        outputs = (handoff.value.outputs as Record<string, unknown> | undefined) ?? {};
+        handoffPath = saveRunFile(ws, run.id, "handoffs", `${stem}.json`, handoff.text).path;
+        // nothing in a hand-off is used until the host has checked it (ADR 0006)
+        const checked = checkHandoff(
+          {
+            ws,
+            runId: run.id,
+            tag: stem,
+            base: run.base_commit,
+            head: branchTip(ws.root, run.branch),
+            gates: state.gates,
+            evidenceDir,
+          },
+          lane,
+          handoff.value,
+        );
+        if (checked.handoff) {
+          said = checked.handoff;
+          outputs = said.outputs ?? {};
+          for (const claim of checked.claims) store.addClaim(db, run.id, laneRun, claim.text, claim.evidence);
+          state.last = {
+            lane: lane.id,
+            summary: said.summary,
+            open: said.open ?? [],
+            claims: checked.claims.map((c) => `${c.text} (${c.evidence.map((e) => e.ref).join(", ")})`),
+          };
+          state.open = [
+            ...(state.open ?? []).filter((o) => o.lane !== lane.id),
+            ...(said.open ?? []).map((text) => ({ lane: lane.id, text })),
+          ];
+          // a one-way lane or a sensitive change is at least medium, even when the lane stated no risk
+          const tier = ctx.facts().tier;
+          const stated =
+            said.risk ??
+            (lane.oneWay || tier === "sensitive"
+              ? { level: "low" as const, door: "two-way" as const, why: "No lane stated a risk." }
+              : undefined);
+          if (stated) {
+            state.risk = combineRisk(state.risk as RunRisk | undefined, stated, {
+              tier,
+              oneWayLane: lane.oneWay === true,
+            });
+            store.setRunRisk(db, run.id, state.risk);
+          }
+        } else {
+          const why = checked.problems.join("\n");
+          if (exit.exitCode === 0 && repairs < (lane.limits?.repairRounds ?? 0)) {
+            repairs += 1;
+            repair = { gate: HANDOFF, output: why };
+            continue;
+          }
+          failWith(oneLine(`the hand-off was rejected: ${checked.problems.join(" ")}`));
+          if (state.last?.lane === lane.id) state.last = undefined;
+          state.open = (state.open ?? []).filter((o) => o.lane !== lane.id);
+        }
       }
-      const said = handoff?.value;
       if (exit.exitCode !== 0) failWith(`the agent exited ${exit.exitCode}`);
-      else if (!said) failWith("the agent left no hand-off");
-      else if (said.outcome === "needsPerson") [outcome, note] = ["needsPerson", String(said.summary ?? "")];
-      else if (said.outcome !== "pass") failWith(String(said.summary ?? "the agent reported failure"));
-      else note = String(said.summary ?? "");
+      else if (!handoff) failWith("the agent left no hand-off");
+      else if (!said) failWith("the hand-off was rejected");
+      else if (said.outcome === "needsPerson") [outcome, note] = ["needsPerson", oneLine(said.summary)];
+      else if (said.outcome !== "pass") failWith(oneLine(said.summary));
+      else note = oneLine(said.summary);
     }
     {
       const halt = halted(ctx);

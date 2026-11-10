@@ -45,6 +45,9 @@ export const FakeAction = z.union([
   z.strictObject({ delete: z.string().min(1) }),
   z.strictObject({ commit: z.string().min(1) }),
   z.strictObject({ handoff: z.record(z.string(), z.unknown()) }),
+  z.strictObject({ attach: z.strictObject({ name: z.string().min(1), content: z.string() }) }).meta({
+    description: "Leave a file in the evidence folder, for a claim to point at.",
+  }),
   z.strictObject({ exit: z.number().int() }),
   z
     .strictObject({ sleep: z.number().int().positive() })

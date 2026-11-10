@@ -14,6 +14,7 @@ import type { Lane } from "../schema/workflow.ts";
 import * as store from "../store.ts";
 import type { Workspace } from "../workspace.ts";
 import { type Ctx, halted, runLane } from "./lane.ts";
+import { writeRunHandoff } from "./report.ts";
 import { slotEnv } from "./slots.ts";
 import { addNote, type Parked, type RunState, type StopCode } from "./state.ts";
 import { tierOf } from "./tier.ts";
@@ -78,7 +79,12 @@ export function finish(
   wakeAt: string | null = null,
 ): RunSummary {
   const { ws, db, run, state } = ctx;
-  store.saveState(db, run.id, state);
+  try {
+    store.saveState(db, run.id, state);
+  } catch {
+    // a state that cannot be written must not leave the run "running": save it without lane values
+    store.saveState(db, run.id, { ...state, outputs: {} });
+  }
   store.endRun(db, run.id, status, code, reason, wakeAt);
   store.releaseSlot(db, run.id); // a run that is not moving holds no slot
   store.setTaskStatus(db, ctx.task.id, status === "running" ? "running" : status);
@@ -88,6 +94,8 @@ export function finish(
     rmSync(ctx.outDir, { recursive: true, force: true });
   }
   ctx.log.push(`run ${run.id} ${status}: ${reason}`);
+  if (status !== "running")
+    ctx.log.push(`  hand-off: ${writeRunHandoff(ws, db, run, ctx.task, state, status, code, reason)}`);
   return { status, runId: run.id, code, reason, log: ctx.log };
 }
 

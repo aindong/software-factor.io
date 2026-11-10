@@ -30,6 +30,8 @@ export interface Run {
   slot: number | null;
   /** The process that is moving the run, when one is. */
   pid: number | null;
+  /** The run's risk as JSON, or null when no lane stated one. */
+  risk: string | null;
   /** The run's position and counters, as JSON (engine/state.ts). */
   state: string;
 }
@@ -241,6 +243,19 @@ export function addGateResult(db: Db, runId: string, laneRunId: number, g: GateR
     g.attempt,
     now(),
   );
+}
+
+export function addClaim(db: Db, runId: string, laneRunId: number, text: string, evidence: unknown): void {
+  db.prepare("insert into claims (run_id, lane_run_id, text, evidence) values (?, ?, ?, ?)").run(
+    runId,
+    laneRunId,
+    text,
+    JSON.stringify(evidence),
+  );
+}
+
+export function setRunRisk(db: Db, id: string, risk: unknown): void {
+  db.prepare("update runs set risk = ? where id = ?").run(JSON.stringify(risk), id);
 }
 
 export function addInbox(

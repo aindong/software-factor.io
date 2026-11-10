@@ -94,6 +94,17 @@ const MIGRATIONS = [
   alter table runs add column slot integer;
   alter table runs add column stop_requested integer not null default 0;
   `,
+  // what each lane claimed, with the evidence the host found for it, and the run's risk
+  `
+  create table claims (
+    id integer primary key,
+    run_id text not null references runs(id),
+    lane_run_id integer not null references lane_runs(id),
+    text text not null,
+    evidence text not null
+  );
+  alter table runs add column risk text;
+  `,
 ];
 
 export type Db = DatabaseSync;

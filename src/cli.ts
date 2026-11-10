@@ -6,6 +6,7 @@ import { join, relative } from "node:path";
 import { parseArgs } from "node:util";
 import { openDb } from "./core/db.ts";
 import { decide } from "./core/engine/inbox.ts";
+import { handoffPath, riskLine } from "./core/engine/report.ts";
 import { collect } from "./core/engine/run.ts";
 import { runNext } from "./core/engine/schedule.ts";
 import { stopRun } from "./core/engine/stop.ts";
@@ -42,7 +43,7 @@ Exit codes for run and for a decision: 0 the task is done or dropped, 1 it stopp
 // Task titles and agent summaries come from outside. Printed raw, a control sequence in one could
 // rewrite the terminal's title or hide a failure line.
 // biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
-const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g;
+const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g;
 const say = (line: string) => console.log(line.replace(CONTROL, ""));
 
 const EXIT = { none: 0, done: 0, dropped: 0, running: 0, stopped: 1, waiting: 3 } as const;
@@ -163,6 +164,9 @@ async function main(): Promise<number> {
       for (const r of view.runs) {
         say(`  ${r.id}  ${r.status.padEnd(8)} ${r.title}  (branch ${r.branch})`);
         if (r.stop_reason) say(`    ${r.stop_code ?? "ended"}: ${r.stop_reason}`);
+        say(`    ${riskLine(r.risk ? JSON.parse(r.risk) : null)}`);
+        const report = handoffPath(ws, r.id);
+        if (existsSync(report)) say(`    hand-off: ${relative(ws.root, report)}`);
         for (const l of r.lanes) {
           say(`    ${l.lane}  ${l.outcome ?? "running"}${l.note ? `  ${l.note}` : ""}`);
           for (const g of l.gates) {

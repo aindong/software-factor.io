@@ -9,6 +9,8 @@ export interface AgentJob {
   prompt: string;
   /** Where the agent leaves its hand-off, outside the worktree so it is never committed. */
   handoffPath: string;
+  /** Where the agent may leave files as evidence for its claims. The host copies what a claim names. */
+  evidenceDir: string;
   /** How many times this lane's agent has been started in this run before now. */
   entry: number;
   /** Aborted when the lane's time is up or the run is interrupted. The adapter must stop its agent. */
