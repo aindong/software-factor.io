@@ -20,7 +20,7 @@ export interface Repo {
   rows: <T = Record<string, unknown>>(sql: string) => T[];
 }
 
-export function makeRepo(): Repo {
+export function makeRepo(options: { commit?: boolean } = {}): Repo {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "sf-repo-")));
   const home = realpathSync(mkdtempSync(join(tmpdir(), "sf-home-")));
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
@@ -28,8 +28,10 @@ export function makeRepo(): Repo {
   git("config", "user.email", "test@example.com");
   git("config", "user.name", "Test");
   writeFileSync(join(dir, "README.md"), "# fixture\n");
-  git("add", "-A");
-  git("commit", "-q", "-m", "initial");
+  if (options.commit !== false) {
+    git("add", "-A");
+    git("commit", "-q", "-m", "initial");
+  }
   const repo: Repo = {
     dir,
     home,
