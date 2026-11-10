@@ -19,6 +19,23 @@ it("lists one retro for a gate that failed at the same lane three times, and non
   expect(out).toMatch(/^1\s+open\s+repeat\s+lane build: the gate verify failed in 3 of the last 20 runs/m);
   for (const id of runs) expect(out).toContain(id);
   expect(out.match(/^\d+\s+open/gm)).toHaveLength(1);
+  // a fourth time is the same retro, not a new one
+  repo.write(
+    ".factor/tasks.md",
+    "- [ ] One\n- [ ] Two\n- [ ] Three\n- [ ] Four\n- [ ] Five\n- [ ] Six\n- [ ] Seven\n",
+  );
+  repo.sf("run");
+  expect(repo.sf("retro").stdout.match(/^\d+\s+\w+\s+repeat/gm)).toHaveLength(1);
+  // dropped, it stays dropped while nothing new happens, and is opened anew when it goes on three more times
+  expect(repo.sf("retro", "drop", "1", "--note", "The gate was wrong, and is mended").status).toBe(0);
+  expect(repo.sf("retro").stdout.match(/^\d+\s+open/gm)).toBeNull();
+  repo.sf("run");
+  repo.sf("run");
+  expect(repo.sf("retro").stdout.match(/^\d+\s+open/gm)).toBeNull();
+  repo.sf("run");
+  expect(repo.sf("retro").stdout).toMatch(
+    /^2\s+open\s+repeat\s+lane build: the gate verify failed in 3 of the last 20 runs/m,
+  );
 });
 
 it("lists one retro for a lane whose work was sent back three times, with what was said", () => {

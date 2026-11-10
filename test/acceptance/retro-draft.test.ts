@@ -10,7 +10,7 @@ it("drafts a retro from the record, lists it as drafted, and does not write over
   repo.sf("escape", run, "--lane", "build", "--note", "The export left out refunded orders");
   const r = repo.sf("retro", "draft", "1");
   expect(r.status, r.stderr).toBe(0);
-  const [name] = readdirSync(join(repo.dir, ".factor/retros"));
+  const [name = ""] = readdirSync(join(repo.dir, ".factor/retros"));
   expect(name).toMatch(/^\d{4}-\d{2}-\d{2}-escape-build-1\.md$/);
   expect(r.stdout).toContain(`.factor/retros/${name}`);
   const draft = repo.read(`.factor/retros/${name}`);
@@ -34,7 +34,7 @@ it("drafts a retro from the record, lists it as drafted, and does not write over
     new RegExp(`^1\\s+drafted\\s+escape.*\\.factor/retros/${name.replace(".", "\\.")}`, "m"),
   );
 
-  writeFileSync(join(repo.dir, ".factor/retros", name ?? ""), "mine\n");
+  writeFileSync(join(repo.dir, ".factor/retros", name), "mine\n");
   const again = repo.sf("retro", "draft", "1");
   expect(again.status).toBe(0);
   expect(again.stdout).toMatch(/already drafted/);

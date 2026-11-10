@@ -13,6 +13,8 @@ Usage: softwarefactor <command>
   ladder [accept <lane>]   Each lane's record and the step it has earned, or take that step
   escape <run> --lane <lane> --note "..."
                            Report a defect that got through a lane: the lane steps back
+  retro [draft|keep|drop <id>]
+                           What got through or happened again: draft a retro, keep its lesson
   export [workflow]        Print a workflow as one file to share: no secret, no account, no path
   import <file> [--yes]    Show what a shared workflow would run, and write it on a yes
   run [--all] [--parallel N]

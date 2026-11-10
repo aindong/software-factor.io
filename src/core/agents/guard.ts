@@ -95,6 +95,7 @@ const FACTORY_COMMANDS = new Set([
     "export",
     "ladder",
     "escape",
+    "retro",
   ],
 ]);
 // What an agent may do on GitHub with the person's login: read, and open its own pull request.
@@ -384,7 +385,10 @@ function judgeShell(command: unknown, where: Where): Verdict {
     if (/(\$\(|`)\s*(\S*\/)?gh\s+auth\b/.test(part)) {
       return deny("The GitHub login may not be read or changed by an agent.");
     }
-    const runsFactory = bare.some((w, i) => nameOf(w) === FACTORY && FACTORY_COMMANDS.has(bare[i + 1] ?? ""));
+    // one of its commands anywhere after its name: options may stand between the two
+    const runsFactory = bare.some(
+      (w, i) => nameOf(w) === FACTORY && bare.slice(i + 1).some((word) => FACTORY_COMMANDS.has(word)),
+    );
     if (first === FACTORY || runsFactory) {
       return deny("The softwarefactor command is for people. Use the tools of the factor server.");
     }

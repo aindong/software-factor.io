@@ -1,5 +1,7 @@
 // Helpers for the ladder tests: a workspace whose one agent lane waits for a person, runs that are
 // approved as they are, and the ladder as the command prints it.
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { agentLane, commandLane, commitFile, flowRepo, pass, type Repo } from "./repo.ts";
 
 type Json = Record<string, unknown>;
@@ -55,3 +57,13 @@ export const ladderLine = (repo: Repo, lane = "build") =>
     .sf("ladder")
     .stdout.split("\n")
     .find((l) => l.trim().startsWith(`${lane} `)) ?? "";
+
+/** Every prompt the latest run gave to a lane, as one text. */
+export function latestPrompts(repo: Repo, lane: string): string {
+  const dir = join(repo.dir, ".factor/runs", lastRun(repo).id, "prompts");
+  return readdirSync(dir)
+    .filter((f) => f.includes(`-${lane}`))
+    .sort()
+    .map((f) => readFileSync(join(dir, f), "utf8"))
+    .join("\n");
+}

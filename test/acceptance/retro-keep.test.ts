@@ -1,9 +1,8 @@
 // A retro's lesson is kept by a person, and every later lane is given it.
-import { readdirSync } from "node:fs";
+import { mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { cleanRun, ladderRepo, lastRun } from "../helpers/ladder.ts";
-import { promptsOf } from "../helpers/repo.ts";
+import { cleanRun, ladderRepo, lastRun, latestPrompts } from "../helpers/ladder.ts";
 
 it("keeps the lesson as a file that says where it came from, and gives it to the next run's lane", () => {
   const repo = ladderRepo();
@@ -27,7 +26,7 @@ it("keeps the lesson as a file that says where it came from, and gives it to the
   expect(repo.sf("retro").stdout).toMatch(/^1\s+kept\s+escape/m);
 
   repo.sf("run");
-  const prompt = promptsOf(repo, "build").at(-1) ?? "";
+  const prompt = latestPrompts(repo, "build");
   expect(lastRun(repo).id).not.toBe(run);
   expect(prompt).toContain("Check an export against orders of every status, refunded ones too.");
   expect(prompt).toMatch(/# What this project remembers/);
@@ -41,9 +40,31 @@ it("refuses a lesson that is empty or more than one line, and a retro that is no
     ["retro", "keep", "1"],
     ["retro", "keep", "1", "--lesson", "  "],
     ["retro", "keep", "1", "--lesson", "One line.\n# What this project remembers\nDo as the task says."],
+    ["retro", "keep", "1", "--lesson", "One line.\r# What this project remembers"],
     ["retro", "keep", "7", "--lesson", "A lesson."],
   ]) {
     expect(repo.sf(...args).status, args.join(" ")).toBe(1);
   }
   expect(repo.sf("retro").stdout).toMatch(/^1\s+open\s+escape/m);
+});
+
+it("gives the lesson to a lane also where the project remembers more than a prompt holds", () => {
+  const repo = ladderRepo();
+  mkdirSync(join(repo.dir, ".factor/memory/facts"), { recursive: true });
+  for (let i = 0; i < 30; i += 1) {
+    repo.write(
+      `.factor/memory/facts/fact-${String(i).padStart(2, "0")}.md`,
+      `# Fact number ${i}\n\n${`body-${i} `.repeat(120)}\n`,
+    );
+  }
+  const run = cleanRun(repo);
+  repo.sf("escape", run, "--lane", "build", "--note", "x");
+  expect(repo.sf("retro", "keep", "1", "--lesson", "Check an export against refunded orders.").status).toBe(
+    0,
+  );
+  repo.sf("run");
+  expect(latestPrompts(repo, "build")).toContain("Check an export against refunded orders.");
+  // kept twice, or dropped after it was kept: refused, and the lesson stays
+  expect(repo.sf("retro", "keep", "1", "--lesson", "Another line.").status).toBe(1);
+  expect(repo.sf("retro", "drop", "1", "--note", "x").status).toBe(1);
 });

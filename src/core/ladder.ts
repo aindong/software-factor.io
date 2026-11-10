@@ -346,5 +346,6 @@ export function escapeCommand(
       ? `${moved.lane} is back ${STANDS[moved.to]} (it was ${STANDS[moved.from]})`
       : `${moved.lane} stays ${STANDS[moved.from]}: its count starts again`,
   );
+  say("A retro is open for it. See it with `softwarefactor retro`.");
   return 0;
 }

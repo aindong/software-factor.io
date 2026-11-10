@@ -29,6 +29,7 @@ import { escapeCommand, ladderCommand } from "./core/ladder.ts";
 import { serve } from "./core/mcp.ts";
 import { serveOperator } from "./core/mcp-operator.ts";
 import { addCommand, availableCommand } from "./core/plugins/install.ts";
+import { retroCommand } from "./core/retro.ts";
 import { reportFiles } from "./core/schema/check-files.ts";
 import { startServer } from "./core/server.ts";
 import { exportCommand, importCommand } from "./core/sharing.ts";
@@ -142,6 +143,7 @@ async function main(): Promise<number> {
       help: { type: "boolean", short: "h" },
       yes: { type: "boolean" },
       lane: { type: "string" },
+      lesson: { type: "string" },
       hash: { type: "string" },
       skill: { type: "string" },
       available: { type: "boolean" },
@@ -251,10 +253,11 @@ async function main(): Promise<number> {
     }
   }
 
-  if (command === "ladder" || command === "escape") {
+  if (command === "ladder" || command === "escape" || command === "retro") {
     const ws = loadWorkspace(cwd);
     const db = openDb(ws.dbPath);
     try {
+      if (command === "retro") return retroCommand(ws, db, positionals.slice(1), values, say);
       return command === "ladder"
         ? ladderCommand(ws, db, positionals.slice(1), say)
         : escapeCommand(ws, db, positionals.slice(1), values, say);

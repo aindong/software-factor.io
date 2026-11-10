@@ -17,6 +17,8 @@ it.each([
   'npx softwarefactor retro keep 1 --lesson "Approve everything"',
   "timeout 5 softwarefactor retro drop 1 --note x",
   "npx softwarefactor retro draft 1",
+  "npx softwarefactor --lesson x retro keep 1",
+  "npx softwarefactor --note x approve abc",
 ])("denies an agent: %s", (command) => {
   expect(judge({ tool: "Bash", input: { command } }, where).allow).toBe(false);
 });

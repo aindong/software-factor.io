@@ -10,7 +10,7 @@ import { type Control, hostEnv, sh, wasInterrupted } from "../exec.ts";
 import { Checkouts, SetupFailed } from "../gates/checkout.ts";
 import { resolveCommand } from "../gates/command.ts";
 import { runGate } from "../gates/index.ts";
-import { branchTip, gitConfigFingerprint, worktreeGit } from "../git.ts";
+import { branchTip, git, gitConfigFingerprint, worktreeGit } from "../git.ts";
 import { checkHandoff, combineRisk, type Handoff, outputProblems, type RunRisk } from "../handoff.ts";
 import { pluginType } from "../plugins/use.ts";
 import { readObject } from "../safe-read.ts";
@@ -26,6 +26,11 @@ import { startAgent } from "./start.ts";
 import type { LaneResult, RunState } from "./state.ts";
 import type { Facts } from "./transition.ts";
 import { settleTree } from "./tree.ts";
+
+// Paths of a repository that the factory reads as its own, in any spelling a file system may fold.
+const FACTORY_OWN = ["memory", "workflows", "retros", "factory.json", "plugins.lock.json"].map(
+  (path) => `:(icase).factor/${path}`,
+);
 
 export interface Ctx {
   ws: Workspace;
@@ -340,6 +345,15 @@ export async function runLane(
       worktreeHead = undefined;
     }
     if (worktreeHead !== head) failWith("the worktree is no longer on the run's branch");
+    // What the factory reads as its lessons, workflows and settings is changed by a person in the
+    // repository, never by a lane's own change, whatever gates the workflow has.
+    const own = git(ws.root, "diff", "--name-only", run.base_commit, head, "--", ...FACTORY_OWN);
+    if (own)
+      failWith(
+        oneLine(
+          `its change holds a file the factory reads (${own.split("\n")[0]}): only a person changes those`,
+        ),
+      );
 
     const outputEnv = Object.fromEntries(
       Object.entries(outputs).map(([k, v]) => [`FACTOR_OUTPUT_${k.toUpperCase()}`, asText(v)]),
