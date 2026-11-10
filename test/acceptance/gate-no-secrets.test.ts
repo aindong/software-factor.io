@@ -94,3 +94,9 @@ it("does not take a local address or a placeholder in a README for a secret", ()
   repo.sf("run");
   expect(trail(repo)).toEqual(["build:pass"]);
 });
+
+it("reads a file that the repository marks as not to be compared", () => {
+  const repo = repoWith(`key = "${token}"\n`, { ".gitattributes": "* -diff\n" });
+  repo.sf("run");
+  expect(trail(repo)).toEqual(["build:fail"]);
+});

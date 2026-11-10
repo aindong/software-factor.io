@@ -2,7 +2,8 @@
 // say when a check has stopped catching what it should. It starts no real agent and costs
 // nothing (ADR 0010). `--break <gate>` makes one gate pass whatever it finds, in this process
 // only: it is how the eval is shown to be able to fail.
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { z } from "zod";
 import { nowIso } from "../clock.ts";
 import { UserError } from "../errors.ts";
@@ -29,7 +30,13 @@ export async function evalCommand(
         `There is no file ${flags.compare}.`,
         "Name a result that `softwarefactor eval --save` wrote.",
       );
-    const parsed = Saved.safeParse(JSON.parse(readFileSync(flags.compare, "utf8")));
+    let read: unknown;
+    try {
+      read = JSON.parse(readFileSync(flags.compare, "utf8"));
+    } catch {
+      read = undefined; // not JSON, or not a file
+    }
+    const parsed = Saved.safeParse(read);
     if (!parsed.success)
       throw new UserError(
         `${flags.compare} is not a saved eval result.`,
@@ -71,6 +78,7 @@ export async function evalCommand(
       ...(flags.break ? { broken: flags.break } : {}),
       cases: results,
     };
+    mkdirSync(dirname(resolve(flags.save)), { recursive: true });
     writeFileSync(flags.save, `${JSON.stringify(doc, null, 2)}\n`);
     say(`saved: ${flags.save}`);
   }
@@ -82,9 +90,19 @@ export async function evalCommand(
         say(`Regression: ${r.id} passed in ${flags.compare} and is not caught now`);
       }
     }
-    const gone = before.cases.filter((c) => !results.some((r) => r.id === c.id)).map((c) => c.id);
-    if (gone.length > 0) say(`No longer run: ${gone.join(", ")}`);
+    // a case that was taken out catches nothing any more
+    for (const c of before.cases) {
+      if (!c.passed || results.some((r) => r.id === c.id)) continue;
+      regressions += 1;
+      say(`Regression: ${c.id} passed in ${flags.compare} and is not run now`);
+    }
     if (regressions === 0) say(`Nothing is worse than in ${flags.compare} (${before.at.slice(0, 10)}).`);
+  }
+  if (flags.break !== undefined && passed === results.length) {
+    say(
+      `No case depends on ${flags.break}: with it broken, every case still passed. The eval does not show that this gate works.`,
+    );
+    return 1;
   }
   return passed === results.length && regressions === 0 ? 0 : 1;
 }

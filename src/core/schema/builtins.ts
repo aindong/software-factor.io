@@ -155,7 +155,7 @@ export function commandsIn(settings: unknown, path = "with"): { name: string; pa
 // Text that looks like a credential. A shared workflow must never carry one. Token prefixes must
 // start a word, so ordinary words such as "risk-assessment" do not match.
 const START = "(?<![A-Za-z0-9_-])";
-const SECRET = new RegExp(
+export const SECRET = new RegExp(
   [
     `${START}gh[pousr]_[A-Za-z0-9]{20,}`,
     `${START}github_pat_\\w{20,}`,

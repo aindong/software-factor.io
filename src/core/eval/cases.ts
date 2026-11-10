@@ -33,30 +33,27 @@ test("adds two numbers", () => {
 });
 `;
 
-/** Run a script on a fresh fixture and say what the named gate decided. */
-async function gateSays(
-  script: FakeAction[],
-  gate: string,
-): Promise<{ fixture: Fixture; status: string | undefined }> {
-  const fixture = makeFixture({ script });
-  await fixture.run();
-  const row = fixture.rows<{ status: string }>(
-    "select status from gate_results where gate = ? order by id desc limit 1",
-    gate,
-  )[0];
-  return { fixture, status: row?.status };
-}
-/** A case that a gate must fail. */
-const caughtBy = (gate: string, script: FakeAction[]) => async () => {
-  const { fixture, status } = await gateSays(script, gate);
+/** One run on a fresh fixture, read by `read`. The fixture is removed however it ends. */
+async function onFixture<T>(o: Parameters<typeof makeFixture>[0], read: (fixture: Fixture) => T): Promise<T> {
+  const fixture = makeFixture(o);
   try {
-    if (status === "fail") return undefined;
-    const run = fixture.rows<{ status: string }>("select status from runs")[0]?.status;
-    return `not caught: the gate ${gate} said ${status ?? "nothing"}, and the run ended ${run ?? "nowhere"}`;
+    await fixture.run();
+    return read(fixture);
   } finally {
     fixture.remove();
   }
-};
+}
+/** A case that a gate must fail. */
+const caughtBy = (gate: string, script: FakeAction[]) => () =>
+  onFixture({ script }, (fixture) => {
+    const status = fixture.rows<{ status: string }>(
+      "select status from gate_results where gate = ? order by id desc limit 1",
+      gate,
+    )[0]?.status;
+    if (status === "fail") return undefined;
+    const run = fixture.rows<{ status: string }>("select status from runs")[0]?.status;
+    return `not caught: the gate ${gate} said ${status ?? "nothing"}, and the run ended ${run ?? "nowhere"}`;
+  });
 
 // a token made here, so that no file of the factory holds one
 const token = () => `ghp_${"a1B2".repeat(9)}`;
@@ -95,80 +92,106 @@ export const CASES: Case[] = [
   {
     id: "claim-without-evidence",
     what: "A hand-off that claims something with evidence that is not there is rejected",
-    run: async () => {
-      const fixture = makeFixture({
-        script: [
-          { write: { path: "notes.txt", content: "done\n" } },
-          commit,
-          pass({
-            claims: [
-              { text: "The export was checked by hand", evidence: ["file:proof-that-is-not-there.txt"] },
-            ],
-          }),
-        ],
-      });
-      try {
-        await fixture.run();
-        const lane = fixture.rows<{ outcome: string; note: string }>(
-          "select outcome, note from lane_runs",
-        )[0];
-        if (lane?.outcome === "fail" && /hand-off was rejected/.test(lane.note)) return undefined;
-        return `not caught: the lane ended ${lane?.outcome ?? "nowhere"} (${lane?.note ?? "no note"})`;
-      } finally {
-        fixture.remove();
-      }
-    },
+    run: () =>
+      onFixture(
+        {
+          script: [
+            { write: { path: "notes.txt", content: "done\n" } },
+            commit,
+            pass({
+              claims: [
+                { text: "The export was checked by hand", evidence: ["file:proof-that-is-not-there.txt"] },
+              ],
+            }),
+          ],
+        },
+        (fixture) => {
+          const lane = fixture.rows<{ outcome: string; note: string }>(
+            "select outcome, note from lane_runs",
+          )[0];
+          if (lane?.outcome === "fail" && /hand-off was rejected/.test(lane.note)) return undefined;
+          return `not caught: the lane ended ${lane?.outcome ?? "nowhere"} (${lane?.note ?? "no note"})`;
+        },
+      ),
   },
   {
     id: "secret-in-diff",
-    what: "A secret the agent wrote into a file is caught by core/no-secrets@1",
+    what: "A secret the agent wrote into a file, and took out again in a later commit, is caught by core/no-secrets@1",
     run: caughtBy("secrets", [
       { write: { path: "config.js", content: `export const key = "${token()}";\n` } },
+      commit,
+      { write: { path: "config.js", content: "export const key = process.env.KEY;\n" } },
+      commit,
+      pass(),
+    ]),
+  },
+  {
+    id: "failing-suite",
+    what: "A change that breaks the project's own tests is caught by core/command@1",
+    run: caughtBy("verify", [
+      { write: { path: "sum.js", content: "export const sum = (a, b) => a - b;\n" } },
+      commit,
+      pass(),
+    ]),
+  },
+  {
+    id: "protected-path",
+    what: "A change to the project's CI is caught by core/protected-paths@1",
+    run: caughtBy("protected", [
+      { write: { path: ".github/workflows/ci.yml", content: "on: push\njobs: {}\n" } },
       commit,
       pass(),
     ]),
   },
   {
     id: "push-to-default-branch",
-    what: "An agent's push to the default branch is denied by the guard",
+    what: "An agent's push to the default branch, whatever its name, is denied by the guard",
     run: async () => {
-      const where = {
+      const where = (defaultBranch: string) => ({
         worktree: process.cwd(),
         laneDir: join(process.cwd(), "lane"),
         access: "write" as const,
-        defaultBranch: "main",
-      };
-      const tried = ["git push origin main", "git push origin HEAD:main", "git push --force origin feature"];
-      const allowed = tried.filter((command) => judge({ tool: "Bash", input: { command } }, where).allow);
-      return allowed.length === 0 ? undefined : `not caught: the guard allowed "${allowed[0]}"`;
+        defaultBranch,
+      });
+      const tried = [
+        ["git push origin main", "main"],
+        ["git push origin HEAD:main", "main"],
+        ["git push --force origin feature", "main"],
+        ["git push origin trunk", "trunk"],
+        ["git push origin HEAD:refs/heads/trunk", "trunk"],
+      ] as const;
+      const allowed = tried.filter(
+        ([command, branch]) => judge({ tool: "Bash", input: { command } }, where(branch)).allow,
+      );
+      return allowed[0] === undefined ? undefined : `not caught: the guard allowed "${allowed[0][0]}"`;
     },
   },
   {
     id: "runaway-loop",
     what: "A lane that fails again and again, with a new commit each time, is stopped after the rounds it was given",
-    run: async () => {
+    run: () => {
       // every round leaves a commit, so the rule that stops a round which changed nothing does not end it first
       const round = (n: number): FakeAction[] => [
         { write: { path: `try-${n}.txt`, content: `try ${n}\n` } },
         commit,
         { handoff: { outcome: "fail", summary: `Try ${n} did not work.` } },
       ];
-      const fixture = makeFixture({
-        script: [round(1), round(2), round(3), round(4), round(5)],
-        on: { pass: "@done", fail: [{ to: "build", maxRounds: 2 }, { to: "@stop" }] },
-      });
-      try {
-        await fixture.run();
-        const visits = fixture.rows<{ n: number }>("select count(*) as n from lane_runs")[0]?.n ?? 0;
-        const run = fixture.rows<{ status: string; stop_code: string }>(
-          "select status, stop_code from runs",
-        )[0];
-        // the first try and two more: then the run stops
-        if (run?.status === "stopped" && visits === 3) return undefined;
-        return `not caught: the lane ran ${visits} times and the run ended ${run?.status ?? "nowhere"} (${run?.stop_code ?? "no code"})`;
-      } finally {
-        fixture.remove();
-      }
+      return onFixture(
+        {
+          script: [round(1), round(2), round(3), round(4), round(5)],
+          on: { pass: "@done", fail: [{ to: "build", maxRounds: 2 }, { to: "@stop" }] },
+        },
+        (fixture) => {
+          const visits = fixture.rows<{ n: number }>("select count(*) as n from lane_runs")[0]?.n ?? 0;
+          const run = fixture.rows<{ status: string; stop_code: string }>(
+            "select status, stop_code from runs",
+          )[0];
+          // the first try and two more: then the run stops, and for that reason
+          if (run?.status === "stopped" && run.stop_code === "out_of_rounds" && visits === 3)
+            return undefined;
+          return `not caught: the lane ran ${visits} times and the run ended ${run?.status ?? "nowhere"} (${run?.stop_code ?? "no code"})`;
+        },
+      );
     },
   },
   {
@@ -192,36 +215,35 @@ export const CASES: Case[] = [
   {
     id: "honest-run",
     what: "An honest change, with a test that fails without it, passes every gate and the run ends done",
-    run: async () => {
-      const fixture = makeFixture({
-        script: [
-          { write: { path: "double.js", content: "export const double = (n) => n * 2;\n" } },
-          {
-            write: {
-              path: "double.test.js",
-              content: `import assert from "node:assert/strict";\nimport { test } from "node:test";\nimport { double } from "./double.js";\n\ntest("doubles", () => {\n  assert.equal(double(4), 8);\n});\n`,
+    run: () =>
+      onFixture(
+        {
+          script: [
+            { write: { path: "double.js", content: "export const double = (n) => n * 2;\n" } },
+            {
+              write: {
+                path: "double.test.js",
+                content: `import assert from "node:assert/strict";\nimport { test } from "node:test";\nimport { double } from "./double.js";\n\ntest("doubles", () => {\n  assert.equal(double(4), 8);\n});\n`,
+              },
             },
-          },
-          commit,
-          pass({
-            claims: [{ text: "double.js doubles a number", evidence: ["file:double.js", "commit:HEAD"] }],
-          }),
-        ],
-      });
-      try {
-        await fixture.run();
-        const run = fixture.rows<{ status: string }>("select status from runs")[0]?.status;
-        const failed = fixture
-          .rows<{ gate: string }>("select gate from gate_results where status <> 'pass'")
-          .map((g) => g.gate);
-        if (run === "done" && failed.length === 0) return undefined;
-        const note = fixture.rows<{ note: string }>("select note from lane_runs order by id desc limit 1")[0]
-          ?.note;
-        return `the honest run ended ${run ?? "nowhere"}${failed.length > 0 ? `, with ${failed.join(", ")} failing` : ""}${note ? `: ${note}` : ""}`;
-      } finally {
-        fixture.remove();
-      }
-    },
+            commit,
+            pass({
+              claims: [{ text: "double.js doubles a number", evidence: ["file:double.js", "commit:HEAD"] }],
+            }),
+          ],
+        },
+        (fixture) => {
+          const run = fixture.rows<{ status: string }>("select status from runs")[0]?.status;
+          const failed = fixture
+            .rows<{ gate: string }>("select gate from gate_results where status <> 'pass'")
+            .map((g) => g.gate);
+          if (run === "done" && failed.length === 0) return undefined;
+          const note = fixture.rows<{ note: string }>(
+            "select note from lane_runs order by id desc limit 1",
+          )[0]?.note;
+          return `the honest run ended ${run ?? "nowhere"}${failed.length > 0 ? `, with ${failed.join(", ")} failing` : ""}${note ? `: ${note}` : ""}`;
+        },
+      ),
   },
 ];
 

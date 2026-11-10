@@ -1,13 +1,13 @@
 // A fixture for one eval case: a small repository with a factory in it, on a factor home of its
 // own, where the scripted agent works the one lane. Nothing of the person's workspace or of
 // their factor home is read or written.
-import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { FakeAction } from "../config.ts";
 import { runNext } from "../engine/schedule.ts";
+import { git } from "../git.ts";
 import { loadWorkspace } from "../workspace.ts";
 import { TESTS } from "./cases.ts";
 
@@ -63,17 +63,21 @@ export function makeFixture(o: { script: FakeAction[] | FakeAction[][]; on?: Jso
     ".factor/local.json": `${JSON.stringify({ roles: { author: { adapter: "fake", script: { build: o.script } } } }, null, 2)}\n`,
     ".factor/tasks.md": "- [ ] The task of this case\n",
   };
-  for (const [path, content] of Object.entries(files)) {
-    mkdirSync(dirname(join(dir, path)), { recursive: true });
-    writeFileSync(join(dir, path), content);
+  const remove = () => rmSync(top, { recursive: true, force: true });
+  try {
+    for (const [path, content] of Object.entries(files)) {
+      mkdirSync(dirname(join(dir, path)), { recursive: true });
+      writeFileSync(join(dir, path), content);
+    }
+    git(dir, "init", "-q", "-b", "main");
+    git(dir, "config", "user.email", "eval@softwarefactor.invalid");
+    git(dir, "config", "user.name", "softwarefactor eval");
+    git(dir, "add", "-A");
+    git(dir, "commit", "-q", "-m", "a fixture");
+  } catch (error) {
+    remove();
+    throw error;
   }
-  const git = (...args: string[]) =>
-    execFileSync("git", args, { cwd: dir, stdio: ["ignore", "pipe", "pipe"] });
-  git("init", "-q", "-b", "main");
-  git("config", "user.email", "eval@softwarefactor.invalid");
-  git("config", "user.name", "softwarefactor eval");
-  git("add", "-A");
-  git("commit", "-q", "-m", "a fixture");
   return {
     dir,
     run: async () => {
@@ -95,6 +99,6 @@ export function makeFixture(o: { script: FakeAction[] | FakeAction[][]; on?: Jso
         db.close();
       }
     },
-    remove: () => rmSync(top, { recursive: true, force: true }),
+    remove,
   };
 }
