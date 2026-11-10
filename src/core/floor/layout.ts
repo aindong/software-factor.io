@@ -135,7 +135,7 @@ export function layout(workflow: Workflow): Floor {
   // A track for each line that is not on the main line: the shortest lines nearest to it, and no
   // two lines on one track where they would run along each other.
   const level = new Map<Draft, number>();
-  const depth = { [-1]: 0, [1]: 0 };
+  const depth = { above: 0, below: 0 };
   for (const side of [-1, 1] as const) {
     const taken: [number, number][][] = [];
     const lines = drafts
@@ -149,14 +149,14 @@ export function layout(workflow: Workflow): Floor {
       taken[at]?.push([lo, hi]);
       level.set(d, at + 1);
     }
-    depth[side] = taken.length;
+    depth[side === -1 ? "above" : "below"] = taken.length;
   }
   function span(d: Draft): number {
     return Math.abs(d.toAt - d.fromAt);
   }
 
-  const mainY = EDGE + (depth[-1] > 0 ? CLEAR + depth[-1] * TRACK : 0);
-  const height = mainY + (depth[1] > 0 ? CLEAR + depth[1] * TRACK : 0) + EDGE;
+  const mainY = EDGE + (depth.above > 0 ? CLEAR + depth.above * TRACK : 0);
+  const height = mainY + (depth.below > 0 ? CLEAR + depth.below * TRACK : 0) + EDGE;
   const lines: Line[] = drafts.map((d) => {
     const { side, fromAt, toAt, ...line } = d;
     if (side === 0)
