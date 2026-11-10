@@ -94,8 +94,18 @@ describe("the hook Claude Code is given", () => {
     expect(ask(ls)).toBe(0);
   });
 
-  it("exits 2 when the guard cannot even start: a broken hook must not let the call through", () => {
-    expect(ask(ls, { NODE_OPTIONS: "--require /nonexistent/sf-proof.cjs" })).toBe(2);
+  it("turns a guard that cannot start into a denial: a broken hook must not let the call through", () => {
+    const cli = process.argv[1] ?? "";
+    expect(command).toContain("src/cli.ts");
+    const broken = command.replace(/'[^']*src\/cli\.ts'/, "'/nonexistent/cli.ts'");
+    expect(spawnSync("sh", ["-c", broken], { input: JSON.stringify(ls) }).status).toBe(2);
+    expect(cli).toBeTruthy();
+  });
+
+  it("runs with an empty environment, so nothing the CLI passes it can change what it loads", () => {
+    const poisoned = { NODE_OPTIONS: "--require /nonexistent/sf-proof.cjs" };
+    expect(ask(ls, poisoned)).toBe(0);
+    expect(ask(edit, poisoned)).toBe(2);
   });
 
   it("is told the lane on its command line, so the environment cannot widen it", () => {
