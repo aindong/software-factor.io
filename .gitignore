@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.factor/state.db*
+.factor/runs/
+.playwright-cli/
+*.log
+.DS_Store
