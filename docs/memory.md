@@ -24,7 +24,8 @@ as "the tests need NODE_ENV=test". A note is the agent's words, so it is treated
 
 - It is shown to later lanes of the same run only, quoted line by line under a heading that says agents wrote
   it. A run of another task does not see it.
-- It becomes part of the project's memory only when a person keeps it:
+- It becomes part of the project's memory only when a person keeps it. `memory list` shows the whole note,
+  quoted, so you keep only what you have read:
 
 ```sh
 softwarefactor memory list        # what is kept, and what agents have proposed
@@ -32,7 +33,7 @@ softwarefactor memory keep 12     # writes .factor/memory/notes/<title>.md: read
 softwarefactor memory drop 13     # never shown again
 ```
 
-A kept note says in its last line which run, lane and account wrote it. No agent can keep a note: the server
+A kept note says first, above its text, which run, lane and account wrote it. No agent can keep a note: the server
 has no tool for it.
 
 Every time a lane is given an entry through `memory_read`, the factory records which lane, on which account,
@@ -50,7 +51,7 @@ Which run and lane it serves is fixed on its command line, so a tool call cannot
 | `memory_note` | Leave a note for later lanes: a title and a body of at most 4,000 characters, 20 notes a lane. |
 | `handoff_write` | Hand off without writing a file. The host checks the hand-off exactly as it checks the file. |
 | `ask_question` | Ask a person. The run waits, and the lane starts again with the answer. |
-| `evidence_attach` | Attach a text file of at most 1 MB that a claim can cite as `attached:<name>`. |
+| `evidence_attach` | Attach a text file of at most 1 MB that a claim can cite as `attached:<name>`. At most 20 a lane. |
 
 How each CLI gets it:
 
@@ -58,6 +59,10 @@ How each CLI gets it:
   the run. Its tools need no approval, and the guard allows them and no other MCP tool.
 - Codex: `-c mcp_servers.factor.command=...` and `-c mcp_servers.factor.args=[...]`.
 - Kimi Code and command accounts get the memory and the notes in the prompt only.
+
+The server runs outside any sandbox, so it writes no file: a hand-off, a question and attached files are kept
+as rows in the factory's database, and the host reads them when the agent ends. A question asked through the
+server stands, whatever the agent hands off afterwards.
 
 The server is written by hand, about 150 lines, because its five tools need only `initialize`, `tools/list`
 and `tools/call`. It has been tested with stand-in clients, not yet with the real CLIs.
