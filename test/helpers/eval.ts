@@ -6,6 +6,8 @@ export const CASES = [
   "test-passes-without-change",
   "claim-without-evidence",
   "secret-in-diff",
+  "failing-suite",
+  "protected-path",
   "push-to-default-branch",
   "runaway-loop",
   "workflows-round-trip",

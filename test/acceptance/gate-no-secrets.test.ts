@@ -41,3 +41,56 @@ it("passes a change with no secret, and one that only leaves a line that was the
   old.sf("run");
   expect(trail(old)).toEqual(["build:pass"]);
 });
+
+// ---- from the review
+
+it("fails a change whose history holds a secret that a later commit took out", () => {
+  const repo = flowRepo({
+    lanes: [agentLane("build", { agent: { access: "write" }, gates: ["secrets", "verify"] })],
+    gates,
+    scripts: {
+      author: {
+        build: [
+          ...commitFile("config.js", `export const key = "${token}";\n`),
+          ...commitFile("config.js", "export const key = process.env.KEY;\n"),
+          pass(),
+        ],
+      },
+    },
+  });
+  repo.sf("run");
+  expect(trail(repo)).toEqual(["build:fail"]);
+});
+
+it("finds a secret in a file of more than a megabyte, and shows no more than its first characters", () => {
+  const big = `${"// filler line of an ordinary lock file\n".repeat(40_000)}token = "${token}"\n`;
+  const repo = repoWith(big);
+  repo.sf("run");
+  expect(trail(repo)).toEqual(["build:fail"]);
+  const [gate] = repo.rows<{ output_path: string }>(
+    "select output_path from gate_results where gate = 'secrets'",
+  );
+  const output = repo.read(gate?.output_path ?? "");
+  expect(output).toMatch(/config\.js:40001: /);
+  expect(output).not.toContain(token.slice(0, 8));
+});
+
+it("does not take a local address or a placeholder in a README for a secret", () => {
+  const repo = flowRepo({
+    lanes: [agentLane("build", { agent: { access: "write" }, gates: ["secrets", "verify"] })],
+    gates,
+    scripts: {
+      author: {
+        build: [
+          ...commitFile(
+            "README.md",
+            "Run it with DATABASE_URL=postgres://postgres:postgres@localhost/shop\nGET /items?key=YOUR_API_KEY&sort_key=created_at\n",
+          ),
+          pass(),
+        ],
+      },
+    },
+  });
+  repo.sf("run");
+  expect(trail(repo)).toEqual(["build:pass"]);
+});
