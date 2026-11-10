@@ -49,7 +49,7 @@ export function fakeAgent(binding: RoleBinding): AgentAdapter {
         if ("write" in action) {
           const target = inside(job.cwd, action.write.path, true);
           mkdirSync(dirname(target), { recursive: true });
-          writeFileSync(target, action.write.content);
+          writeFileSync(target, action.write.content, { mode: action.write.executable ? 0o755 : 0o644 });
         } else if ("delete" in action) {
           rmSync(inside(job.cwd, action.delete, false), { force: true, recursive: true });
         } else if ("commit" in action) {

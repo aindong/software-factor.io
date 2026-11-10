@@ -12,6 +12,9 @@ export const FactoryConfig = z.strictObject({
   commands: z.record(commandName, z.string().min(1)).meta({
     description: "What each command a workflow names means in this project, as a shell command.",
   }),
+  protectedPaths: z.array(z.string().min(1)).optional().meta({
+    description: "Paths no agent may change in this project, added to the built-in list. Globs are allowed.",
+  }),
   gateEnv: z.array(envName).optional().meta({
     description:
       "Names of environment variables that gates and command lanes may see, beyond the basic ones.",
@@ -21,7 +24,13 @@ export type FactoryConfig = z.infer<typeof FactoryConfig>;
 
 /** One step of the scripted agent used in tests, demos and evals. */
 export const FakeAction = z.union([
-  z.strictObject({ write: z.strictObject({ path: z.string().min(1), content: z.string() }) }),
+  z.strictObject({
+    write: z.strictObject({
+      path: z.string().min(1),
+      content: z.string(),
+      executable: z.boolean().optional(),
+    }),
+  }),
   z.strictObject({ delete: z.string().min(1) }),
   z.strictObject({ commit: z.string().min(1) }),
   z.strictObject({ handoff: z.record(z.string(), z.unknown()) }),

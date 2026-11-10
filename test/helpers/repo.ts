@@ -1,8 +1,8 @@
 // A throwaway git repository and a way to call the command against it, for acceptance tests.
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 const CLI = resolve("src/cli.ts");
@@ -70,8 +70,11 @@ export function readyRepo(options: { verify: string; script: unknown[]; task?: s
   const factory = repo.json<{ commands: Record<string, string> }>(".factor/factory.json");
   factory.commands.verify = options.verify;
   repo.write(".factor/factory.json", `${JSON.stringify(factory, null, 2)}\n`);
-  const starter = repo.json<{ lanes: { checkpoint: string }[] }>(".factor/workflows/starter.json");
-  for (const lane of starter.lanes) lane.checkpoint = "near";
+  // these tests are about one gate and no approval: trim the starter workflow to that
+  const starter = repo.json<{ lanes: { checkpoint: string; gates: string[] }[] }>(
+    ".factor/workflows/starter.json",
+  );
+  for (const lane of starter.lanes) Object.assign(lane, { checkpoint: "near", gates: ["verify"] });
   repo.write(".factor/workflows/starter.json", `${JSON.stringify(starter, null, 2)}\n`);
   repo.write(
     ".factor/local.json",
@@ -134,6 +137,10 @@ export interface FlowOptions {
   scripts?: Record<string, Record<string, unknown>>;
   limits?: Json;
   tasks?: string;
+  /** Files committed to the repository before the first run, by path. */
+  files?: Record<string, string>;
+  /** Extra keys for .factor/factory.json, such as protectedPaths. */
+  factory?: Json;
 }
 
 /** An initialised repository running the given lanes, with one open task. */
@@ -156,8 +163,12 @@ export function flowRepo(o: FlowOptions): Repo {
   repo.write(".factor/workflows/starter.json", `${JSON.stringify(workflow, null, 2)}\n`);
   repo.write(
     ".factor/factory.json",
-    `${JSON.stringify({ version: 1, workflow: "starter", commands }, null, 2)}\n`,
+    `${JSON.stringify({ version: 1, workflow: "starter", commands, ...o.factory }, null, 2)}\n`,
   );
+  for (const [path, content] of Object.entries(o.files ?? {})) {
+    mkdirSync(dirname(join(repo.dir, path)), { recursive: true });
+    repo.write(path, content);
+  }
   const roles = Object.fromEntries(
     // a lane with no script of its own just passes
     ["author", "reviewer"].map((r) => [r, { adapter: "fake", script: { "*": [pass()], ...o.scripts?.[r] } }]),
@@ -192,3 +203,20 @@ export function promptsOf(repo: Repo, lane: string): string[] {
     .sort((a, b) => order(a) - order(b))
     .map((f) => readFileSync(join(dir, f), "utf8"));
 }
+
+/** The text of the evidence file of each gate result, in order. */
+export const evidenceOf = (repo: Repo) =>
+  repo
+    .rows<{ output_path: string }>("select output_path from gate_results order by id")
+    .map((g) => readFileSync(join(repo.dir, g.output_path), "utf8"));
+/** A fixture "test runner": each t/*.test.sh that exits 0 is a passing test. It prints the counts. */
+export const RUNNER = `#!/bin/sh
+pass=0; fail=0
+for t in t/*.test.sh; do
+  [ -f "$t" ] || continue
+  if sh "$t" >/dev/null 2>&1; then pass=$((pass+1)); else fail=$((fail+1)); fi
+done
+echo "# pass $pass"
+echo "# fail $fail"
+[ "$fail" -eq 0 ]
+`;

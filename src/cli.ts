@@ -139,7 +139,11 @@ async function main(): Promise<number> {
         if (r.stop_reason) say(`    ${r.stop_code ?? "ended"}: ${r.stop_reason}`);
         for (const l of r.lanes) {
           say(`    ${l.lane}  ${l.outcome ?? "running"}${l.note ? `  ${l.note}` : ""}`);
-          for (const g of l.gates) say(`      ${g.gate}  ${g.status}  exit ${g.exit_code}  ${g.output_path}`);
+          for (const g of l.gates) {
+            // only a command gate's exit code says pass or fail: for the others it would mislead
+            const exit = g.uses === "core/command@1" ? `  exit ${g.exit_code}` : "";
+            say(`      ${g.gate}  ${g.status}${exit}  ${g.output_path}`);
+          }
         }
         for (const i of r.inbox) say(`    waiting: ${i.body}`);
       }

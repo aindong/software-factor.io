@@ -1,17 +1,15 @@
 // core/command@1 as a gate: a command the host runs on a fresh checkout of exactly the commit the
 // lane left, never in the agent's worktree (ADR 0005). Uncommitted files do not exist for a gate.
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
 import { MINUTE_MS } from "../clock.ts";
 import { UserError } from "../errors.ts";
 import { saveEvidence } from "../evidence.ts";
-import { hostEnv, sh } from "../exec.ts";
-import { addCheckout, removeWorktree, treeOf } from "../git.ts";
+import { type ExecResult, hostEnv, sh } from "../exec.ts";
+import { treeOf } from "../git.ts";
 import type { GateRecord } from "../store.ts";
 import type { Workspace } from "../workspace.ts";
+import { evidenceName, type GateJob } from "./types.ts";
 
 const DEFAULT_TIMEOUT_MINUTES = 10;
-const suffix = (attempt: number) => (attempt > 1 ? `.${attempt}` : "");
 
 /** The shell command behind `run` or behind a workspace command name. */
 export function resolveCommand(
@@ -31,55 +29,30 @@ export function resolveCommand(
   return command;
 }
 
-export async function runCommandGate(args: {
-  ws: Workspace;
-  runId: string;
-  seq: number;
-  /** 1 for the first check, higher after a repair. */
-  attempt: number;
-  lane: string;
-  gateId: string;
-  uses: string;
-  settings: { run?: unknown; command?: unknown; timeoutMinutes?: unknown };
-  commit: string;
-  env: Record<string, string>;
-}): Promise<GateRecord> {
-  const { ws, runId, gateId, commit } = args;
-  const command = resolveCommand(ws, args.settings, `Gate "${gateId}"`);
-  const checkout = join(ws.workDir, `${runId}-gate-${args.seq}-${gateId}-${args.attempt}`);
-  mkdirSync(ws.workDir, { recursive: true });
-  addCheckout(ws.root, checkout, commit);
-  try {
-    const minutes =
-      typeof args.settings.timeoutMinutes === "number"
-        ? args.settings.timeoutMinutes
-        : DEFAULT_TIMEOUT_MINUTES;
-    const result = await sh(command, {
-      cwd: checkout,
-      env: hostEnv(ws.config.gateEnv, args.env),
-      timeoutMs: minutes * MINUTE_MS,
-    });
-    const tree = treeOf(ws.root, commit);
-    const header = `$ ${command}\n# gate ${gateId} on commit ${commit} (tree ${tree}), exit ${result.exitCode}\n\n`;
-    const evidence = saveEvidence(
-      ws,
-      runId,
-      `${String(args.seq).padStart(2, "0")}-${args.lane}-${gateId}${suffix(args.attempt)}.log`,
-      header + result.output,
-    );
-    return {
-      gate: gateId,
-      uses: args.uses,
-      command,
-      exit_code: result.exitCode,
-      status: result.exitCode === 0 ? "pass" : "fail",
-      tree_hash: tree,
-      output_path: evidence.path,
-      output_sha256: evidence.sha256,
-      duration_ms: result.durationMs,
-      attempt: args.attempt,
-    };
-  } finally {
-    removeWorktree(ws.root, checkout);
-  }
+/** Run a command in a checkout the host prepared, with the small gate environment. */
+export function runIn(g: GateJob, cwd: string, command: string): Promise<ExecResult> {
+  const minutes =
+    typeof g.settings.timeoutMinutes === "number" ? g.settings.timeoutMinutes : DEFAULT_TIMEOUT_MINUTES;
+  return sh(command, { cwd, env: hostEnv(g.ws.config.gateEnv, g.env), timeoutMs: minutes * MINUTE_MS });
+}
+
+export async function commandGate(g: GateJob): Promise<GateRecord> {
+  const command = resolveCommand(g.ws, g.settings, `Gate "${g.gateId}"`);
+  const checkout = await g.checkouts.at(g.head, "head");
+  const result = await runIn(g, checkout, command);
+  const tree = treeOf(g.ws.root, g.head);
+  const header = `$ ${command}\n# gate ${g.gateId} on commit ${g.head} (tree ${tree}), exit ${result.exitCode}\n\n`;
+  const evidence = saveEvidence(g.ws, g.runId, evidenceName(g), header + result.output);
+  return {
+    gate: g.gateId,
+    uses: g.uses,
+    command,
+    exit_code: result.exitCode,
+    status: result.exitCode === 0 ? "pass" : "fail",
+    tree_hash: tree,
+    output_path: evidence.path,
+    output_sha256: evidence.sha256,
+    duration_ms: result.durationMs,
+    attempt: g.attempt,
+  };
 }

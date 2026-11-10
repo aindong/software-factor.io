@@ -88,8 +88,8 @@ without a hand-off. A retry is not a round.
 
 Rules the checker keeps:
 
-- An agent lane that can write must have at least one gate. A command lane with no gate must leave the worktree
-  as it found it: the host fails it otherwise.
+- An agent lane that can write must have at least one gate. A command lane with no gate must not commit to the
+  run's branch: the host fails it if it does, because nothing would check that commit.
 - A lane marked `"oneWay": true` does something that cannot be undone, so it runs at most once in a run. Its
   checkpoint must be `in`. It cannot be retried, cannot have a `repair` gate, cannot go to `@inbox` (write
   `"needsPerson": "@stop"`), and no later lane may loop back to it or past it.
@@ -164,10 +164,25 @@ or grades its own gate. `onFail` says what a failure means:
 | Gate `uses` | Checks | `with` |
 | --- | --- | --- |
 | `core/command@1` | A command exits 0 on a fresh checkout of the lane's work. | `run` or `command`, optional `timeoutMinutes`. |
-| `core/protected-paths@1` | The change touches no protected path. | Optional `paths` (globs). Default: CI folders, agent config, lock files. |
-| `core/tests-not-weakened@1` | No test was deleted, skipped or lost its checks. | Optional `testGlobs`. |
-| `core/test-floor@1` | At least as many tests run as on the base commit, and more than zero. | Optional `command` (default `verify`). |
-| `core/new-tests-fail-on-base@1` | Test files that are new or grew fail on the base commit. | Optional `command`, `testGlobs`. |
+| `core/protected-paths@1` | The change touches no protected path: the factory's own `.factor/` folder, CI folders, agent configuration (`.claude/`, `.codex/`, `CLAUDE.md`, `AGENTS.md`, `.mcp.json`), git attributes and submodules (the pointer included), and lock files. Letter case is ignored. | Optional `paths` (globs), added to that list. The workspace can add more in `factory.json` under `protectedPaths`. |
+| `core/tests-not-weakened@1` | No test file was deleted (a rename with the same content is fine), no file has fewer tests, no more tests are marked skip, todo or only, no assertion in an existing test changed or was removed (moving a line is fine), and no script that existed in `package.json` changed. Comments are ignored, so a test that is commented out counts as removed. | Optional `testGlobs`. |
+| `core/test-floor@1` | At least as many tests ran (passed or failed, not skipped) as on the base commit, and more than zero. The base commit is measured once per run. It fails when either count cannot be read. | Optional `command` (default `verify`), `timeoutMinutes`, and `pattern` (a regular expression with one group of digits) for a runner whose output is not recognised. |
+| `core/new-tests-fail-on-base@1` | The base commit's suite must pass on its own. Then test files that are new or grew are put on a fresh checkout of the base commit and the suite is run there. It must fail. With no new tests the gate passes and says so. | Optional `command` (default `verify`), `testGlobs`, `timeoutMinutes`. |
+
+**What these gates cannot see.** They count patterns, they do not parse or run your tests one by one. A test
+switched off by code (an early `return`), a test moved to another file (reported as fewer tests, for a person to
+confirm), and a new test that fails on the base commit only because it cannot load a new file are beyond them.
+Review is for those.
+
+**Where gates run.** The host makes one fresh checkout of the commit the lane left, for all the gates of that
+attempt, and removes it afterwards. If the workspace defines a `setup` command in `factory.json`, it runs once in
+each checkout before any gate, so gates find the project installed. A setup that fails fails the lane, with its
+output as evidence. Gates that look only at the change (protected paths, tests not weakened) read git and need no
+checkout.
+
+**What a gate still trusts.** A command gate runs the project's own scripts from the agent's commit. The
+protected paths and the script check narrow what an agent can change to make a gate pass. They do not make a local
+run a sandbox.
 
 ### Checkpoints
 

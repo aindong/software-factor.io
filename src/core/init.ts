@@ -47,6 +47,16 @@ const STARTER = {
   },
   collectors: [{ id: "tasks", uses: "core/file@1", with: { path: ".factor/tasks.md" } }],
   gates: {
+    protected: {
+      uses: "core/protected-paths@1",
+      onFail: "stop",
+      description: "The change touches no CI, agent configuration, factory or lock file.",
+    },
+    "tests-kept": {
+      uses: "core/tests-not-weakened@1",
+      onFail: "stop",
+      description: "No test was deleted, skipped or weakened.",
+    },
     verify: {
       uses: "core/command@1",
       with: { command: "verify" },
@@ -65,7 +75,7 @@ const STARTER = {
         prompt:
           "Do the task below. Commit your work. In your hand-off, say what you changed and how it can be checked.",
       },
-      gates: ["verify"],
+      gates: ["protected", "tests-kept", "verify"],
       checkpoint: "in",
       on: { pass: "@done", fail: "@stop" },
     },
