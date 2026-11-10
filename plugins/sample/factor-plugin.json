@@ -1,0 +1,24 @@
+{
+  "name": "sample",
+  "version": "1.0.0",
+  "description": "A small plugin to read and copy: tasks from a folder of notes, a gate that looks for a word, a lane that says something.",
+  "collectors": {
+    "inbox@1": {
+      "description": "One task for each markdown file in a folder: the first heading is the title, the rest is the body.",
+      "run": "node \"$FACTOR_PLUGIN_DIR/inbox.mjs\""
+    }
+  },
+  "gates": {
+    "no-word@1": {
+      "description": "Fails when a file of the change's commit holds a word (FIXME unless \"word\" is set).",
+      "run": "node \"$FACTOR_PLUGIN_DIR/no-word.mjs\""
+    }
+  },
+  "lanes": {
+    "say@1": {
+      "description": "Prints what \"say\" holds. A lane type is any command: it passes when it exits 0.",
+      "run": "node \"$FACTOR_PLUGIN_DIR/say.mjs\""
+    }
+  },
+  "workflows": ["workflows/sample-flow.json"]
+}

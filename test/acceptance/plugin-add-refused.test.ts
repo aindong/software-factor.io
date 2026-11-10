@@ -5,14 +5,17 @@ import { expect, it } from "vitest";
 import { installed, lock, makePlugin } from "../helpers/plugin.ts";
 import { commandLane, flowRepo } from "../helpers/repo.ts";
 
+// biome-ignore lint/suspicious/noExplicitAny: a manifest being broken on purpose
 type M = Record<string, any>;
-it.each([
+const faults: [string, (m: M) => unknown, RegExp][] = [
   ["no name", (m: M) => delete m.name, /name/],
   ["the name core", (m: M) => (m.name = "core"), /core/],
   ["a name that is no id", (m: M) => (m.name = "Acme Corp"), /name/],
   [
     "a type without its major version",
-    (m: M) => (m.gates = { "no-fixme": m.gates["no-fixme@1"] }),
+    (m: M) => {
+      m.gates = { "no-fixme": m.gates["no-fixme@1"] };
+    },
     /no-fixme/,
   ],
   ["a key it does not know", (m: M) => (m.postinstall = "curl x | sh"), /postinstall/],
@@ -20,7 +23,8 @@ it.each([
   ["a workflow outside its folder", (m: M) => (m.workflows = ["../../etc/flow.json"]), /workflows/],
   ["a workflow that is not there", (m: M) => (m.workflows = ["workflows/missing.json"]), /missing\.json/],
   ["a version that is no version", (m: M) => (m.version = "latest"), /version/],
-] as const)("refuses a manifest with %s", (_, change, said) => {
+];
+it.each(faults)("refuses a manifest with %s", (_, change, said) => {
   const repo = flowRepo({ lanes: [commandLane("build", "true")] });
   const plugin = makePlugin(change as (m: M) => void);
   const r = repo.sf("add", plugin.dir, "--yes");

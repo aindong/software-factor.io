@@ -1,0 +1,34 @@
+{
+  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
+  "version": 1,
+  "name": "sample-flow",
+  "description": "Tasks from the notes in inbox/, built by one agent, checked for a leftover FIXME.",
+  "plugins": { "sample": "^1.0.0" },
+  "roles": { "author": { "description": "Does the task and commits it." } },
+  "limits": { "minutes": 30, "tokens": 500000 },
+  "collectors": [{ "id": "notes", "uses": "sample/inbox@1", "with": { "folder": "inbox" } }],
+  "gates": { "leftovers": { "uses": "sample/no-word@1", "with": { "word": "FIXME" }, "onFail": "fail" } },
+  "lanes": [
+    {
+      "id": "hello",
+      "name": "Hello",
+      "uses": "sample/say@1",
+      "with": { "say": "a task from the inbox" },
+      "checkpoint": "out",
+      "on": { "pass": "build", "fail": "@stop" }
+    },
+    {
+      "id": "build",
+      "name": "Build",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "author",
+        "access": "write",
+        "prompt": "Do the task and commit your work. Leave no FIXME behind."
+      },
+      "gates": ["leftovers"],
+      "checkpoint": "out",
+      "on": { "pass": "@done", "fail": "@stop" }
+    }
+  ]
+}

@@ -81,7 +81,7 @@ const SUPERUSER = new Set(["sudo", "doas"]);
 const FACTORY = "softwarefactor";
 const FACTORY_COMMANDS = new Set([
   ...["init", "collect", "run", "stop", "approve", "reject", "send-back", "answer"],
-  ...["account", "role", "memory", "mcp", "guard", "ui", "allow", "mcp-call"],
+  ...["account", "role", "memory", "mcp", "guard", "ui", "allow", "mcp-call", "add"],
 ]);
 // What an agent may do on GitHub with the person's login: read, and open its own pull request.
 // It is a list of what is allowed, not of what is not: a list of forbidden words is passed by

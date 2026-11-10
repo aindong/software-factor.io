@@ -71,14 +71,16 @@ export function costCommand(db: Db, say: Say): number {
 }
 
 /** `plugins`: what this version has built in. */
-export function pluginsCommand(say: Say): number {
-  const built = pluginsView();
+export function pluginsCommand(root: string, say: Say): number {
+  const built = pluginsView(root);
   say(`Lane types   ${built.lanes.join(", ")}`);
   say(`Gate types   ${built.gates.join(", ")}`);
   say(`Collectors   ${built.collectors.join(", ")}`);
   say(`Agents       ${built.agents.join(", ")}`);
   say("Workflows");
   for (const w of built.workflows) say(`  ${w.name.padEnd(16)} ${w.description}`);
+  say("Plugins");
+  for (const p of built.installed) say(`  ${p.name} ${p.version}  ${p.adds.join(", ")}`);
   say(built.installing);
   return 0;
 }

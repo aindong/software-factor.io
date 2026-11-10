@@ -6,9 +6,10 @@ import { fileURLToPath } from "node:url";
 import { AGENTS, DEFAULT_HEADROOM, heldUntil, readAccounts, usedIn } from "./accounts.ts";
 import type { Db } from "./db.ts";
 import type { RunState } from "./engine/state.ts";
+import { installedPlugins } from "./plugins/use.ts";
 import { BUILTINS, own } from "./schema/builtins.ts";
 import { openInbox } from "./store.ts";
-import type { Workspace } from "./workspace.ts";
+import { loadWorkspace, type Workspace } from "./workspace.ts";
 
 export type Decision = "approve" | "reject" | "send-back" | "answer";
 export interface InboxItem {
@@ -181,11 +182,19 @@ export interface PluginsView {
   collectors: string[];
   agents: string[];
   workflows: { name: string; description: string }[];
+  /** The plugins installed and allowed in this workspace, each with what it adds. */
+  installed: { name: string; version: string; adds: string[] }[];
   installing: string;
 }
 
 /** What this version has built in to assemble a factory from, by the names a workflow uses. */
-export function pluginsView(): PluginsView {
+export function pluginsView(root: string): PluginsView {
+  let installed: PluginsView["installed"] = [];
+  try {
+    installed = installedPlugins(loadWorkspace(root));
+  } catch {
+    // a workspace that cannot be read has no plugins to show
+  }
   // the workflows that come with the package, beside the code in the source tree and in the build
   const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "workflows");
   let workflows: PluginsView["workflows"] = [];
@@ -209,6 +218,11 @@ export function pluginsView(): PluginsView {
     collectors: Object.keys(BUILTINS.collector),
     agents: [...AGENTS, "fake"],
     workflows,
-    installing: "Installing more from a directory is not built yet. It comes with `softwarefactor add`.",
+    installed,
+    installing: `${
+      installed.length > 0
+        ? `Installed here: ${installed.map((p) => `${p.name} ${p.version}`).join(", ")}.`
+        : "No plugin is installed here."
+    } Add one from your terminal with \`softwarefactor add <folder, owner/repo or name>\`: it is shown first, and installed on a yes. \`softwarefactor plugins --available\` lists the directory.`,
   };
 }

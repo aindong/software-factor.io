@@ -1,20 +1,20 @@
 // A workflow that uses a plugin which is not on this machine does not start a run.
 import { expect, it } from "vitest";
-import { makePlugin, useFlow } from "../helpers/plugin.ts";
-import { flowRepo } from "../helpers/repo.ts";
+import { makePlugin, runsOf, useFlow } from "../helpers/plugin.ts";
+import { commandLane, flowRepo } from "../helpers/repo.ts";
 
 it("refuses to run before any run starts, and names the plugin and the command that installs it", () => {
-  const repo = flowRepo({ lanes: [] });
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
   useFlow(repo);
   const r = repo.sf("run");
   expect(r.status).toBe(1);
   expect(r.stderr).toMatch(/plugin "acme" is not installed on this machine/);
   expect(r.stderr).toMatch(/softwarefactor add/);
-  expect(repo.rows("select id from runs")).toEqual([]);
+  expect(runsOf(repo)).toEqual([]);
 });
 
 it("refuses a lane type the installed plugin does not have", () => {
-  const repo = flowRepo({ lanes: [] });
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
   const plugin = makePlugin((m) => {
     m.lanes = {};
   });
@@ -23,5 +23,5 @@ it("refuses a lane type the installed plugin does not have", () => {
   const r = repo.sf("run");
   expect(r.status).toBe(1);
   expect(r.stderr).toMatch(/plugin "acme" 1\.2\.0 has no lane type "note@1"/);
-  expect(repo.rows("select id from runs")).toEqual([]);
+  expect(runsOf(repo)).toEqual([]);
 });

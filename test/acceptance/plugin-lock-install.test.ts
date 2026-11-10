@@ -4,10 +4,10 @@ import { appendFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { installed, makePlugin, useFlow } from "../helpers/plugin.ts";
-import { flowRepo } from "../helpers/repo.ts";
+import { commandLane, flowRepo } from "../helpers/repo.ts";
 
 it("installs what the lock pins on a machine that has nothing, after showing it", () => {
-  const repo = flowRepo({ lanes: [] });
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
   const plugin = makePlugin();
   expect(repo.sf("add", plugin.dir, "--yes").status).toBe(0);
   useFlow(repo);
@@ -30,7 +30,7 @@ it("installs what the lock pins on a machine that has nothing, after showing it"
 });
 
 it("refuses a source that no longer gives the files the lock pins", () => {
-  const repo = flowRepo({ lanes: [] });
+  const repo = flowRepo({ lanes: [commandLane("build", "true")] });
   const plugin = makePlugin();
   expect(repo.sf("add", plugin.dir, "--yes").status).toBe(0);
   rmSync(join(repo.home, "plugins"), { recursive: true });

@@ -4,11 +4,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { calls, edit, standIn } from "../helpers/collect.ts";
+import { runsOf } from "../helpers/plugin.ts";
 import { agentLane, commitFile, flowRepo, pass, type Repo } from "../helpers/repo.ts";
 
 function withSkill(): { repo: Repo; log: string } {
   const repo = flowRepo({
-    lanes: [agentLane("build", { agent: { access: "write", skills: ["review"] } })],
+    lanes: [agentLane("build", { agent: { access: "write", skills: ["review"] }, gates: ["verify"] })],
     scripts: { author: { build: [...commitFile("notes.txt"), pass()] } },
   });
   edit(repo, (w) => {
@@ -30,7 +31,7 @@ it("does not start a run while a skill from a repository is not allowed on this 
   expect(r.stderr).toMatch(/skill "review" \(acme\/skills, code-review\) is not allowed on this machine/);
   expect(r.stderr).toContain("softwarefactor allow --skill review");
   expect(calls(log)).toEqual([]);
-  expect(repo.rows("select id from runs")).toEqual([]);
+  expect(runsOf(repo)).toEqual([]);
 });
 
 it("installs an allowed skill into the worktree for the lane's agent, and keeps it out of the run's change", () => {

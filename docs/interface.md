@@ -162,7 +162,8 @@ session with no known cost is counted as not known, never as nothing. `softwaref
 ## Plugins
 
 What is built in: lane types, gate types, collectors, agents, and the workflows that come with this version.
-Installing more from a directory is not built yet.
+Plugins installed in this workspace are named in the sentence under the lists. They are installed from the
+terminal with `softwarefactor add` (`docs/plugins.md`), not from the page.
 
 ## Keys, and the tab
 
@@ -173,7 +174,7 @@ the number of runs that wait for you in front, and its icon carries a yellow mar
 
 ## Not built yet
 
-Starting and stopping runs from the interface, adding an account, and installing plugins. A diff is the whole
+Starting and stopping runs from the interface, adding an account, and installing plugins from the page. A diff is the whole
 run's, not one lane's. A screenshot opens at its real size in a new tab, not in a viewer in the page. The rail,
 the inspector and the map's labels are sized in pixels: with a larger default font in the browser (not page
 zoom) the map's labels crowd.

@@ -14,6 +14,7 @@ import type { Ctx } from "./lane.ts";
 import { preflight } from "./preflight.ts";
 import { recoverOrphans } from "./recover.ts";
 import { advance, collect, contextFor, finish, type RunSummary } from "./run.ts";
+import { installSkills } from "./skills.ts";
 import { maxSlots } from "./slots.ts";
 import { newState } from "./state.ts";
 
@@ -142,6 +143,7 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
       const ctx = contextFor(ws, db, run, log);
       try {
         addWorktree(ws.root, worktree, branch, base);
+        installSkills(ws, worktree);
       } catch (error) {
         seen(finish(ctx, "stopped", "crashed", `the run could not start: ${(error as Error).message}`));
         return next();

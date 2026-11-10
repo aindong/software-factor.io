@@ -111,6 +111,11 @@ export function collectMcp(at: At, settings: { server: string; tool: string; arg
       throw new Error("the tool's answer is not JSON");
     }
   }
+  return tasksIn(value);
+}
+
+/** The tasks in an answer: a list of items, or an object that holds one. */
+export function tasksIn(value: unknown): Collected {
   const list = listIn(value);
   if (!list) throw new Error("the tool's answer holds no list of items");
   const seen = new Set<string>();

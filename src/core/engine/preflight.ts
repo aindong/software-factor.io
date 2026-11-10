@@ -5,9 +5,11 @@ import { UserError } from "../errors.ts";
 import { resolveCommand } from "../gates/command.ts";
 import { isBuiltGate } from "../gates/index.ts";
 import { headOf } from "../git.ts";
+import { pluginType } from "../plugins/use.ts";
 import { readPrices } from "../prices.ts";
 import type { CommandSettings, WaitSettings } from "../schema/builtins.ts";
 import type { Workspace } from "../workspace.ts";
+import { skillProblem, skillsNeeded } from "./skills.ts";
 
 const SUPPORTED_LANES = ["core/agent@1", "core/command@1", "core/wait@1"];
 const later = (what: string, task: number) =>
@@ -27,8 +29,10 @@ export function preflight(ws: Workspace): void {
     );
   }
   for (const lane of ws.workflow.lanes) {
-    if (!SUPPORTED_LANES.includes(lane.uses))
-      throw later(`The lane type "${lane.uses}" (lane "${lane.id}")`, 19);
+    if (!SUPPORTED_LANES.includes(lane.uses)) {
+      if (lane.uses.startsWith("core/")) throw later(`The lane type "${lane.uses}" (lane "${lane.id}")`, 19);
+      pluginType(ws, "lane", lane.uses); // refuses a plugin that is not installed, allowed and pinned here
+    }
     for (const role of rolesOf(lane)) {
       if (!Object.hasOwn(ws.local.roles, role)) {
         throw new UserError(
@@ -54,11 +58,18 @@ export function preflight(ws: Workspace): void {
       if (!gate) continue;
       if (gate.uses.startsWith("core/") && !isBuiltGate(gate.uses))
         throw later(`The gate type "${gate.uses}" (gate "${gateId}")`, 19);
+      if (!gate.uses.startsWith("core/")) pluginType(ws, "gate", gate.uses);
       const settings = (gate.with ?? {}) as CommandSettings;
       // a floor or a fail-on-base gate runs the workspace's verify command unless it names another
       const runsVerify = gate.uses === "core/test-floor@1" || gate.uses === "core/new-tests-fail-on-base@1";
       if (gate.uses === "core/command@1") resolveCommand(ws, settings, `Gate "${gateId}"`);
       else if (runsVerify) resolveCommand(ws, { command: settings.command ?? "verify" }, `Gate "${gateId}"`);
     }
+  }
+  for (const c of ws.workflow.collectors)
+    if (!c.uses.startsWith("core/")) pluginType(ws, "collector", c.uses);
+  for (const skill of skillsNeeded(ws)) {
+    const problem = skillProblem(ws, skill);
+    if (problem) throw problem;
   }
 }

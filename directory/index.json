@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "plugins": [
+    {
+      "name": "sample",
+      "description": "A small plugin to read and copy: a collector, a gate, a lane type and a workflow.",
+      "source": "aindong/software-factor.io/plugins/sample"
+    }
+  ]
+}

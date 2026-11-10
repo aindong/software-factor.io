@@ -72,7 +72,7 @@ it("names a collector whose type is not on this machine, and goes on", () => {
   const r = repo.sf("collect");
   expect(r.status, r.stderr).toBe(0);
   expect(r.stdout).toMatch(
-    /collector board: could not collect: there is no collector "acme\/board@1" on this machine/,
+    /collector board: could not collect: the plugin "acme" is not installed on this machine/,
   );
   expect(tasks(repo).map((t) => t.title)).toEqual(["From the file"]);
 });

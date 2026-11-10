@@ -123,3 +123,7 @@ export function installed(repo: Repo, name = "acme"): string {
   const pinned = lock(repo)[name]?.sha256;
   return pinned ? join(repo.home, "plugins", name, pinned.slice(0, 16)) : join(repo.home, "plugins", name);
 }
+
+/** The runs there are. A run that was refused before anything started leaves no database at all. */
+export const runsOf = (repo: Repo) =>
+  existsSync(join(repo.dir, ".factor/state.db")) ? repo.rows<{ id: string }>("select id from runs") : [];

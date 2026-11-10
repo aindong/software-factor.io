@@ -1,11 +1,11 @@
 // A plugin's lane type and gate run as commands in the run's checkout, with their settings.
 import { expect, it } from "vitest";
 import { callsOf, installed, makePlugin, useFlow } from "../helpers/plugin.ts";
-import { commitFile, flowRepo, pass, trail } from "../helpers/repo.ts";
+import { commandLane, commitFile, flowRepo, pass, trail } from "../helpers/repo.ts";
 
 const repoWith = (content: string) =>
   flowRepo({
-    lanes: [],
+    lanes: [commandLane("build", "true")],
     scripts: { author: { build: [...commitFile("notes.txt", content), pass()] } },
   });
 

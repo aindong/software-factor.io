@@ -4,11 +4,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { expect, it } from "vitest";
 import { Manifest } from "../../src/core/plugins/manifest.ts";
-import { commitFile, flowRepo, pass } from "../helpers/repo.ts";
+import { commandLane, commitFile, flowRepo, pass } from "../helpers/repo.ts";
 
 it("installs from its folder and runs its workflow to the end on the fake agent", () => {
   const repo = flowRepo({
-    lanes: [],
+    lanes: [commandLane("build", "true")],
     files: { "inbox/first.md": "# Say hello\n\nWrite a greeting.\n" },
     scripts: { author: { build: [...commitFile("hello.txt"), pass()] } },
   });
