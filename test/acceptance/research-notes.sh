@@ -29,7 +29,10 @@ done
 
 for p in docs/research/*.md; do
   [ -f "$p" ] || continue
-  if grep -nE 'TODO|TBD|—' "$p" | head -3; then bad "$p has a TODO, TBD or em dash"; fi
+  if grep -qE 'TODO|TBD|—' "$p"; then
+    grep -nE 'TODO|TBD|—' "$p" | head -3
+    bad "$p has a TODO, TBD or em dash"
+  fi
 done
 
 c=docs/research/agent-clis.md
