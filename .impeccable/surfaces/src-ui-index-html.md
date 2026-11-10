@@ -34,8 +34,10 @@ THESIS: A process should read like a network map. The floor is drawn as a transi
 stations, transitions are lines, tasks are trains. It refuses the category default of a dark dashboard with a
 sidebar and rounded gradient nodes on a dotted canvas.
 
-OWN-WORLD: Map-white ground, navy rail, and lines with one job each: through blue for pass, return vermilion for
-fail and loops, signal yellow only where a person can act, end grey for stops, green for a passed gate. Lines 6px,
+OWN-WORLD: Map-white ground, navy rail, and four colours with one meaning each: through blue for passed (the
+pass route and a passed gate), return vermilion for failed (the fail route, loops and a failed gate), signal
+yellow with an ink border only where a person can act, end grey where nothing is happening. Selection and focus
+are ink. Lines 6px,
 at 0, 45 and 90 degrees only, 12px bends. Stations are ringed white discs, checkpoints are capsules, trains are
 numbered capsules. Barlow and Barlow Semi Condensed, system monospace for output. Flat, hairline rules, no shadow
 on the map.
@@ -52,8 +54,9 @@ the inbox.
 
 FORM: Transit line diagram, candidate 3 of 8 on the ordered list (railway signalling panel, process flow
 drawing, transit map, inspection tag and manifest, factory-game overlay, lab notebook, departure board,
-graphics standards manual). seed:9c417eafefdc7cb6. Signature interaction: pointing at a run lights its route on
-the map, and a time scrubber replays the run along the lines. Motion: trains move at constant speed, state snaps.
+graphics standards manual). seed:9c417eafefdc7cb6. Signature interaction: pointing at a run, or focusing it by
+keyboard, lights its route on the map, and a time scrubber in the bottom strip replays the run along the lines
+once the engine records run events. Motion: trains move at constant speed, state snaps.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 

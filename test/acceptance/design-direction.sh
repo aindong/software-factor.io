@@ -25,9 +25,14 @@ fi
 
 if [ -f "$d" ]; then
   [ "$(head -1 "$d")" = "---" ] || bad "$d does not start with token frontmatter"
+  [ "$(grep -c '^---$' "$d")" -ge 2 ] || bad "$d frontmatter is not closed"
   front=$(awk 'NR==1{next} /^---$/{exit} {print}' "$d")
-  echo "$front" | grep -q '^colors:' || bad "$d frontmatter has no colors"
-  echo "$front" | grep -qE '^  night-[a-z-]+: ' || bad "$d frontmatter has no night theme colours"
+  cols=$(echo "$front" | awk '/^colors:/{on=1;next} /^[a-z]/{on=0} on')
+  echo "$cols" | grep -qE '^  night-[a-z-]+: ' || bad "$d frontmatter has no night theme colours"
+  echo "$cols" | grep -vE '^  night-' | grep -qE '^  [a-z-]+: ' || bad "$d frontmatter has no light theme colours"
+  # a hue between blue-violet and magenta is a purple, whatever it is called
+  echo "$front" | sed -n 's/.*oklch([^ ]* [^ ]* \([0-9.]*\)).*/\1/p' | awk '$1 >= 275 && $1 <= 335 {x=1} END{exit x+0}' \
+    || bad "$d has a purple hue token"
   [ "$(echo "$front" | awk '/^typography:/{on=1;next} /^[a-z]/{on=0} on && /^  [a-z]+:$/' | wc -l)" -ge 4 ] \
     || bad "$d frontmatter has fewer than four type roles"
   want="Overview
@@ -40,7 +45,7 @@ Components
 Do's and Don'ts"
   have=$(grep -E '^## ' "$d" | sed 's/^## //')
   [ "$have" = "$want" ] || bad "$d sections are not the format's eight, in order"
-  section "$d" Overview | grep -q 'signature move' || bad "$d Overview names no signature move"
+  [ "$(section "$d" Overview | grep -c 'signature move: [^ ]')" -eq 1 ] || bad "$d Overview does not name exactly one signature move"
   section "$d" Overview | grep -qi 'before any screen' || bad "$d Overview does not say it was written before the build"
   # gradients and purple may only be named in order to forbid them
   if awk '/^### Don.t/{dont=1} /^## /{dont=0} !dont' "$d" | grep -qiE 'gradient|purple|violet'; then
@@ -53,8 +58,18 @@ if [ -f "$b" ]; then
     grep -qE "^$k: .{20,}" "$b" || bad "$b lacks the $k block"
   done
   grep -qE 'seed:[0-9a-f]{16}' "$b" || bad "$b has no seed reference"
-  [ "$(section "$b" 'Weighed and set aside' | grep -c 'Kept:')" -ge 3 ] || bad "$b does not record what was kept from at least three weighed directions"
+  w=$(section "$b" 'Weighed and set aside')
+  n=$(echo "$w" | grep -c '^- ')
+  k=$(echo "$w" | grep -cE '^- .*Kept: [^[:space:]]')
+  { [ "$n" -ge 3 ] && [ "$n" -eq "$k" ]; } || bad "$b: $n directions weighed, $k say what was kept (need at least 3, all with Kept)"
 fi
+
+# the other two files may name a gradient or a purple only to forbid it (checked a paragraph at a time)
+for f in "$p" "$b"; do
+  [ -f "$f" ] || continue
+  awk -v RS= 'tolower($0) ~ /gradient|purple|violet/ && tolower($0) !~ /(^|[^a-z])(no|never|refuses|don.t)[^a-z]/ {x=1} END{exit x+0}' "$f" \
+    || bad "$f names a gradient or purple without forbidding it"
+done
 
 [ "$fail" -eq 0 ] && echo "design direction: ok"
 exit "$fail"
