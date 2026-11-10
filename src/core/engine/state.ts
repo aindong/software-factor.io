@@ -4,11 +4,11 @@ import type { Outcome } from "../store.ts";
 
 export interface Parked {
   /** approve-before: a command, wait or one-way lane that has not run. approve-after: an agent's finished work. */
-  kind: "approve-before" | "approve-after" | "answer" | "wait";
+  kind: "approve-before" | "approve-after" | "answer" | "wait" | "account";
   lane: string;
   laneRun?: number;
   note?: string;
-  /** For a wait: when to look again, and when to give up and ask a person. Milliseconds on the factory clock. */
+  /** For a wait or an account on hold: when to look again, and when to give up and ask a person. Milliseconds on the factory clock. */
   nextCheck?: number;
   deadline?: number;
 }
@@ -79,7 +79,8 @@ export type StopCode =
   | "crashed"
   | "awaiting_approval"
   | "needs_person"
-  | "waiting";
+  | "waiting"
+  | "account_limit";
 
 export interface LaneResult {
   outcome: Outcome;

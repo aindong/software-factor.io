@@ -2,7 +2,7 @@
 // and the evals run on it, so the engine and every gate can be proven for free (ADR 0010).
 import { existsSync, lstatSync, mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
-import type { FakeAction, RoleBinding } from "../config.ts";
+import type { FakeAction, FakeBinding } from "../config.ts";
 import { commitAll } from "../git.ts";
 import type { AgentAdapter, AgentJob } from "./types.ts";
 
@@ -34,7 +34,7 @@ const nap = (ms: number, signal: AbortSignal) =>
     });
   });
 
-export function fakeAgent(binding: RoleBinding): AgentAdapter {
+export function fakeAgent(binding: FakeBinding): AgentAdapter {
   return {
     async run(job: AgentJob) {
       const scripted = binding.script?.[job.lane.id] ?? binding.script?.["*"] ?? [];

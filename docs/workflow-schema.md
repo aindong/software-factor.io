@@ -148,6 +148,7 @@ Every run ends, or waits, with a code that can be counted:
 | `git_config_changed` | Git's configuration or hooks changed while an agent worked. |
 | `interrupted`, `crashed` | The command was stopped, or the engine hit an error. |
 | `awaiting_approval`, `needs_person`, `waiting` | The run is parked: for an approval, for an answer, or in a wait lane. |
+| `account_limit` | The run is parked: the account of its next lane is near its limit. `softwarefactor run` continues it when the account has room. |
 
 ### Gates
 

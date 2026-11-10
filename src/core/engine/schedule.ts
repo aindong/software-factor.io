@@ -64,7 +64,14 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
         if (moved.has(due.id)) continue;
         if (!store.takeWaitingRun(db, due.id)) continue; // another process woke it first
         if (store.claimSlot(db, due.id, slots) === undefined) {
-          store.endRun(db, due.id, "waiting", "waiting", due.stop_reason ?? "waiting", due.wake_at); // park it again, as it was
+          store.endRun(
+            db,
+            due.id,
+            "waiting",
+            due.stop_code ?? "waiting",
+            due.stop_reason ?? "waiting",
+            due.wake_at,
+          ); // park it again, as it was
           busy = true;
           return undefined;
         }

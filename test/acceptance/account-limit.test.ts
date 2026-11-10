@@ -50,7 +50,7 @@ describe("an account near its limit", () => {
     expect(runRow(repo)?.status).toBe("waiting"); // not before the hold is over
     repo.env.FACTOR_CLOCK_OFFSET_MS = String(2 * HOUR);
     expect(repo.sf("run").status).toBe(0);
-    expect(trail(repo)).toEqual(["a:pass"]);
+    expect(trail(repo)).toEqual(["a:fail", "a:pass"]); // the try that hit the limit, then the one that worked
     expect(profile.calls().length).toBe(2);
   });
 });

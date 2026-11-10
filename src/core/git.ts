@@ -36,6 +36,14 @@ export function repoRoot(cwd: string): string {
   }
 }
 
+/** The branch the repository is on, which runs branch from and must not be pushed to. */
+export function currentBranch(root: string): string {
+  try {
+    return git(root, "symbolic-ref", "--short", "-q", "HEAD");
+  } catch {
+    return "main"; // not on a branch
+  }
+}
 export const headOf = (cwd: string) => git(cwd, "rev-parse", "--verify", "HEAD^{commit}");
 export const treeOf = (cwd: string, commit: string) => git(cwd, "rev-parse", `${commit}^{tree}`);
 

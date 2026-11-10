@@ -181,11 +181,11 @@ export const stopRequested = (db: Db, id: string) =>
       | undefined
   )?.stop_requested === 1;
 
-/** Runs parked on a wait lane whose time has come. */
+/** Runs parked on a wait lane or on an account's limit, whose time has come. */
 export const dueRuns = (db: Db) =>
   db
     .prepare(
-      "select * from runs where status = 'waiting' and stop_code = 'waiting' and wake_at <= ? order by wake_at",
+      "select * from runs where status = 'waiting' and stop_code in ('waiting', 'account_limit') and wake_at <= ? order by wake_at",
     )
     .all(now()) as unknown as Run[];
 
