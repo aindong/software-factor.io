@@ -15,7 +15,8 @@ describe("nothing is left half done", () => {
     expect(run.stderr).not.toMatch(/\n\s+at /);
     repo.git("add", "-A");
     repo.git("commit", "-q", "-m", "first");
-    expect(repo.rows("select status from tasks where status = 'running'")).toEqual([]);
+    expect(repo.sf("collect").status).toBe(0);
+    expect(repo.rows("select status from tasks")).toEqual([{ status: "queued" }]);
   });
 
   it("refuses a workflow whose prompt file is missing before it claims anything", () => {
@@ -47,13 +48,15 @@ describe("nothing is left half done", () => {
   });
 
   it("stops cleanly when the command is interrupted while a gate runs", async () => {
-    const repo = readyRepo({ verify: "sleep 297", script: passingScript });
+    // a duration no other process uses, so a leftover from an earlier run cannot be mistaken for this one
+    const nap = `sleep 297.${process.pid}${Date.now() % 100000}`;
+    const repo = readyRepo({ verify: nap, script: passingScript });
     const child = spawn(process.execPath, [join(process.cwd(), "src/cli.ts"), "run"], {
       cwd: repo.dir,
       env: { ...process.env, FACTOR_HOME: repo.home },
       stdio: "ignore",
     });
-    const gateRunning = () => spawnSync("pgrep", ["-f", "sleep 297"]).status === 0;
+    const gateRunning = () => spawnSync("pgrep", ["-f", nap]).status === 0;
     for (let i = 0; i < 100 && !gateRunning(); i++) await new Promise((r) => setTimeout(r, 100));
     expect(gateRunning(), "the gate never started").toBe(true);
     child.kill("SIGTERM");

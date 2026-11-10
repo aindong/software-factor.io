@@ -83,13 +83,20 @@ export type Db = DatabaseSync;
 export function openDb(path: string): Db {
   mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
-  db.exec("pragma journal_mode = wal; pragma foreign_keys = on; pragma busy_timeout = 5000;");
-  const row = db.prepare("pragma user_version").get() as { user_version: number };
-  for (let v = row.user_version; v < MIGRATIONS.length; v++) {
-    db.exec("begin");
-    db.exec(MIGRATIONS[v] ?? "");
-    db.exec(`pragma user_version = ${v + 1}`);
+  // the wait comes first: two commands starting at once must queue, not fail
+  db.exec("pragma busy_timeout = 5000");
+  db.exec("pragma journal_mode = wal; pragma foreign_keys = on;");
+  db.exec("begin immediate");
+  try {
+    const row = db.prepare("pragma user_version").get() as { user_version: number };
+    for (let v = row.user_version; v < MIGRATIONS.length; v++) {
+      db.exec(MIGRATIONS[v] ?? "");
+      db.exec(`pragma user_version = ${v + 1}`);
+    }
     db.exec("commit");
+  } catch (error) {
+    db.exec("rollback");
+    throw error;
   }
   return db;
 }

@@ -5,6 +5,7 @@ import { parseArgs } from "node:util";
 import { openDb } from "./core/db.ts";
 import { collect, runNext } from "./core/engine/run.ts";
 import { UserError } from "./core/errors.ts";
+import { interrupt } from "./core/exec.ts";
 import { init } from "./core/init.ts";
 import { readStatus } from "./core/store.ts";
 import { loadWorkspace } from "./core/workspace.ts";
@@ -20,6 +21,12 @@ Usage: softwarefactor <command>
 
 Exit codes for run: 0 the task is done, 1 it stopped, 3 it waits for a person.
 `;
+
+// Task titles and agent summaries come from outside. Printed raw, a control sequence in one could
+// rewrite the terminal's title or hide a failure line.
+// biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
+const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g;
+const say = (line: string) => console.log(line.replace(CONTROL, ""));
 
 const EXIT = { none: 0, done: 0, dropped: 0, running: 0, stopped: 1, waiting: 3 } as const;
 
@@ -68,7 +75,7 @@ async function main(): Promise<number> {
 
   if (command === "run") {
     const summary = await runNext(loadWorkspace(cwd));
-    for (const line of summary.log) console.log(line);
+    for (const line of summary.log) say(line);
     return EXIT[summary.status];
   }
 
@@ -77,20 +84,19 @@ async function main(): Promise<number> {
     const db = openDb(ws.dbPath);
     try {
       const view = readStatus(db);
-      console.log("Tasks");
-      if (view.tasks.length === 0) console.log("  (none)");
-      for (const t of view.tasks) console.log(`  ${t.status.padEnd(8)} ${t.title}`);
-      console.log("\nRuns");
-      if (view.runs.length === 0) console.log("  (none)");
+      say("Tasks");
+      if (view.tasks.length === 0) say("  (none)");
+      for (const t of view.tasks) say(`  ${t.status.padEnd(8)} ${t.title}`);
+      say("\nRuns");
+      if (view.runs.length === 0) say("  (none)");
       for (const r of view.runs) {
-        console.log(`  ${r.id}  ${r.status.padEnd(8)} ${r.title}  (branch ${r.branch})`);
-        if (r.stop_reason) console.log(`    ${r.stop_reason}`);
+        say(`  ${r.id}  ${r.status.padEnd(8)} ${r.title}  (branch ${r.branch})`);
+        if (r.stop_reason) say(`    ${r.stop_reason}`);
         for (const l of r.lanes) {
-          console.log(`    ${l.lane}  ${l.outcome ?? "running"}${l.note ? `  ${l.note}` : ""}`);
-          for (const g of l.gates)
-            console.log(`      ${g.gate}  ${g.status}  exit ${g.exit_code}  ${g.output_path}`);
+          say(`    ${l.lane}  ${l.outcome ?? "running"}${l.note ? `  ${l.note}` : ""}`);
+          for (const g of l.gates) say(`      ${g.gate}  ${g.status}  exit ${g.exit_code}  ${g.output_path}`);
         }
-        for (const i of r.inbox) console.log(`    waiting: ${i.body}`);
+        for (const i of r.inbox) say(`    waiting: ${i.body}`);
       }
     } finally {
       db.close();
@@ -102,6 +108,9 @@ async function main(): Promise<number> {
   console.error(HELP);
   return 1;
 }
+
+// Ctrl-C or a kill stops what is running and ends the run as stopped, instead of leaving it "running" for ever.
+for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, interrupt);
 
 main().then(
   (code) => {

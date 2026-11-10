@@ -36,7 +36,7 @@ describe("running a host command", () => {
 
   it("gives the command only the allowed environment", async () => {
     process.env.SF_TEST_LEAK = "leaked";
-    const r = await run("echo leak=${SF_TEST_LEAK:-none}");
+    const r = await run("echo leak=$" + "{SF_TEST_LEAK:-none}");
     delete process.env.SF_TEST_LEAK;
     expect(r.output).toContain("leak=none");
   });

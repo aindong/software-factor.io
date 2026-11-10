@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, resolve } from "node:path";
 import type { z } from "zod";
 import { FactoryConfig, LocalConfig } from "./config.ts";
 import { UserError } from "./errors.ts";
@@ -22,10 +22,16 @@ export interface Workspace {
   config: FactoryConfig;
   local: LocalConfig;
   workflow: Workflow;
+  /** Each agent lane's instructions, read once when the workspace loads. */
+  prompts: Record<string, string>;
 }
 
 /** The machine's own folder for accounts and worktrees. Tests point FACTOR_HOME somewhere private. */
-export const factorHome = () => process.env.FACTOR_HOME ?? join(homedir(), ".factor");
+export function factorHome(): string {
+  const set = process.env.FACTOR_HOME;
+  // always absolute: a relative path would put worktrees inside the repository
+  return resolve(set && set.trim() !== "" ? set : join(homedir(), ".factor"));
+}
 
 export function workspaceId(root: string): string {
   return `${basename(root)}-${createHash("sha256").update(root).digest("hex").slice(0, 8)}`;
@@ -78,6 +84,22 @@ export function loadWorkspace(cwd: string): Workspace {
     const list = problems.map((p) => `  ${p.path}: ${p.message}\n    fix: ${p.fix}`).join("\n");
     throw new UserError(`The workflow "${config.workflow}" has problems:\n${list}`, `Edit ${workflowPath}.`);
   }
+  const prompts: Record<string, string> = {};
+  for (const lane of workflow.lanes) {
+    const p = lane.agent?.prompt;
+    if (p === undefined) continue;
+    if (typeof p === "string") prompts[lane.id] = p;
+    else {
+      const file = join(factorDir, "workflows", p.file);
+      if (!existsSync(file)) {
+        throw new UserError(
+          `Lane "${lane.id}" names the prompt file ${p.file}, which does not exist.`,
+          `Create ${file}, or write the prompt inline.`,
+        );
+      }
+      prompts[lane.id] = readFileSync(file, "utf8");
+    }
+  }
   const id = workspaceId(root);
   return {
     root,
@@ -89,5 +111,6 @@ export function loadWorkspace(cwd: string): Workspace {
     config,
     local,
     workflow,
+    prompts,
   };
 }
