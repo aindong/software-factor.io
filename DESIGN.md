@@ -254,7 +254,8 @@ list, a detail, a plain page. The page never scrolls.
   sideways but the map and a diff.
 
 The map never reflows. It is laid out from the workflow (124px between stations, 28px between tracks) and
-scrolls both ways in its own box.
+scrolls both ways in its own box. A run's map, which is only read, is drawn smaller to fit its box, down to
+seven tenths of its size, and scrolls after that.
 
 ### Not built
 

@@ -2,7 +2,7 @@
 // it, what waits for a person, the diff, the files its agents attached, and each lane it went
 // through with its gates, claims and sessions. Every piece of evidence opens in place.
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
-import { layout } from "../core/floor/layout.ts";
+import { drawable, layout } from "../core/floor/layout.ts";
 import { groupEvidence, routeOf, stepOf, trackOf } from "../core/runs/track.ts";
 import type { Workflow } from "../core/schema/workflow.ts";
 import { getRun, type RunDetail, type RunRow } from "./api.ts";
@@ -49,8 +49,15 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
     };
   }, [row.id, stamp]);
 
-  const floor = useMemo(() => (workflow ? layout(workflow) : undefined), [workflow]);
-  const names = new Map(workflow?.lanes.map((l) => [l.id, l.name ?? l.id]));
+  // The map is the workflow the run ran on, kept with the run when it started. A run older than
+  // that record is drawn on the workflow as it is today, and says so.
+  const kept = detail?.kept;
+  const drawn = useMemo(
+    () => (row.own ? (kept ? drawable(kept) : undefined) : workflow),
+    [row.own, kept, workflow],
+  );
+  const floor = useMemo(() => (drawn ? layout(drawn) : undefined), [drawn]);
+  const names = new Map(row.stops.map((l) => [l.id, l.name]));
   const nameOf = (id: string) => names.get(id) ?? id;
   const total = row.visits.length;
   const step = stepOf(total, at);
@@ -58,7 +65,12 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
   const end = { done: "@done", dropped: "@drop", stopped: "@stop", running: undefined, waiting: undefined }[
     row.status
   ];
-  const track = trackOf(workflow?.lanes.map((l) => l.id) ?? [], row.visits, step, row.at);
+  const track = trackOf(
+    row.stops.map((l) => l.id),
+    row.visits,
+    step,
+    row.at,
+  );
   const states = Object.fromEntries(track.lanes.map((l) => [l.id, l.state]));
   const visit = row.visits[step - 1];
   const stepWords =
@@ -235,11 +247,17 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
             <output className="data">{stepWords}</output>
           </label>
         </div>
-      ) : (
+      ) : row.own && !detail && !problem ? null : (
         <p className="quiet">
           The workflow "{row.workflow}" cannot be drawn any more, so this run has no map.
         </p>
       )}
+      {floor && !row.own ? (
+        <p className="quiet">
+          This run is older than the record of the workflow it ran on: the map is "{row.workflow}" as it is
+          today.
+        </p>
+      ) : null}
 
       {problem ? <p className="quiet">{problem}</p> : null}
       {detail ? (
@@ -350,7 +368,6 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                         .filter(Boolean)
                         .join(", ")}
                     >
-                      {gate.command ? <p className="quiet code">$ {gate.command}</p> : null}
                       <FileView runId={row.id} path={gate.output} name="output.log" />
                     </Proof>
                   ))}

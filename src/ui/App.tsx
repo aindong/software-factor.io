@@ -49,8 +49,13 @@ export function App() {
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     let waiting = false;
+    const drop = () => {
+      waiting = false;
+      setArmed(false);
+    };
     const onKey = (event: KeyboardEvent) => {
-      if (typing(event.target) || event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
+      if (typing(event.target)) return drop(); // typing in a field ends the wait: its letters are the field's
+      if (event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
       if (["Shift", "Control", "Alt", "Meta"].includes(event.key)) return;
       if (!waiting) {
         if (event.key !== "g") return;
@@ -67,7 +72,11 @@ export function App() {
       if (to) go(to.path);
     };
     addEventListener("keydown", onKey, true);
-    return () => removeEventListener("keydown", onKey, true);
+    addEventListener("pointerdown", drop, true); // so does a press of the pointer anywhere
+    return () => {
+      removeEventListener("keydown", onKey, true);
+      removeEventListener("pointerdown", drop, true);
+    };
   }, []);
   const [unsaved, setUnsaved] = useState(false); // the floor holds changes that are not saved
   useEffect(() => {

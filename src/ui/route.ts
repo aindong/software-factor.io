@@ -16,7 +16,12 @@ export function go(to: string, replace = false): void {
   dispatchEvent(new PopStateEvent("popstate"));
 }
 /** What is open in a section: the part of the address after the section's own. */
-export const openIn = (path: string, section: string): string | undefined =>
-  path.startsWith(`${section}/`)
-    ? decodeURIComponent(path.slice(section.length + 1)) || undefined
-    : undefined;
+export function openIn(path: string, section: string): string | undefined {
+  if (!path.startsWith(`${section}/`)) return undefined;
+  const rest = path.slice(section.length + 1).replace(/\/+$/, ""); // a slash at the end names nothing more
+  try {
+    return decodeURIComponent(rest) || undefined;
+  } catch {
+    return rest || undefined; // an address that does not decode is taken as it is written
+  }
+}

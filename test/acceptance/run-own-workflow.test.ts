@@ -9,7 +9,7 @@ import { threeRuns } from "../helpers/runs.ts";
 interface Row {
   id: string;
   sentence: string;
-  lanes: { id: string; name: string }[];
+  stops: { id: string; name: string }[];
   own: boolean;
 }
 const { repo, done, stopped, waiting } = threeRuns();
@@ -44,7 +44,7 @@ describe("a run and the workflow it ran on", () => {
 
   it("the list gives each run the lanes of its own workflow, by the names they had", () => {
     for (const id of [done, stopped, waiting]) {
-      expect(by(id).lanes, id).toEqual([
+      expect(by(id).stops, id).toEqual([
         { id: "build", name: "Build" },
         { id: "check", name: "check" },
         { id: "ship", name: "Ship it" },
@@ -56,11 +56,11 @@ describe("a run and the workflow it ran on", () => {
   });
 
   it("one run comes with its own workflow, to draw its map on", async () => {
-    const { run } = await jsonOf<{ run: { workflow: { lanes: { id: string }[] } | null; own: boolean } }>(
+    const { run } = await jsonOf<{ run: { kept: { lanes: { id: string }[] } | null; own: boolean } }>(
       await ui.api(`/api/runs/${done}`),
     );
     expect(run.own).toBe(true);
-    expect(run.workflow?.lanes.map((l) => l.id)).toEqual(["build", "check", "ship"]);
+    expect(run.kept?.lanes.map((l) => l.id)).toEqual(["build", "check", "ship"]);
   });
 
   it("a run from before its workflow was kept is drawn on today's, and says so", async () => {
@@ -69,16 +69,16 @@ describe("a run and the workflow it ran on", () => {
       (r) => r.id === stopped,
     );
     expect(again?.own).toBe(false);
-    expect(again?.lanes.map((l) => `${l.id}:${l.name}`)).toEqual([
+    expect(again?.stops.map((l) => `${l.id}:${l.name}`)).toEqual([
       "build:Construct",
       "check:check",
       "deploy:Deploy",
     ]);
-    const { run } = await jsonOf<{ run: { workflow: unknown; own: boolean } }>(
+    const { run } = await jsonOf<{ run: { kept: unknown; own: boolean } }>(
       await ui.api(`/api/runs/${stopped}`),
     );
     expect(run.own).toBe(false);
-    expect(run.workflow).toBeNull();
+    expect(run.kept).toBeNull();
   });
 
   it("a kept workflow that does not read, or is a link, is not trusted: today's is used", async () => {
@@ -92,7 +92,7 @@ describe("a run and the workflow it ran on", () => {
       const row = again.find((r) => r.id === id);
       expect(row?.own, id).toBe(false);
       expect(
-        row?.lanes.map((l) => l.id),
+        row?.stops.map((l) => l.id),
         id,
       ).toEqual(["build", "check", "deploy"]);
     }

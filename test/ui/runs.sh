@@ -238,6 +238,15 @@ pw press Space
 theme Light
 shot floor-runs-light-1440
 
+# ---- 5b. the workflow is changed after the runs: each run keeps the map it ran on
+node -e 'const fs = require("fs"); const f = ".factor/workflows/delivery.json"; const w = JSON.parse(fs.readFileSync(f)); w.lanes.find((l) => l.id === "review").name = "Audit"; fs.writeFileSync(f, JSON.stringify(w, null, 2) + "\n");'
+section Runs
+wait_for "a run is drawn on the workflow it ran on" "() => [...document.querySelectorAll('.runmap .station.lane .name')].map((n) => n.textContent).join(' > ') + ' ' + (document.querySelector('.rundetail')?.textContent.includes('as it is today') ?? '')" '^Build > Review > Check > Ship it false$'
+expect "its strip keeps its names too" "$(js "() => document.querySelector('.run[aria-selected=true] .strip')?.getAttribute('aria-label') ?? ''")" 'Review'
+expect "a run's map is drawn to fit its box" "$(js "() => String(document.querySelector('.runmap .map').getBoundingClientRect().width <= document.querySelector('.runmap .map-scroll').clientWidth)")" '^true$'
+section Floor
+wait_for "the floor shows the workflow as it is now" "() => [...document.querySelectorAll('.station.lane .name')].map((n) => n.textContent).join(' > ')" '^Build > Audit > Check > Ship it$'
+
 # ---- 6. phone width: the list, then the run in its place
 section Runs
 pw resize 390 844

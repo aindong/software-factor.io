@@ -15,6 +15,7 @@ import { bodyLimit } from "hono/body-limit";
 import { openDb } from "./db.ts";
 import { UserError } from "./errors.ts";
 import {
+  Changed,
   inputProblem,
   OPERATIONS,
   readWorkflow,
@@ -141,13 +142,24 @@ export function startServer(root: string, config: { workflow: string }, port: nu
   app.put("/api/workflows/:name", async (c) => {
     const name = c.req.param("name");
     if (!workflowFile(root, name)) return c.json({ error: "There is no such workflow." }, 404);
-    const workflow = await sent(c.req);
+    const body: unknown = await c.req.json().catch(() => undefined);
+    const workflow = await sent({ json: async () => body });
     if (!workflow) return c.json({ problems: notOne }, 422);
+    const { base, over } = body as { base?: unknown; over?: unknown };
+    if (
+      (base !== undefined && !(typeof base === "string" && /^[0-9a-f]{64}$/.test(base))) ||
+      (over !== undefined && typeof over !== "boolean")
+    ) {
+      return c.json({ error: "A save names the version it began from as the page was given it." }, 422);
+    }
     try {
       // nothing is written unless the same checker the command line uses finds nothing wrong
-      const { saved, problems } = saveWorkflow(root, name, workflow);
-      return saved ? c.json({ workflow, problems: [] }) : c.json({ problems }, 422);
+      const { saved, problems, version } = saveWorkflow(root, name, workflow, { base, over });
+      return saved ? c.json({ workflow, problems: [], version }) : c.json({ problems }, 422);
     } catch (error) {
+      // the file changed since the page read it: refused, with the version the file has now
+      if (error instanceof Changed)
+        return c.json({ error: error.message, fix: error.fix, version: error.version }, 409);
       return c.json({ error: (error as Error).message }, 500);
     }
   });

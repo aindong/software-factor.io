@@ -223,6 +223,9 @@ export function Diagram({
       className={`map${states ? " overlaid" : ""}`}
       width={floor.width}
       height={floor.height}
+      viewBox={`0 0 ${floor.width} ${floor.height}`}
+      // a run's map is read whole: it is drawn smaller to fit its box, down to seven tenths, and scrolls after that
+      style={states ? { maxWidth: "100%", minWidth: floor.width * 0.7, height: "auto" } : undefined}
       role="group"
       aria-label={
         onConnect

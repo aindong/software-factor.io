@@ -66,6 +66,7 @@ function fixFor(path: PropertyKey[], issue: Issue, input: unknown): string {
   if (last === "id" || last === "to" || (last === "name" && path.length === 1)) {
     return 'Use lowercase letters, digits and dashes, starting with a letter, such as "open-pr".';
   }
+  if (last === "prompt") return "Say what this lane must do, and what it hands off.";
   if (last === "version") return `Write "version": ${WORKFLOW_VERSION}, as a number.`;
   if (last === "$schema") return `Set "$schema" to "${SCHEMA_URL}".`;
   if (path.at(-2) === "on") {
@@ -80,6 +81,7 @@ function messageFor(path: PropertyKey[], issue: Issue): string {
   if (issue.code === "invalid_key") return "This name is not allowed.";
   if (issue.code === "invalid_format") return "This value is not in the form this field needs.";
   if (path.at(-2) === "on") return "This must be a lane id, an end such as @done, or a list of entries.";
+  if (path.at(-1) === "prompt" && issue.code === "too_small") return "This lane has no instructions yet.";
   return issue.message;
 }
 

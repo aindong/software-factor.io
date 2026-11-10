@@ -117,9 +117,14 @@ export function Runs() {
         <div className="runs" data-inside={inside}>
           <div className="runlist" role="listbox" aria-label="Runs, the newest first">
             {runs.map((run, at) => {
-              const flow = workflows[run.workflow];
-              const names = new Map(flow?.lanes.map((l) => [l.id, l.name ?? l.id]));
-              const track = trackOf(flow?.lanes.map((l) => l.id) ?? [], run.visits, undefined, run.at);
+              // the run's own stops, as its workflow was when it started
+              const names = new Map(run.stops.map((l) => [l.id, l.name]));
+              const track = trackOf(
+                run.stops.map((l) => l.id),
+                run.visits,
+                undefined,
+                run.at,
+              );
               const stands = standing(run);
               return (
                 <div
@@ -157,7 +162,7 @@ export function Runs() {
               headRef={head}
               onBack={() => {
                 setPicked(current.id);
-                go("/runs");
+                go("/runs", true); // in place of the run's address: Back does not enter it again
                 requestAnimationFrame(() => rows.current.get(current.id)?.focus());
               }}
             />

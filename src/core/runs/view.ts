@@ -9,7 +9,7 @@ import { isAlive } from "../engine/recover.ts";
 import type { RunState } from "../engine/state.ts";
 import { hostEnv } from "../exec.ts";
 import { drawable } from "../floor/layout.ts";
-import { readTail } from "../safe-read.ts";
+import { readObject, readTail } from "../safe-read.ts";
 import type { GateRecord, InboxItem, Outcome, Run, Session } from "../store.ts";
 import { factorHome, workspaceId } from "../workspace.ts";
 import { activityOf, type Now, sentenceOf } from "./sentence.ts";
@@ -38,6 +38,10 @@ export interface RunRow {
   startedAt: string;
   endedAt: string | null;
   visits: { lane: string; outcome: Outcome | null }[];
+  /** The lanes of the workflow the run is drawn on, in order, by the names people see: the stops of its strip map. */
+  stops: { id: string; name: string }[];
+  /** Whether that is the workflow as it was when the run started. False: it is today's, the run's own was not kept. */
+  own: boolean;
   /** The lane the run is at: working in it, waiting at it, or stopped in it. Nothing when it is done. */
   at: string | null;
   sentence: string;
@@ -53,6 +57,8 @@ interface Evidence {
 }
 export interface RunDetail extends RunRow {
   branch: string;
+  /** The workflow as it was when the run started, to draw its map on. Null when it was not kept. */
+  kept: Record<string, unknown> | null;
   lanes: {
     id: number;
     lane: string;
@@ -184,6 +190,20 @@ function busyWith(
   return { phase: "agent", tail: far ? read(FAR_TAIL) : tail };
 }
 
+const runFolder = (root: string, id: string) => join(root, ".factor", "runs", id);
+
+/** The workflow kept with a run when it started: a plain file with one name, in a folder that is no link, holding an object. */
+function keptWorkflow(root: string, id: string): Record<string, unknown> | undefined {
+  const file = join(runFolder(root, id), "workflow.json");
+  try {
+    if (realpathSync(dirname(file)) !== join(realpathSync(root), ".factor", "runs", id)) return undefined;
+    if (lstatSync(file).nlink !== 1) return undefined;
+  } catch {
+    return undefined;
+  }
+  return readObject(file)?.value;
+}
+
 function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => LaneDef[]): RunRow {
   const visits = all<LaneRow>(db, "select * from lane_runs where run_id = ? order by seq, id", run.id);
   const state = parsed<Partial<RunState>>(run.state, {});
@@ -196,7 +216,10 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
         : run.status === "stopped"
           ? (visits.at(-1)?.lane ?? null)
           : null;
-  const def = lanesOf(run.workflow).find((l) => l.id === at);
+  // the lanes as the run knew them: a workflow changed since must not rename or redraw what the run did
+  const kept = drawable(keptWorkflow(root, run.id))?.lanes as LaneDef[] | undefined;
+  const lanes = kept ?? lanesOf(run.workflow);
+  const def = lanes.find((l) => l.id === at);
   const now: Now = {
     status: run.status,
     stopCode: run.stop_code,
@@ -227,6 +250,8 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
     startedAt: run.started_at,
     endedAt: run.ended_at,
     visits: visits.map((v) => ({ lane: v.lane, outcome: v.outcome })),
+    stops: lanes.map((l) => ({ id: l.id, name: l.name ?? l.id })),
+    own: kept !== undefined,
     at,
     sentence: sentenceOf(now),
     // from the sessions, not the lanes: a lane's own sums are written only when it ends
@@ -251,8 +276,6 @@ export function listRuns(db: Db, root: string): RunRow[] {
     .sort((a, b) => (a.started_at < b.started_at ? 1 : a.started_at > b.started_at ? -1 : 0))
     .map((run) => rowOf(db, root, run, lanesOf));
 }
-
-const runFolder = (root: string, id: string) => join(root, ".factor", "runs", id);
 
 /** The run's own evidence files: plain files with one name, in a folder that is no link. */
 function evidenceFiles(root: string, id: string): { path: string; file: string; size: number }[] {
@@ -326,9 +349,11 @@ export function runDetail(db: Db, root: string, id: string): RunDetail | undefin
       output: output ?? null,
     };
   });
+  const kept = keptWorkflow(root, id);
   return {
     ...rowOf(db, root, run, laneReader(root)),
     branch: run.branch,
+    kept: kept && drawable(kept) ? kept : null,
     lanes,
     inbox: all<InboxItem>(db, "select * from inbox where run_id = ? and status = 'open' order by id", id).map(
       (i) => ({ id: i.id, lane: i.lane, kind: i.kind, body: i.body }),

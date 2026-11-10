@@ -58,6 +58,8 @@ export function Inbox() {
   const lost = useRef(false); // the item on show was decided elsewhere: nothing is chosen until the person chooses
   const guard = useRef(0); // until when deciding rests, after the page itself moved to another item
   const moving = useRef(false); // the page itself is putting the keyboard on the next item
+  const list = useRef(items); // the list as it is now, for an answer that comes back later
+  list.current = items;
 
   // the list changes when a run starts or stops waiting: ask again whenever those runs change
   const waiting = (runs ?? [])
@@ -82,7 +84,15 @@ export function Inbox() {
   // When the item was decided elsewhere, nothing is chosen: a key must never decide on what was
   // not read.
   useEffect(() => {
-    if (!items || current) return;
+    if (!items) return;
+    if (current) {
+      // A decision of this page whose item has left, while the person had already moved to another,
+      // is seen through: forgotten, so that an item that goes later is known to be someone else's doing.
+      if (decided.current !== current.id && !items.some((i) => i.id === decided.current)) {
+        decided.current = undefined;
+      }
+      return;
+    }
     const shown = opened ? decided.current : chosen; // an entered item that is gone has no id any more
     if (shown === undefined && !opened) {
       if (!lost.current && items[0]) setPicked(items[0].id);
@@ -153,7 +163,8 @@ export function Inbox() {
         text: `Not ${DONE[decision].toLowerCase()}: ${current.task}. ${body.error ?? "The factory did not take the decision."}`,
         fix: body.fix,
         bad: true,
-        item: current.id,
+        // said at its item, or to the whole inbox when the item has left the list meanwhile
+        item: list.current?.some((i) => i.id === current.id) ? current.id : undefined,
       });
     }
   };
@@ -205,8 +216,11 @@ export function Inbox() {
     } else if (to === undefined) return;
     event.preventDefault();
   };
+  // A refusal is said in the decision bar of the item it is about. What went well is said above the
+  // list, where the item was: inside the next item's bar it would read as being about that item.
+  const refusal = said?.bad && (said.item === undefined || said.item === current?.id);
   const answer =
-    said && (said.item === undefined || said.item === current?.id) ? (
+    said && (said.bad ? refusal : true) ? (
       <p className={`said${said.bad ? " bad" : ""}`} role="status">
         {said.text}
         {said.fix ? ` ${said.fix}` : ""}
@@ -250,43 +264,46 @@ export function Inbox() {
         </div>
       ) : (
         // biome-ignore lint/a11y/noStaticElementInteractions: the keys that decide work while the keyboard is in the inbox, and each is also a button
-        <div className="runs" data-inside={inside} onKeyDown={onKey}>
-          <div className="runlist" role="listbox" aria-label="What waits for you">
-            {items.map((item, at) => {
-              const run = runs?.find((r) => r.id === item.run);
-              return (
-                <div
-                  key={item.id}
-                  ref={(node) => {
-                    if (node) rows.current.set(item.id, node);
-                    else rows.current.delete(item.id);
-                  }}
-                  role="option"
-                  className="run"
-                  aria-selected={item.id === current?.id}
-                  tabIndex={item.id === (current?.id ?? items[0]?.id) ? 0 : -1}
-                  onFocus={() => choose(item)}
-                  onClick={() => {
-                    choose(item);
-                    go(`/inbox/${item.run}`);
-                  }}
-                  onKeyDown={(event) => onRowKey(event, at)}
-                >
-                  <span
-                    className="mark asked"
-                    role="img"
-                    aria-label={item.kind === "question" ? "A question" : "An approval"}
-                  />
-                  <span className="task" title={item.task}>
-                    {run ? <span className="number data">{run.taskId}</span> : null} {item.task}
-                  </span>
-                  <span className="when data">{item.kind === "question" ? "question" : "approval"}</span>
-                  <span className="sentence">
-                    {item.kind === "question" ? item.body : (run?.sentence ?? item.body)}
-                  </span>
-                </div>
-              );
-            })}
+        <div className="runs inbox" data-inside={inside} onKeyDown={onKey}>
+          <div className="listside">
+            {said && !said.bad ? answer : null}
+            <div className="runlist" role="listbox" aria-label="What waits for you">
+              {items.map((item, at) => {
+                const run = runs?.find((r) => r.id === item.run);
+                return (
+                  <div
+                    key={item.id}
+                    ref={(node) => {
+                      if (node) rows.current.set(item.id, node);
+                      else rows.current.delete(item.id);
+                    }}
+                    role="option"
+                    className="run"
+                    aria-selected={item.id === current?.id}
+                    tabIndex={item.id === (current?.id ?? items[0]?.id) ? 0 : -1}
+                    onFocus={() => choose(item)}
+                    onClick={() => {
+                      choose(item);
+                      go(`/inbox/${item.run}`);
+                    }}
+                    onKeyDown={(event) => onRowKey(event, at)}
+                  >
+                    <span
+                      className="mark asked"
+                      role="img"
+                      aria-label={item.kind === "question" ? "A question" : "An approval"}
+                    />
+                    <span className="task" title={item.task}>
+                      {run ? <span className="number data">{run.taskId}</span> : null} {item.task}
+                    </span>
+                    <span className="when data">{item.kind === "question" ? "question" : "approval"}</span>
+                    <span className="sentence">
+                      {item.kind === "question" ? item.body : (run?.sentence ?? item.body)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           {current ? (
             // it takes the keyboard when its text is clicked, so the deciding keys go on working while the proof is read
@@ -348,7 +365,7 @@ export function Inbox() {
                     <>
                       <button
                         type="button"
-                        className="button approve"
+                        className="button primary"
                         disabled={sending !== undefined}
                         onClick={send}
                       >
@@ -402,7 +419,7 @@ export function Inbox() {
                     </>
                   )}
                 </div>
-                {answer}
+                {said?.bad ? answer : null}
               </fieldset>
               {row ? (
                 <RunView
@@ -414,7 +431,7 @@ export function Inbox() {
                   deciding
                   onBack={() => {
                     setPicked(current.id);
-                    go("/inbox");
+                    go("/inbox", true); // in place of the item's address: Back does not enter it again
                     requestAnimationFrame(() => rows.current.get(current.id)?.focus());
                   }}
                 />
@@ -422,7 +439,7 @@ export function Inbox() {
             </div>
           ) : (
             <div className="plain">
-              {answer}
+              {said?.bad ? answer : null}
               <p>Choose what to decide on.</p>
             </div>
           )}

@@ -1,8 +1,11 @@
 // Which runs move in one call of the command: runs a dead process left, waits that are due, and
 // queued tasks, as many at once as there are free slots.
+
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { openDb } from "../db.ts";
+import { saveRunFile } from "../evidence.ts";
 import { wasInterrupted } from "../exec.ts";
 import { addWorktree, headOf } from "../git.ts";
 import * as store from "../store.ts";
@@ -118,6 +121,13 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
         throw error;
       }
       started += 1;
+      // The workflow this process loaded is kept with the run: a run is later shown on what it ran
+      // on, and not on whatever the file has become since.
+      try {
+        saveRunFile(ws, runId, "", "workflow.json", ws.workflowText);
+      } catch {
+        // without it the run is shown on the workflow as it is when it is looked at, and says so
+      }
       store.addEvent(db, runId, "run.started", { task: task.title });
       log.push(`run ${runId}: ${task.title}`);
       const run = store.getRun(db, runId);

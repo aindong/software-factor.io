@@ -60,14 +60,17 @@ export interface WorkspaceInfo {
 export interface Loaded {
   workflow: Json | null;
   problems: Problem[];
-  /** Why the server refused, when it did. */
+  /** Why the server refused, when it did, and what to do. */
   error?: string;
+  fix?: string;
+  /** The version of the file that was read, or that the file has now. A save names the one it began from. */
+  version?: string;
 }
 
 export const getWorkspace = () => call<WorkspaceInfo>("/api/workspace");
 export const getWorkflow = (name: string) => call<Loaded>(`/api/workflows/${encodeURIComponent(name)}`);
-export const saveWorkflow = (name: string, workflow: Json) =>
-  call<Loaded>(`/api/workflows/${encodeURIComponent(name)}`, "PUT", { workflow });
+export const saveWorkflow = (name: string, workflow: Json, base?: string) =>
+  call<Loaded>(`/api/workflows/${encodeURIComponent(name)}`, "PUT", { workflow, base });
 
 /** One operation of the factory, by its name: the same table the command line and the MCP server serve. */
 export const op = <T>(name: string, input: unknown = {}) =>

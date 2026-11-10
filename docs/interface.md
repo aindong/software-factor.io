@@ -57,6 +57,17 @@ The same checker the command line runs (`softwarefactor check`) runs in the page
 is listed with its place and its fix, and the station it is about is flagged. Save is off while there is one.
 Saving checks again on the server, and writes nothing unless the checker finds nothing.
 
+A new agent lane starts with no instructions. That is a problem until you write them: the floor does not
+write a lane's instructions for you.
+
+## A file changed elsewhere
+
+The floor remembers which version of the file it read. If the file is changed elsewhere (in an editor, by
+`git`, by another tab) while the floor holds no change of its own, the floor reads it again when you come
+back to it. If the floor holds a change too, Save writes nothing and says so. You choose: read the file
+again, which drops the change made here, or save over it. The `workflow_save` operation does the same for
+any caller that names the version it began from (`base`).
+
 ## What keeps others out
 
 A workflow decides what runs on your machine, so who may save one matters. Two kinds of others can reach a
@@ -91,7 +102,10 @@ The arrow keys move through the list and Enter goes into a run. A run shows:
 
 - **Its map.** The workflow's diagram, read only, with what the run did at each station and the lines it took
   lit. The Replay control steps through the run with the arrow keys: at each step the map shows the run as it
-  was then.
+  was then. The map is the
+  workflow the run ran on, kept with the run when it started (`workflow.json` in the run's folder), and drawn
+  small enough to fit its box down to seven tenths of its size. Changing the workflow later does not redraw
+  what past runs did. A run from before that record was kept is drawn on today's workflow, and says so.
 - **What waits for you**, with a yellow "Decide in the inbox" link and the command that does the same.
 - **The diff** of the whole run, from its base commit to its head, with every changed file named above it. A
   line put in stands on a band and a line taken out is outlined: blue and vermilion mean passed and failed, so

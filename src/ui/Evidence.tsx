@@ -140,16 +140,22 @@ export function PairView(props: {
   );
 }
 
-const lineKind = (line: string) =>
-  line.startsWith("diff --git") || line.startsWith("+++") || line.startsWith("---")
-    ? "file"
-    : line.startsWith("@@")
+/** What each line of a diff is. `+++` and `---` name a file only above its first hunk: inside one they are lines put in and taken out. */
+export function lineKinds(lines: string[]): ("file" | "hunk" | "add" | "del" | "same")[] {
+  let head = true;
+  return lines.map((line) => {
+    if (line.startsWith("diff --git")) head = true;
+    else if (line.startsWith("@@")) head = false;
+    if (head) return "file";
+    return line.startsWith("@@")
       ? "hunk"
       : line.startsWith("+")
         ? "add"
         : line.startsWith("-")
           ? "del"
           : "same";
+  });
+}
 
 /** The run's diff. A line taken out is struck through, not hidden: nothing disappears, it cancels. */
 export function DiffView({ runId, stamp }: { runId: string; stamp: string }) {
@@ -168,6 +174,7 @@ export function DiffView({ runId, stamp }: { runId: string; stamp: string }) {
   }, [runId, stamp]);
   if (!diff) return <p className="quiet">Reading.</p>;
   const lines = diff.text.split("\n");
+  const kinds = lineKinds(lines);
   return (
     <>
       {diff.note ? <p className="quiet">{diff.note}</p> : null}
@@ -182,7 +189,7 @@ export function DiffView({ runId, stamp }: { runId: string; stamp: string }) {
         <pre className="output diff">
           {lines.slice(0, MOST_LINES).map((line, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: the lines of one diff never move
-            <span key={i} className={`${lineKind(line)}${line.startsWith("diff --git") ? " first" : ""}`}>
+            <span key={i} className={`${kinds[i]}${line.startsWith("diff --git") ? " first" : ""}`}>
               {line}
               {"\n"}
             </span>

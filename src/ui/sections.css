@@ -26,6 +26,21 @@
 .decide .field textarea {
   min-height: 56px;
 }
+/* the inbox's list, with what the last decision came to above it */
+.listside {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+.listside > .said {
+  padding: var(--sm) var(--lg);
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.listside > .runlist:first-child {
+  grid-row: 1 / -1;
+}
 /* what the factory answered, where the decision was made */
 .said {
   max-width: 80ch;
@@ -261,6 +276,13 @@
 @media (max-width: 1000px) {
   .runs[data-inside="false"] .deciding {
     display: none;
+  }
+  /* with an item entered, the list's side keeps only what was last said, above the decision */
+  .runs.inbox[data-inside="true"] {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .listside > .said {
+    border-right: 0;
   }
   /* the decision is under the thumb, after the proof */
   .deciding {

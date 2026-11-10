@@ -65,8 +65,17 @@ shot lane-open-light-1440
 back_to '^Agent$'
 pw press Enter
 expect "a lane is placed after the selected one" "$(js "() => [...document.querySelectorAll('.station.lane')].map((s) => s.getAttribute('aria-label').replace('Lane ', '').split(',')[0]).join(' > ')")" 'Impact > lane > Review'
+# the new lane has no instructions, and the floor does not write them: it is a problem until the author does
+expect "a new agent lane is a problem until it says what to do" "$(status)" '^1 problem$'
+tab_to '^Instructions$'
+expect "the field is empty, with a hint and no value" "$(js "() => document.activeElement.value + '|' + document.activeElement.placeholder")" '^\|Say what this lane must do'
+pw type "Say what the change could break."
 expect "the workflow is not saved yet" "$(status)" '^Not saved$'
 back_to '^Lane lane,'
+pw press Control+z
+expect "a run of typing in one field is one step of undo" "$(status)" '^1 problem$'
+pw press Control+Shift+z
+expect "and one step of redo" "$(status)" '^Not saved$'
 pw press c
 expect "c puts the keyboard on where the lane goes" "$(js "$focused")" '^When this lane passes, go to$'
 pw press Tab
@@ -144,6 +153,38 @@ wait_for "the save is confirmed" "() => document.querySelector('.topbar .status'
 grep -q '"id": "docs"' "$file" || fail "the file on disk does not hold the lane typed in the JSON view"
 grep -q '"id": "lane"' "$file" || fail "the file on disk does not hold the lane added on the map"
 sf check > "$work/check.log" 2>&1 || fail "the saved workflow does not pass the checker: $(cat "$work/check.log")"
+
+# 6b. the file is changed elsewhere. With nothing unsaved here, the floor follows it
+rename() { node -e 'const fs = require("fs"); const [f, to] = process.argv.slice(1); const w = JSON.parse(fs.readFileSync(f)); w.lanes.find((l) => l.id === "lane").name = to; fs.writeFileSync(f, JSON.stringify(w, null, 2) + "\n");' "$file" "$1"; }
+names='() => [...document.querySelectorAll(".station.lane .name")].map((n) => n.textContent).join(" > ")'
+rename Elsewhere
+back_to '^Diagram$'
+pw press Enter
+pw press g && pw press r
+wait_for "g then r goes to Runs" "() => document.querySelector('h1').textContent" '^Runs$'
+pw press g && pw press f
+wait_for "the floor reads a file that was changed elsewhere" "$names" 'Impact > Elsewhere > Review'
+expect "and holds nothing unsaved" "$(status)" '^Saved$'
+# with a change made here too, Save does not write over the other: it says so and asks
+tab_to '^Lane '
+arrow_to '^Lane Docs,'
+pw press Enter
+tab_to '^Name$'
+pw type "Handbook"
+expect "a change is made here" "$(js "$names")" 'Handbook$'
+rename Twice
+pw press Control+s
+wait_for "Save says the file was changed elsewhere" "() => document.querySelector('.topbar .status').textContent" "^Not saved: the workflow's file was changed since this copy of it was read\\."
+grep -q '"name": "Twice"' "$file" || fail "the change made elsewhere was written over"
+grep -q 'Handbook' "$file" && fail "the save went through over a file changed elsewhere"
+shot save-over-a-changed-file
+tab_to '^Save over it$'
+pw press Enter
+wait_for "saving over it is a choice, and it saves" "() => document.querySelector('.topbar .status').textContent" '^Saved'
+grep -q 'Handbook' "$file" || fail "the file does not hold what was saved over it"
+grep -q '"name": "Twice"' "$file" && fail "saving over the file left the other change in it"
+tab_to '^JSON$'
+pw press Enter
 
 # 7. both themes, at desktop and at phone width
 theme Dark

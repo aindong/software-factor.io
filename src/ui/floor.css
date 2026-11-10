@@ -286,6 +286,10 @@
   background: var(--signal);
   outline: 1.5px solid var(--ink);
 }
+.inspector .ways {
+  margin: 0;
+  padding-left: var(--lg);
+}
 .inspector .note {
   color: var(--ink-soft);
   font-size: var(--text-label);
