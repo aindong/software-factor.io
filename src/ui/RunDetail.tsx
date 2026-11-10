@@ -133,7 +133,7 @@ export function RunView({ row, workflow, headRef, onBack }: RunViewProps) {
             From your terminal:{" "}
             <code>
               {item.kind === "question"
-                ? `softwarefactor answer ${row.id} "..."`
+                ? `softwarefactor answer ${row.id} --note "..."`
                 : `softwarefactor approve ${row.id}`}
             </code>
           </span>

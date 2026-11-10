@@ -429,6 +429,7 @@ export function runDiff(
       },
     );
   const names = diff("--name-status");
+  if (names.error) return none("The diff took too long or is too large to read here.");
   if (names.status !== 0) return none("The run's commits are no longer in this repository.");
   const whole = diff();
   // more than git was given room for, or more than its time: what came is shown, and said to be a part
