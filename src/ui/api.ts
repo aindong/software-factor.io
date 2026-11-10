@@ -67,6 +67,10 @@ export const getWorkflow = (name: string) => call<Loaded>(`/api/workflows/${enco
 export const saveWorkflow = (name: string, workflow: Json) =>
   call<Loaded>(`/api/workflows/${encodeURIComponent(name)}`, "PUT", { workflow });
 
+/** One operation of the factory, by its name: the same table the command line and the MCP server serve. */
+export const op = <T>(name: string, input: unknown = {}) =>
+  call<T & { error?: string; fix?: string }>(`/api/op/${name}`, "POST", input);
+
 // ---- runs
 
 export type { RunDetail, RunRow };

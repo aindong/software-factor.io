@@ -316,7 +316,8 @@ async function main(): Promise<number> {
     const runId = positionals[1];
     if (!runId)
       throw new UserError(`"${command}" needs a run id.`, "See what is waiting with `softwarefactor inbox`.");
-    const summary = await decide(loadWorkspace(cwd), runId, command, values.note ?? "");
+    // the line that says the decision is recorded is printed at once: the interface waits for it
+    const summary = await decide(loadWorkspace(cwd), runId, command, values.note ?? "", say);
     for (const line of summary.log) say(line);
     return EXIT[summary.status];
   }

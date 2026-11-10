@@ -17,6 +17,8 @@ export async function decide(
   runId: string,
   decision: Decision,
   note: string,
+  /** Told at once that the decision is recorded, before the run goes on: what waits on it need not wait for the run. */
+  taken?: (line: string) => void,
 ): Promise<RunSummary> {
   preflight(ws);
   const db = openDb(ws.dbPath);
@@ -87,7 +89,9 @@ export async function decide(
     store.closeInbox(db, item.id, closed[decision], note);
     store.setTaskStatus(db, run.task_id, "running");
     state.parked = undefined;
-    log.push(`run ${runId}: ${closed[decision].replace("_", " ")}${note ? ` ("${note}")` : ""}`);
+    const recorded = `run ${runId}: ${closed[decision].replace("_", " ")}${note ? ` ("${note}")` : ""}`;
+    if (taken) taken(recorded);
+    else log.push(recorded);
 
     try {
       let ended: RunSummary | undefined;

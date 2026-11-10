@@ -35,6 +35,9 @@ export function tool<T = Record<string, unknown>>(repo: Repo, name: string, args
 }
 /** Call one operation through the interface's API. */
 export async function op<T = Record<string, unknown>>(ui: Ui, name: string, input: unknown = {}) {
+  // A test that has just run a command held this process up, and the server may have closed an idle
+  // connection meanwhile. One turn of the loop lets that be seen before the connection is used again.
+  await new Promise((seen) => setImmediate(seen));
   const answer = await ui.api(`/api/op/${name}`, { method: "POST", body: input });
   return {
     status: answer.status,

@@ -19,9 +19,13 @@ export interface RunViewProps {
   workflow: Workflow | undefined;
   headRef: RefObject<HTMLHeadingElement | null>;
   onBack: () => void;
+  /** What the way back is called, on a narrow screen. */
+  back?: string;
+  /** The screen around it already asks for the decision: do not name the command for it too. */
+  deciding?: boolean;
 }
 
-export function RunView({ row, workflow, headRef, onBack }: RunViewProps) {
+export function RunView({ row, workflow, headRef, onBack, back = "All runs", deciding }: RunViewProps) {
   const [detail, setDetail] = useState<RunDetail>();
   const [problem, setProblem] = useState<string>();
   const [at, setAt] = useState<number>(); // the step shown: the latest, until the control is moved
@@ -85,7 +89,7 @@ export function RunView({ row, workflow, headRef, onBack }: RunViewProps) {
     <section className="rundetail" aria-label={`Run of ${row.task}`}>
       <header>
         <button type="button" className="button back" onClick={onBack}>
-          All runs
+          {back}
         </button>
         <h2 ref={headRef} tabIndex={-1}>
           {row.task || row.id}
@@ -123,7 +127,7 @@ export function RunView({ row, workflow, headRef, onBack }: RunViewProps) {
         </dl>
       </header>
 
-      {detail?.inbox.map((item) => (
+      {(deciding ? [] : (detail?.inbox ?? [])).map((item) => (
         <p key={item.id} className="waits">
           <span className="mark asked" aria-hidden="true" />
           <span>

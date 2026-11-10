@@ -163,13 +163,12 @@ function command(root: string, args: string[]): { said: string } {
 let started = 0;
 /**
  * Give a decision by the command line's own command, in a process of its own, with what it prints
- * in a file under the factor home. The answer comes when the command has ended, or as soon as the
- * inbox item is closed in the record: the decision is then taken and the run goes on by itself.
+ * in a file under the factor home. The answer comes when the command has ended, or as soon as it
+ * has printed that the decision is recorded: the run then goes on by itself. A refusal is the
+ * command's own, so it is never mistaken for a run that goes on, however slow the command starts
+ * and whoever else decides at the same moment.
  */
 async function decide(at: At, input: { run: string; decision: string; note?: string }) {
-  const item = at.db
-    .prepare("select id from inbox where run_id = ? and status = 'open' order by id desc limit 1")
-    .get(input.run) as { id: number } | undefined;
   const folder = join(factorHome(), "work", workspaceId(at.root), "decisions");
   mkdirSync(folder, { recursive: true });
   started += 1;
@@ -188,22 +187,20 @@ async function decide(at: At, input: { run: string; decision: string; note?: str
   child.on("error", () => {
     code = 1;
   });
-  const ended = () => {
-    const refused = refusal(readFileSync(log, "utf8"));
-    if (refused) throw refused;
-    return { state: "ended" as const, run: code === 0 ? "done" : code === 3 ? "waiting" : "stopped" };
-  };
   for (const begun = Date.now(); Date.now() - begun < DECIDE_MS; ) {
     await new Promise((again) => setTimeout(again, 40));
-    if (code !== undefined) return ended();
-    const closed =
-      item &&
-      (at.db.prepare("select status from inbox where id = ?").get(item.id) as { status: string } | undefined)
-        ?.status !== "open";
-    if (closed) return { state: "going" as const };
+    const said = readFileSync(log, "utf8");
+    if (code !== undefined) {
+      const refused = refusal(said);
+      if (refused) throw refused;
+      return { state: "ended" as const, run: code === 0 ? "done" : code === 3 ? "waiting" : "stopped" };
+    }
+    if (TAKEN.test(said)) return { state: "going" as const };
   }
   return { state: "going" as const };
 }
+// what the command prints, at once, when a decision is recorded
+const TAKEN = /^run \S+: (approved|rejected|sent back|answered)/m;
 
 const missingRun = (run: string) =>
   new UserError(`There is no run "${run}".`, "See the runs with the runs_list operation.");
