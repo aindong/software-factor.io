@@ -429,6 +429,7 @@ export function Inspector({
   const lanes = lanesIn(doc);
   const lane = lanes.find((l) => l?.id === selected);
   const laneAt = (path: string) => lanes[Number(/^lanes\[(\d+)\]/.exec(path)?.[1] ?? -1)]?.id;
+  const elsewhere = lane ? problems.filter((p) => laneAt(p.path) !== lane.id).length : 0;
   const limits = record(doc.limits);
   const setLimit = (key: string, value: string) =>
     onChange({ ...doc, limits: { ...limits, [key]: Math.max(1, Number(value) || 1) } });
@@ -447,6 +448,14 @@ export function Inspector({
         laneAt={laneAt}
         onSelect={onSelect}
       />
+      {elsewhere > 0 ? (
+        // the status line counts every problem: the ones that are not this lane's are one key away
+        <p className="elsewhere">
+          <button type="button" onClick={() => onSelect(undefined)}>
+            {elsewhere} {elsewhere === 1 ? "problem" : "problems"} elsewhere in the workflow
+          </button>
+        </p>
+      ) : null}
       {lane ? (
         <LaneForm doc={doc} lane={lane} connectRef={connectRef} onChange={onChange} onSelect={onSelect} />
       ) : selected ? (

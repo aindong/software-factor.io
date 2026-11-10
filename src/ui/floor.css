@@ -353,6 +353,15 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+.elsewhere button {
+  padding: 0 0 0 var(--md);
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .problems .fix {
   color: var(--ink-soft);
 }

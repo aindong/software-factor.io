@@ -71,10 +71,7 @@ fs.writeFileSync(".factor/factory.json", JSON.stringify({ ...f, workflow: "deliv
 fs.writeFileSync(".factor/tasks.md", "- [ ] Add an export button\n- [ ] Fix the date format\n- [ ] Show the cost of each lane\n");
 '
 
-sf ui --port 0 > "$work/ui.log" 2>&1 &
-server=$!
-for _ in $(seq 1 50); do grep -q "#t=" "$work/ui.log" && break; sleep 0.1; done
-address=$(grep -o 'http://127.0.0.1:[0-9]*/#t=[0-9a-f]*' "$work/ui.log") || fail "the interface did not start: $(cat "$work/ui.log")"
+start_ui 0
 pw open "$address" || fail "the browser did not open"
 grep -q "Console: [1-9]" "$work/pw.log" && fail "the page logged an error: $(cat "$work/pw.log")"
 pw resize 1440 900

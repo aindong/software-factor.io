@@ -75,10 +75,7 @@ sf account add work --agent command --command "true" > /dev/null || fail "accoun
 sf account add spare --agent command --command "true" --limit 5h=2000000 > /dev/null || fail "account add"
 run_of() { sf runs | grep -B0 "$1" | head -1 | cut -d' ' -f1; }
 
-sf ui --port 0 > "$work/ui.log" 2>&1 &
-server=$!
-for _ in $(seq 1 50); do grep -q "#t=" "$work/ui.log" && break; sleep 0.1; done
-address=$(grep -o 'http://127.0.0.1:[0-9]*/#t=[0-9a-f]*' "$work/ui.log") || fail "the interface did not start: $(cat "$work/ui.log")"
+start_ui 0
 pw open "$address" || fail "the browser did not open"
 grep -q "Console: [1-9]" "$work/pw.log" && fail "the page logged an error: $(cat "$work/pw.log")"
 pw resize 1440 900
@@ -124,7 +121,7 @@ sf runs | grep -A1 "Publish the release" | grep -q "Done\." || fail "the approve
 
 # ---- 4. the factory refuses: every slot is busy, and its own words are on the page
 echo "- [ ] Rebuild the index" > .factor/slow.md
-sf run > "$work/slow.log" 2>&1 &
+node "$here/dist/cli.js" run > "$work/slow.log" 2>&1 & # a process of its own: stopping it stops it
 slow=$!
 for _ in $(seq 1 40); do sf runs | grep -q "Reindex: its command is running" && break; sleep 0.2; done
 sf runs | grep -q "Reindex: its command is running" || fail "the long run did not start: $(sf runs)"
