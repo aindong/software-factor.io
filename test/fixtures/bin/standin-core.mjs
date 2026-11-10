@@ -1,12 +1,12 @@
 // A stand-in for an agent CLI, for tests. It prints the output shape the real CLI prints (recorded in
 // docs/research/agent-clis.md), does what `standin.json` in its profile folder says, and writes down
 // how it was called in `calls.jsonl` there, so a test can check the flags and the environment.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const PROFILE_ENV = { claude: "CLAUDE_CONFIG_DIR", codex: "CODEX_HOME", kimi: "KIMI_CODE_HOME" };
-const KEPT = /^(FACTOR_|CLAUDE_|CODEX_|KIMI_|ANTHROPIC_|OPENAI_)/;
+const KEPT = /^(FACTOR_|CLAUDE_|CODEX_|KIMI_|ANTHROPIC_|OPENAI_|AWS_)/;
 const say = (o) => process.stdout.write(`${JSON.stringify(o)}\n`);
 
 export async function standin(kind) {
@@ -25,6 +25,12 @@ export async function standin(kind) {
     `${JSON.stringify({ argv, cwd: process.cwd(), stdin, env })}\n`,
   );
 
+  writeFileSync(join(profile, "pid"), String(process.pid));
+  // like the real CLI, a JSON stream in print mode needs --verbose
+  if (kind === "claude" && argv.includes("stream-json") && !argv.includes("--verbose")) {
+    process.stderr.write("Error: --output-format=stream-json requires --verbose\n");
+    process.exit(1);
+  }
   const planFile = join(profile, "standin.json");
   const plan = existsSync(planFile) ? JSON.parse(readFileSync(planFile, "utf8")) : {};
   process.stderr.write(`[${kind}-standin] a diagnostic line on stderr, like the real CLI prints\n`);
@@ -45,6 +51,20 @@ export async function standin(kind) {
       writeFileSync(process.env.FACTOR_HANDOFF, JSON.stringify(a.handoff));
     } else if (a.final) {
       final = typeof a.final === "string" ? a.final : JSON.stringify(a.final);
+    } else if (a.spawn) {
+      spawn("sh", ["-c", a.spawn], { stdio: "ignore" }); // something the agent started and left running
+    } else if (a.tool) {
+      // ask the hooks given for this run, as the real CLI does before each tool call
+      const at = argv.indexOf("--settings");
+      const settings = at >= 0 ? JSON.parse(argv[at + 1]) : {};
+      const input = JSON.stringify({ tool_name: a.tool.name, tool_input: a.tool.input, cwd: process.cwd() });
+      for (const entry of settings.hooks?.PreToolUse ?? []) {
+        for (const hook of entry.hooks ?? []) {
+          const r = spawnSync("sh", ["-c", hook.command], { input, encoding: "utf8" });
+          const line = { tool: a.tool.name, matcher: entry.matcher, status: r.status, stderr: r.stderr };
+          appendFileSync(join(profile, "hooks.jsonl"), `${JSON.stringify(line)}\n`);
+        }
+      }
     } else if (a.sleep) {
       await new Promise((r) => setTimeout(r, a.sleep));
     }
@@ -55,9 +75,10 @@ export async function standin(kind) {
     say({ type: "assistant", message: { content: [{ type: "text", text: final }] } });
     say({
       type: "result",
-      subtype: plan.error ? "error_during_execution" : "success",
+      // an error result carries `errors` and no `result`, or is a "success" whose text is the error
+      subtype: plan.error && !plan.errorAsResult ? "error_during_execution" : "success",
       is_error: Boolean(plan.error),
-      result: plan.error ?? final,
+      ...(plan.error && !plan.errorAsResult ? { errors: [plan.error] } : { result: plan.error ?? final }),
       session_id: "claude-session-1",
       num_turns: 3,
       duration_ms: 1200,

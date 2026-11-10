@@ -290,6 +290,22 @@ export function standinAccount(
   };
 }
 
+/** What the run's hooks answered to each tool call the stand-in asked about. */
+export const hooksOf = (profile: Profile): { tool: string; status: number; stderr: string }[] =>
+  readFileSync(join(profile.dir, "hooks.jsonl"), "utf8")
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l));
+/** Whether the stand-in's own process is still there. */
+export function standinAlive(profile: Profile): boolean {
+  try {
+    process.kill(Number(readFileSync(join(profile.dir, "pid"), "utf8")), 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Bind a role of the workspace to an account. */
 export function bind(repo: Repo, role: string, account: string, ...extra: string[]): void {
   const r = repo.sf("role", "bind", role, "--account", account, ...extra);
