@@ -199,6 +199,7 @@ A lane earns a move from `in` towards `out` by its record (ADR 0011). The file h
 checkpoint, and the factory changes it only when a person accepts a suggestion. `"pin": true` keeps the ladder
 from ever moving a lane, at whatever checkpoint it has, and an import keeps the pin. A one-way lane is always pinned at `in`. When a workflow is imported, lanes that do not
 wait for a person are listed, and by default set to `in`: the record that earned them belongs to another machine.
+`softwarefactor export` and `softwarefactor import` are described in `docs/sharing.md`.
 
 ### Hand-offs
 
