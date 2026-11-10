@@ -314,3 +314,79 @@ export function bind(repo: Repo, role: string, account: string, ...extra: string
 /** The value that follows a flag in a recorded command line. */
 export const flag = (argv: string[], name: string) =>
   argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined;
+
+// ---- the factor MCP server
+
+export interface ToolAnswer {
+  result?: { content: { type: string; text: string }[]; isError?: boolean };
+  error?: { code: number; message: string };
+}
+/** What the server answered to each tool call the stand-in made. */
+export const mcpOf = (profile: Profile): { tool: string; answer?: ToolAnswer }[] => {
+  try {
+    return readFileSync(join(profile.dir, "mcp.jsonl"), "utf8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
+  } catch {
+    return [];
+  }
+};
+
+/** Speak to `softwarefactor mcp` directly: send these messages, get every answer back. */
+export function mcp(
+  repo: Repo,
+  lane: { run: string; lane: string; laneDir?: string; account?: string },
+  messages: unknown[],
+): {
+  answers: (ToolAnswer & { id: number | null; result?: Record<string, unknown> })[];
+  status: number | null;
+  stderr: string;
+} {
+  const laneDir = lane.laneDir ?? join(repo.home, "lane");
+  mkdirSync(join(laneDir, "evidence"), { recursive: true });
+  const args = [
+    "mcp",
+    "--workspace",
+    repo.dir,
+    "--run",
+    lane.run,
+    "--lane",
+    lane.lane,
+    "--lane-dir",
+    laneDir,
+  ];
+  if (lane.account) args.push("--account", lane.account);
+  const input = messages.map((m) => (typeof m === "string" ? m : JSON.stringify(m))).join("\n");
+  const r = spawnSync(process.execPath, [CLI, ...args], {
+    input: `${input}\n`,
+    encoding: "utf8",
+    env: { ...process.env, FACTOR_HOME: repo.home },
+  });
+  const answers = r.stdout
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => JSON.parse(l));
+  return { answers, status: r.status, stderr: r.stderr };
+}
+/** Call one tool of the server, and return its answer. */
+export function callTool(
+  repo: Repo,
+  lane: { run: string; lane: string; laneDir?: string; account?: string },
+  name: string,
+  args: Json = {},
+): ToolAnswer {
+  const call = { jsonrpc: "2.0", id: 7, method: "tools/call", params: { name, arguments: args } };
+  return mcp(repo, lane, [call]).answers.find((a) => a.id === 7) ?? {};
+}
+/** The prompts every run of the workspace gave a lane, by run in the order the runs started. */
+export function promptsByRun(repo: Repo, lane: string): string[][] {
+  return repo.rows<{ id: string }>("select id from runs order by started_at, rowid").map((run) => {
+    const dir = join(repo.dir, ".factor/runs", run.id, "prompts");
+    return readdirSync(dir)
+      .filter((f) => new RegExp(`^\\d+-${lane}(\\.\\d+)?\\.md$`).test(f))
+      .sort()
+      .map((f) => readFileSync(join(dir, f), "utf8"));
+  });
+}
