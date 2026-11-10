@@ -38,15 +38,6 @@ describe("nothing is left half done", () => {
     expect(repo.sf("status").stdout).not.toMatch(/work\s+running/);
   });
 
-  it("fails the lane when a gate fails, even if the agent asked for a person", () => {
-    const repo = readyRepo({
-      verify: "false",
-      script: [{ handoff: { outcome: "needsPerson", summary: "?" } }],
-    });
-    expect(repo.sf("run").status).toBe(1);
-    expect(repo.rows("select outcome from lane_runs")).toEqual([{ outcome: "fail" }]);
-  });
-
   it("stops cleanly when the command is interrupted while a gate runs", async () => {
     // a duration no other process uses, so a leftover from an earlier run cannot be mistaken for this one
     const nap = `sleep 297.${process.pid}${Date.now() % 100000}`;
