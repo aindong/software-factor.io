@@ -13,17 +13,22 @@ r=docs/research/README.md
 
 for f in prior-art-own prior-art-external agent-clis workflow-formats; do
   p="docs/research/$f.md"
+  # the notes on the owner's own earlier projects are not in the repository: they are checked where they are
+  if [ "$f" = prior-art-own ]; then
+    [ -f "$p" ] || continue
+  else
+    grep -q "($f.md)" "$r" 2>/dev/null || bad "README.md does not link $f.md"
+  fi
   [ -f "$p" ] || { bad "$p missing"; continue; }
   [ "$(wc -c < "$p")" -le 20000 ] || bad "$p is over 20 KB"
-  grep -q "($f.md)" "$r" 2>/dev/null || bad "README.md does not link $f.md"
   grep -q '^## What we take' "$p" || bad "$p has no 'What we take' section"
-  n=$(section "$p" Sources | grep -cE '^- .*(https?://|/Volumes/)')
+  n=$(section "$p" Sources | grep -cE '^- .*(https?://|/Volumes/|\.agent/)')
   [ "$n" -ge 3 ] || bad "$p lists $n sources, needs 3"
   # every section but the two summaries and Sources cites a source or says it was not verified
   awk -v p="$p" '
     function flush() { if (name != "" && !ok) { print "FAIL: " p ": section \"" name "\" cites no source"; bad = 1 } }
     /^## / { flush(); name = substr($0, 4); ok = (name ~ /^(Sources|What we take)/); next }
-    /https?:\/\/|\/Volumes\/|Not verified/ { ok = 1 }
+    /https?:\/\/|\/Volumes\/|\.agent\/|Not verified/ { ok = 1 }
     END { flush(); exit bad }' "$p" || fail=1
 done
 

@@ -2,10 +2,12 @@
 
 Read on 2026-11-10, before any product code. Each note cites where every section was read, and marks what could
 not be confirmed as "Not verified". The decisions these notes led to are in `docs/adr/`.
+A source given as `.agent/...` is one of the records of the run that built the factory, which are also kept off
+the repository.
 
 | Note | What it covers |
 | --- | --- |
-| [prior-art-own.md](prior-art-own.md) | The owner's first factory (osl-factory) and daily loop (alleo-skills): gates, limits, incidents, what was awkward |
+| prior-art-own (not in this repository) | The owner's first factory and daily loop: gates, limits, incidents, what was awkward. The note describes private projects and stays on the owner's machine. Its findings are below and in the decision records. |
 | [prior-art-external.md](prior-art-external.md) | super-board, Stripe Minions, Ramp Inspect, the AI Hero course, Tiny Software Factories, and other factories that publish numbers |
 | [agent-clis.md](agent-clis.md) | How to run Claude Code, Codex and Kimi Code without a terminal UI, where usage and cost appear, MCP servers per run, `npx skills` |
 | [workflow-formats.md](workflow-formats.md) | GitHub Actions, n8n, statecharts, Tekton and Argo, and the shape the workflow schema takes from them |

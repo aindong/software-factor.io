@@ -5,3 +5,7 @@ dist/
 .playwright-cli/
 *.log
 .DS_Store
+# the goal run's own records (plan, decisions, evidence) and the notes on the owner's earlier projects stay on the machine
+.agent
+docs/research/prior-art-own.md
+.impeccable/hook.cache.json

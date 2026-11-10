@@ -6,7 +6,7 @@ Accepted, 2026-11-10.
 
 ## Context
 
-The owner works in TypeScript with pnpm, and people install agent tooling with `npx`. The first factory was one 520 KB Python file next to a separate web app, so engine and interface could not share types (docs/research/prior-art-own.md).
+The owner works in TypeScript with pnpm, and people install agent tooling with `npx`. The first factory was one 520 KB Python file next to a separate web app, so engine and interface could not share types (the owner's notes on that factory, which are not in this repository).
 
 ## Decision
 

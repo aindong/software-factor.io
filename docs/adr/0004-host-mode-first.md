@@ -6,7 +6,7 @@ Accepted, 2026-11-10.
 
 ## Context
 
-The first factory began with every step in a locked container and later added host mode because the container made agents slow and weak. Its first host runs then failed mostly on setup: leaked environment, leftover dev servers (docs/research/prior-art-own.md). A public factory's guard hooks fail open on their own errors (docs/research/prior-art-external.md).
+The first factory began with every step in a locked container and later added host mode because the container made agents slow and weak. Its first host runs then failed mostly on setup: leaked environment, leftover dev servers (the owner's notes on that factory, which are not in this repository). A public factory's guard hooks fail open on their own errors (docs/research/prior-art-external.md).
 
 ## Decision
 
