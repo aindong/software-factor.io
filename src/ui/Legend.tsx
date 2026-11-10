@@ -1,0 +1,70 @@
+// The fixed parts around the floor's map: what it is drawn with, in words, the buttons that add a
+// lane, and the trains that stand on it.
+import type { RunRow } from "./api.ts";
+
+/** The runs of one workflow that are moving or waiting, each as a train at its lane. */
+export const trainsOf = (runs: RunRow[], workflow: string | undefined) =>
+  runs
+    .filter((r) => (r.status === "running" || r.status === "waiting") && r.workflow === workflow && r.at)
+    .map((r) => ({
+      lane: r.at ?? "",
+      label: String(r.taskId),
+      title: `${r.task}. ${r.sentence}`,
+      asks: r.stopCode === "awaiting_approval" || r.stopCode === "needs_person",
+      // a train leads to its run, and to the inbox when the run waits for a person
+      href: `${r.stopCode === "awaiting_approval" || r.stopCode === "needs_person" ? "/inbox" : "/runs"}/${r.id}`,
+    }));
+
+export function Legend() {
+  return (
+    <div className="legend">
+      <span>
+        <i className="pass" />
+        passes
+      </span>
+      <span>
+        <i className="fail" />
+        fails
+      </span>
+      <span>
+        <i className="asks" />
+        asks a person
+      </span>
+      <span>
+        <i className="end" />
+        ends the run
+      </span>
+      <span>
+        <i className="cond" />
+        only on a condition
+      </span>
+      <span>
+        <i className="capsule" />a person approves here
+      </span>
+      <span>
+        <i className="bar" />a gate
+      </span>
+      <span>×2: goes back at most twice</span>
+      <span>
+        <kbd>←</kbd> <kbd>→</kbd> move, <kbd>Enter</kbd> open, <kbd>c</kbd> connect
+      </span>
+    </div>
+  );
+}
+
+export function AddLane({ onAdd }: { onAdd: (kind: "agent" | "command" | "wait") => void }) {
+  return (
+    <div className="group">
+      <span className="label">Add a lane</span>
+      <button type="button" className="button" onClick={() => onAdd("agent")}>
+        Agent
+      </button>
+      <button type="button" className="button" onClick={() => onAdd("command")}>
+        Command
+      </button>
+      <button type="button" className="button" onClick={() => onAdd("wait")}>
+        Wait
+      </button>
+    </div>
+  );
+}

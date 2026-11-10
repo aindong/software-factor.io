@@ -9,6 +9,7 @@ import type { Workflow } from "../core/schema/workflow.ts";
 import { getWorkflow, type RunRow } from "./api.ts";
 import { useRuns } from "./live.ts";
 import { RunView } from "./RunDetail.tsx";
+import { go, openIn, usePath } from "./route.ts";
 import { Strip } from "./Strip.tsx";
 import { ago, cost, standing, tokens } from "./words.ts";
 import "./runs.css";
@@ -32,15 +33,19 @@ export function useWorkflows(runs: RunRow[] | undefined): Record<string, Workflo
 export function Runs() {
   const { runs, live } = useRuns();
   const workflows = useWorkflows(runs);
-  const [chosen, setChosen] = useState<string>();
-  const [inside, setInside] = useState(false); // on a narrow screen the run is shown in place of the list
+  // The run that was entered is in the address (`/runs/<run>`): Back leaves the run, a reload
+  // keeps it, and a link to it can be printed. Until one is entered, a run is only picked.
+  const opened = openIn(usePath(), "/runs");
+  const [picked, setPicked] = useState<string>();
+  const chosen = opened ?? picked;
+  const inside = opened !== undefined; // on a narrow screen the run is shown in place of the list
   const rows = useRef(new Map<string, HTMLDivElement>());
   const head = useRef<HTMLHeadingElement>(null);
-  const current = runs?.find((r) => r.id === chosen) ?? runs?.[0];
+  const current = runs?.find((r) => r.id === chosen);
   // the run that is shown stays the one shown: a run that starts must not take its place
   useEffect(() => {
-    if (runs && !runs.some((r) => r.id === chosen)) setChosen(runs[0]?.id);
-  }, [runs, chosen]);
+    if (runs && !opened && !runs.some((r) => r.id === picked)) setPicked(runs[0]?.id);
+  }, [runs, picked, opened]);
   const count = useMemo(() => {
     const all = runs ?? [];
     const yours = all.filter((r) => standing(r).mark === "asked").length;
@@ -55,8 +60,8 @@ export function Runs() {
   }, [runs]);
 
   const enter = (id: string) => {
-    setChosen(id);
-    setInside(true);
+    setPicked(id);
+    go(`/runs/${encodeURIComponent(id)}`);
     requestAnimationFrame(() => head.current?.focus());
   };
   const onKey = (event: KeyboardEvent, at: number) => {
@@ -73,7 +78,8 @@ export function Runs() {
               : undefined;
     const next = to === undefined ? undefined : list[to];
     if (next) {
-      setChosen(next.id);
+      setPicked(next.id);
+      if (opened) go(`/runs/${encodeURIComponent(next.id)}`, true); // the address follows the run on show
       rows.current.get(next.id)?.focus();
     } else if (event.key === "Enter" || event.key === " ") enter(list[at]?.id ?? "");
     else if (to === undefined) return;
@@ -111,9 +117,14 @@ export function Runs() {
         <div className="runs" data-inside={inside}>
           <div className="runlist" role="listbox" aria-label="Runs, the newest first">
             {runs.map((run, at) => {
-              const flow = workflows[run.workflow];
-              const names = new Map(flow?.lanes.map((l) => [l.id, l.name ?? l.id]));
-              const track = trackOf(flow?.lanes.map((l) => l.id) ?? [], run.visits, undefined, run.at);
+              // the run's own stops, as its workflow was when it started
+              const names = new Map(run.stops.map((l) => [l.id, l.name]));
+              const track = trackOf(
+                run.stops.map((l) => l.id),
+                run.visits,
+                undefined,
+                run.at,
+              );
               const stands = standing(run);
               return (
                 <div
@@ -125,12 +136,14 @@ export function Runs() {
                   role="option"
                   className="run"
                   aria-selected={run.id === current?.id}
-                  tabIndex={run.id === current?.id ? 0 : -1}
+                  tabIndex={run.id === (current?.id ?? runs[0]?.id) ? 0 : -1}
                   onClick={() => enter(run.id)}
                   onKeyDown={(event) => onKey(event, at)}
                 >
                   <span className={`mark ${stands.mark}`} role="img" aria-label={stands.word} />
-                  <span className="task">{run.task || run.id}</span>
+                  <span className="task" title={run.task}>
+                    <span className="number data">{run.taskId}</span> {run.task || run.id}
+                  </span>
                   <span className="when data">{ago(run.startedAt)}</span>
                   <Strip track={track} nameOf={(id) => names.get(id) ?? id} />
                   <span className="spent data">
@@ -148,10 +161,18 @@ export function Runs() {
               workflow={workflows[current.workflow]}
               headRef={head}
               onBack={() => {
-                setInside(false);
+                setPicked(current.id);
+                go("/runs", true); // in place of the run's address: Back does not enter it again
                 requestAnimationFrame(() => rows.current.get(current.id)?.focus());
               }}
             />
+          ) : opened ? (
+            <div className="plain">
+              <p>The run {opened} is not among the runs shown here.</p>
+              <p>
+                It may be older than the latest fifty. <code>softwarefactor runs {opened}</code> prints it.
+              </p>
+            </div>
           ) : null}
         </div>
       )}

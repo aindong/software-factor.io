@@ -1,7 +1,15 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.6/schema.json",
   "files": {
-    "includes": ["**", "!schema/*.json", "!**/*.md", "!.agent", "!**/dist", "!.playwright-cli"]
+    "includes": [
+      "**",
+      "!schema/*.json",
+      "!**/*.md",
+      "!.agent",
+      "!**/dist",
+      "!.playwright-cli",
+      "!.impeccable"
+    ]
   },
   "formatter": {
     "indentStyle": "space",

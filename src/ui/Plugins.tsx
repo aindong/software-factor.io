@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { PluginsView } from "../core/views.ts";
 import { op } from "./api.ts";
+import { coded } from "./words.ts";
 import "./runs.css";
 import "./sections.css";
 
@@ -12,6 +13,9 @@ const KINDS: [keyof Pick<PluginsView, "lanes" | "gates" | "collectors" | "agents
   ["collectors", "Collectors", "Where tasks come from: `uses` in a collector."],
   ["agents", "Agents", "The CLIs an account can be a login of. `fake` is the scripted agent."],
 ];
+
+const Coded = ({ sentence }: { sentence: string }) =>
+  coded(sentence).map((part) => (part.code ? <code key={part.text}>{part.text}</code> : part.text));
 
 export function Plugins() {
   const [built, setBuilt] = useState<PluginsView>();
@@ -36,7 +40,9 @@ export function Plugins() {
             {KINDS.map(([key, title, what]) => (
               <section key={key} className="block">
                 <h2>{title}</h2>
-                <p className="quiet">{what.replaceAll("`", "")}</p>
+                <p className="quiet">
+                  <Coded sentence={what} />
+                </p>
                 <ul className="names">
                   {built[key].map((name) => (
                     <li key={name} className="code">
@@ -50,7 +56,7 @@ export function Plugins() {
               <h2>Workflows</h2>
               <p className="quiet">The workflows that come with this version, to start from.</p>
               <div className="scroll-x">
-                <table className="table">
+                <table className="table stack">
                   <tbody>
                     {built.workflows.map((w) => (
                       <tr key={w.name}>
@@ -64,7 +70,9 @@ export function Plugins() {
                 </table>
               </div>
             </section>
-            <p className="quiet">{built.installing.replaceAll("`", "")}</p>
+            <p className="quiet">
+              <Coded sentence={built.installing} />
+            </p>
           </>
         )}
       </div>

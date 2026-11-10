@@ -2,6 +2,7 @@
 .runs {
   display: grid;
   grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr); /* the list and the run scroll, the page does not */
   min-height: 0;
 }
 .runlist {
@@ -23,8 +24,10 @@
 .run:hover {
   background: color-mix(in oklch, var(--panel) 50%, var(--ground));
 }
+/* the chosen row: a tint, and an ink bar at its edge as the rail's current section has */
 .run[aria-selected="true"] {
   background: var(--panel);
+  box-shadow: inset 2px 0 0 var(--ink);
 }
 .run:focus-visible {
   outline-offset: -2px;
@@ -34,6 +37,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* the task's number: the same number its train carries on the map */
+.run .number {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-right: 2px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--ground);
+  font-weight: 600;
+  text-align: center;
 }
 .run .when,
 .run .spent {
@@ -169,6 +184,15 @@
   gap: var(--sm);
   max-width: 80ch;
 }
+.waits > div {
+  display: grid;
+  gap: var(--sm);
+}
+a.button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
 .runmap {
   border: 1px solid var(--rule);
   border-radius: var(--control);
@@ -196,11 +220,16 @@
 }
 
 /* a run over the map: what it took stays, the rest steps back */
+/* the lines the run did not take step back. Their words do not fade: they turn end grey, which still reads */
 .map.overlaid .line:not(.lit),
 .map.overlaid .casing:not(.lit),
-.map.overlaid .station.far,
-.map.overlaid .tag {
+.map.overlaid .station.far .body,
+.map.overlaid .station.far .mark {
   opacity: 0.28;
+}
+.map.overlaid .tag:not(.lit),
+.map.overlaid .station.far .name {
+  fill: var(--end);
 }
 .map .station.ran-pass .body {
   fill: var(--through);
@@ -249,7 +278,7 @@
   width: 100%;
   min-height: var(--row);
   padding: 2px var(--sm);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--edge);
   border-radius: var(--control);
   background: var(--ground);
   text-align: left;
@@ -317,19 +346,31 @@
   white-space: pre;
   overflow-wrap: normal;
 }
+/* a diff is read by shape: what was put in stands on a band, what was taken out is outlined.
+   Blue and vermilion mean passed and failed, so they are not used here. */
+.diff span {
+  display: block;
+  padding: 0 var(--xs);
+}
 .diff .file {
   font-weight: 700;
+}
+/* one rule for each file, above its first line */
+.diff .file.first {
+  margin-top: var(--sm);
+  padding-top: var(--xs);
+  border-top: 1px solid var(--edge);
 }
 .diff .hunk {
   color: var(--ink-soft);
 }
 .diff .add {
   font-weight: 600;
-  background: color-mix(in oklch, var(--ink) 9%, transparent);
+  background: color-mix(in oklch, var(--ink) 16%, transparent);
 }
 .diff .del {
-  color: var(--ink-soft);
-  text-decoration: line-through;
+  outline: 1px dashed var(--ink-soft);
+  outline-offset: -1px;
 }
 .shot {
   display: block;
@@ -390,6 +431,9 @@
   max-width: 90ch;
 }
 .ref {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xs);
   margin-right: var(--xs);
   padding: 0 var(--xs);
   border: 1px solid var(--rule);
@@ -419,7 +463,32 @@
   .pair-shots {
     grid-template-columns: minmax(0, 1fr);
   }
-  .proof .meta {
-    display: none;
+  .proof > button {
+    flex-wrap: wrap;
   }
+  .proof .meta {
+    width: 100%;
+    margin-left: 0;
+    padding-left: 18px;
+    white-space: normal;
+  }
+}
+.ref button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ref .mark {
+  width: 8px;
+  height: 8px;
+}
+.shot-link {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
 }

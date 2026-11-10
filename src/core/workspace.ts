@@ -22,6 +22,8 @@ export interface Workspace {
   config: FactoryConfig;
   local: LocalConfig;
   workflow: Workflow;
+  /** The workflow's file as it was read: what a run is kept with, whatever the file becomes while the process runs. */
+  workflowText: string;
   /** Each agent lane's instructions, read once when the workspace loads. */
   prompts: Record<string, string>;
 }
@@ -71,8 +73,10 @@ export function loadWorkspace(cwd: string): Workspace {
 
   const workflowPath = join(factorDir, "workflows", `${config.workflow}.json`);
   let workflowJson: unknown;
+  let workflowText = "";
   try {
-    workflowJson = JSON.parse(readFileSync(workflowPath, "utf8"));
+    workflowText = readFileSync(workflowPath, "utf8");
+    workflowJson = JSON.parse(workflowText);
   } catch (error) {
     throw new UserError(
       `Cannot read the workflow at ${workflowPath}: ${(error as Error).message}`,
@@ -116,6 +120,7 @@ export function loadWorkspace(cwd: string): Workspace {
     config,
     local,
     workflow,
+    workflowText,
     prompts,
   };
 }

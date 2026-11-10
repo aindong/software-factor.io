@@ -12,13 +12,15 @@ const MOST_LINES = 5000;
 export function Proof(props: {
   open: boolean;
   onToggle: () => void;
+  /** Given the row's element, so that what points at this proof can bring it into view. */
+  at?: (node: HTMLDivElement | null) => void;
   label: string;
   meta?: string;
   mark?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <div className="proof">
+    <div className="proof" ref={props.at}>
       <button type="button" aria-expanded={props.open} onClick={props.onToggle}>
         <svg className="caret" viewBox="0 0 10 10" aria-hidden="true">
           <path d="M3 1.500l4 3.500-4 3.500" />
@@ -76,12 +78,26 @@ const Text = ({ text }: { text: string }) => (
   </>
 );
 
+/** A picture, fitted to its place, and a way to see it at its real size: in a tab of its own. */
+const Shot = ({ url, alt }: { url: string; alt: string }) => (
+  <a
+    className="shot-link"
+    href={url}
+    target="_blank"
+    rel="noreferrer"
+    title="Open at its real size in a new tab"
+  >
+    <img className="shot" src={url} alt={alt} />
+    <span className="sr"> (opens at its real size in a new tab)</span>
+  </a>
+);
+
 export function FileView({ runId, path, name }: { runId: string; path: string; name: string }) {
   const kind = kindOf(name);
   const loaded = useFile(runId, path, kind === "text");
   if (loaded.state !== "here") return <Waiting loaded={loaded} />;
   if (kind === "text") return <Text text={loaded.text} />;
-  if (kind === "image") return <img className="shot" src={loaded.url} alt={name} />;
+  if (kind === "image") return <Shot url={loaded.url} alt={name} />;
   if (kind === "recording") {
     return (
       // biome-ignore lint/a11y/useMediaCaption: a recording of a screen has no speech to caption
@@ -104,7 +120,7 @@ function Side({ runId, path, name, word }: { runId: string; path: string; name: 
     <figure>
       <figcaption className="label">{word}</figcaption>
       {loaded.state === "here" ? (
-        <img className="shot" src={loaded.url} alt={`${word}: ${name}`} />
+        <Shot url={loaded.url} alt={`${word}: ${name}`} />
       ) : (
         <Waiting loaded={loaded} />
       )}
@@ -124,16 +140,22 @@ export function PairView(props: {
   );
 }
 
-const lineKind = (line: string) =>
-  line.startsWith("diff --git") || line.startsWith("+++") || line.startsWith("---")
-    ? "file"
-    : line.startsWith("@@")
+/** What each line of a diff is. `+++` and `---` name a file only above its first hunk: inside one they are lines put in and taken out. */
+export function lineKinds(lines: string[]): ("file" | "hunk" | "add" | "del" | "same")[] {
+  let head = true;
+  return lines.map((line) => {
+    if (line.startsWith("diff --git")) head = true;
+    else if (line.startsWith("@@")) head = false;
+    if (head) return "file";
+    return line.startsWith("@@")
       ? "hunk"
       : line.startsWith("+")
         ? "add"
         : line.startsWith("-")
           ? "del"
           : "same";
+  });
+}
 
 /** The run's diff. A line taken out is struck through, not hidden: nothing disappears, it cancels. */
 export function DiffView({ runId, stamp }: { runId: string; stamp: string }) {
@@ -152,6 +174,7 @@ export function DiffView({ runId, stamp }: { runId: string; stamp: string }) {
   }, [runId, stamp]);
   if (!diff) return <p className="quiet">Reading.</p>;
   const lines = diff.text.split("\n");
+  const kinds = lineKinds(lines);
   return (
     <>
       {diff.note ? <p className="quiet">{diff.note}</p> : null}
@@ -166,7 +189,7 @@ export function DiffView({ runId, stamp }: { runId: string; stamp: string }) {
         <pre className="output diff">
           {lines.slice(0, MOST_LINES).map((line, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: the lines of one diff never move
-            <span key={i} className={lineKind(line)}>
+            <span key={i} className={`${kinds[i]}${line.startsWith("diff --git") ? " first" : ""}`}>
               {line}
               {"\n"}
             </span>

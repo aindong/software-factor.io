@@ -19,6 +19,8 @@ const row = (status: RunRow["status"], outcome: "pass" | "fail"): RunRow => ({
   startedAt: "2026-11-10T10:00:00.000Z",
   endedAt: "2026-11-10T10:05:00.000Z",
   visits: [{ lane: "build", outcome }],
+  stops: [{ id: "build", name: "build" }],
+  own: false,
   at: status === "done" ? null : "build",
   sentence: "",
   tokens: 0,

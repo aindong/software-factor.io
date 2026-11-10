@@ -32,8 +32,11 @@ describe("adding a lane", () => {
     expect(lanes(again).map((l) => l.id)).toContain("lane-2");
   });
 
-  it("gives a workflow the checker accepts for an agent lane, and names what a command lane still needs", () => {
-    expect(problems(addLane(start(), { kind: "agent" }))).toEqual([]);
+  it("names what a new lane still needs: an agent lane its instructions, a command lane its command", () => {
+    // the edit does not write instructions for the author: a scaffold sentence would save, and an agent would be run on it
+    expect(problems(addLane(start(), { kind: "agent" }))).toEqual([
+      "lanes[6].agent.prompt: This lane has no instructions yet.",
+    ]);
     const withCommand = problems(addLane(start(), { kind: "command" }));
     expect(withCommand.length).toBeGreaterThan(0); // it has no command yet: the checker says so, the edit does not guess one
   });
@@ -189,7 +192,8 @@ describe("what an edit leaves for the checker to say", () => {
   });
 
   it("keeps a lane placed after a lane with conditions clean under the checker", () => {
-    expect(problems(addLane(start(), { after: "review", kind: "agent" }))).toEqual([]);
+    const added = addLane(start(), { after: "review", kind: "agent" });
+    expect(problems(added).filter((p) => !p.includes(".agent.prompt"))).toEqual([]);
   });
 
   it("removes the agent's settings when they are set to nothing", () => {

@@ -105,6 +105,8 @@ function RoleRow({
         >
           Bind
         </button>
+        {/* why it is off, said where it is off */}
+        {accounts.includes(account) ? null : <span className="quiet sub">Choose a login to bind.</span>}
       </td>
     </tr>
   );
@@ -160,7 +162,7 @@ export function Accounts() {
                         <th scope="col">Account</th>
                         <th scope="col">Agent</th>
                         <th scope="col">Used</th>
-                        <th scope="col">Held</th>
+                        <th scope="col">On hold</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -179,7 +181,9 @@ export function Accounts() {
                                 ))}
                           </td>
                           <td className="data">
-                            {a.heldUntil ? `until ${new Date(a.heldUntil).toLocaleTimeString()}` : "no"}
+                            {a.heldUntil
+                              ? `until ${new Date(a.heldUntil).toLocaleTimeString()}, at its limit`
+                              : "no"}
                           </td>
                         </tr>
                       ))}
@@ -200,9 +204,9 @@ export function Accounts() {
                     <tr>
                       <th scope="col">Role</th>
                       <th scope="col">Account</th>
-                      <th scope="col">Small lanes</th>
-                      <th scope="col">Medium</th>
-                      <th scope="col">Large</th>
+                      <th scope="col">Model for small lanes</th>
+                      <th scope="col">For medium</th>
+                      <th scope="col">For large</th>
                       <th scope="col">Effort</th>
                       <td />
                     </tr>

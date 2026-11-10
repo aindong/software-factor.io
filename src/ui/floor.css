@@ -3,6 +3,7 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-rows: minmax(0, 1fr); /* its parts scroll, it does not grow */
   min-height: 0;
 }
 .map-side {
@@ -185,6 +186,19 @@
 .legend .end {
   background: var(--end);
 }
+.legend .capsule {
+  width: 22px;
+  height: 12px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--ground);
+}
+.legend .bar {
+  width: 3px;
+  height: 14px;
+  border-radius: 1.5px;
+  background: var(--end);
+}
 .legend .cond {
   height: 0;
   border-top: 6px dotted var(--ink-soft);
@@ -242,7 +256,7 @@
   width: 100%;
   min-height: var(--row);
   padding: 2px var(--sm);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--edge);
   border-radius: var(--control);
   background: var(--ground);
 }
@@ -271,6 +285,10 @@
 .inspector .route.needsPerson .label::before {
   background: var(--signal);
   outline: 1.5px solid var(--ink);
+}
+.inspector .ways {
+  margin: 0;
+  padding-left: var(--lg);
 }
 .inspector .note {
   color: var(--ink-soft);
@@ -353,6 +371,15 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+.elsewhere button {
+  padding: 0 0 0 var(--md);
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .problems .fix {
   color: var(--ink-soft);
 }
@@ -365,7 +392,7 @@
   .inspector {
     position: absolute;
     inset: auto 0 0 0;
-    max-height: 72%;
+    max-height: 50%;
     border-left: 0;
     border-top: 1px solid var(--rule);
     box-shadow: var(--shadow);
@@ -373,6 +400,10 @@
   }
   .inspector[data-open="false"] {
     display: none;
+  }
+  /* under an open sheet the map can still be moved clear of it */
+  .floor[data-sheet="true"] .map-scroll {
+    padding-bottom: 50vh;
   }
 }
 @media (min-width: 1001px) {

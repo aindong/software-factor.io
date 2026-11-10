@@ -46,7 +46,9 @@ Do's and Don'ts"
   have=$(grep -E '^## ' "$d" | sed 's/^## //')
   [ "$have" = "$want" ] || bad "$d sections are not the format's eight, in order"
   [ "$(section "$d" Overview | grep -c 'signature move: [^ ]')" -eq 1 ] || bad "$d Overview does not name exactly one signature move"
-  section "$d" Overview | grep -qi 'before any screen' || bad "$d Overview does not say it was written before the build"
+  # the direction was written before any screen. Since task 17 the file is the record of what was built
+  section "$d" Overview | grep -qi 'record of what shipped' || bad "$d Overview does not say it is the record of what shipped"
+  section "$d" Overview | grep -qi 'before any screen' && bad "$d Overview still says it was written before the build"
   # gradients and purple may only be named in order to forbid them
   if awk '/^### Don.t/{dont=1} /^## /{dont=0} !dont' "$d" | grep -qiE 'gradient|purple|violet'; then
     bad "$d mentions a gradient or purple outside its Don't list"

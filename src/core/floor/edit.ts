@@ -52,7 +52,7 @@ export function addLane(w: Json, at: { after?: string; kind: "agent" | "command"
       ? {
           id,
           uses: "core/agent@1",
-          agent: { role, access: "read", prompt: "Say what this lane must do, and what it hands off." },
+          agent: { role, access: "read", prompt: "" }, // no instructions yet: the checker says so, the edit does not write them
           checkpoint: "in", // a new lane starts with a person in the loop
           on,
         }

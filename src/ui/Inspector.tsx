@@ -4,6 +4,7 @@ import { type ReactNode, type RefObject, useEffect, useState } from "react";
 import { connect, END_TARGETS, removeLane, renameLane, updateLane } from "../core/floor/edit.ts";
 import type { Problem } from "../core/schema/parse.ts";
 import type { Json } from "./api.ts";
+import { WholeNumber } from "./Fields.tsx";
 
 type LaneJson = Json & { id: string };
 const OUTCOMES = [
@@ -31,16 +32,23 @@ const lanesIn = (doc: Json) =>
     typeof l === "object" && l !== null ? (l as LaneJson) : undefined,
   );
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+function Field(props: { label: string; hint?: string; bad?: boolean; children: ReactNode }) {
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: the control is the child passed in
     <label className="field">
-      <span className="label">{label}</span>
-      {children}
-      {hint ? <span className="hint">{hint}</span> : null}
+      <span className="label">{props.label}</span>
+      {props.children}
+      {props.hint ? <span className={`hint${props.bad ? " bad" : ""}`}>{props.hint}</span> : null}
     </label>
   );
 }
+/** A condition of a transition, in words. */
+const whenWords = (when: unknown) => {
+  const { ref, in: among } = record(when);
+  return typeof ref === "string" && Array.isArray(among)
+    ? `if ${ref} is ${among.length === 1 ? "" : "one of "}${among.join(", ")}`
+    : `if ${JSON.stringify(when)}`;
+};
 function Choice(props: {
   label: string;
   value: string;
@@ -127,7 +135,7 @@ function LaneForm({
   const gates = Object.keys(record(doc.gates));
   const mine = Array.isArray(lane.gates) ? (lane.gates as string[]) : [];
   const commit = () => {
-    if (id === lane.id) return;
+    if (id === lane.id) return setRefused(false);
     const next = renameLane(doc, lane.id, id);
     setRefused(next === doc);
     if (next !== doc) {
@@ -149,16 +157,21 @@ function LaneForm({
       <section>
         <Field
           label="Id"
+          bad={refused}
           hint={
             refused
-              ? "That id is taken, or is not small letters, digits and -."
+              ? `Not taken: "${id}" is another lane's id, or is not small letters, digits and -. The lane is still ${lane.id}.`
               : "Other lanes point at this lane by its id."
           }
         >
           <input
             value={id}
             spellCheck={false}
-            onChange={(event) => setId(event.target.value)}
+            aria-invalid={refused}
+            onChange={(event) => {
+              setId(event.target.value);
+              setRefused(false); // the refusal was about what was tried, not about what is being typed now
+            }}
             onBlur={commit}
             onKeyDown={(event) => event.key === "Enter" && commit()}
           />
@@ -230,6 +243,7 @@ function LaneForm({
             <Field label="Instructions">
               <textarea
                 value={agent.prompt}
+                placeholder="Say what this lane must do, and what it hands off."
                 onChange={(event) => set({ agent: { prompt: event.target.value } })}
               />
             </Field>
@@ -279,16 +293,11 @@ function LaneForm({
       {kind === "core/wait@1" && typeof settings.minutes === "number" ? (
         <section>
           <h2>Wait</h2>
-          <Field label="Minutes">
-            <input
-              type="number"
-              min={1}
-              value={settings.minutes}
-              onChange={(event) =>
-                set({ with: { ...settings, minutes: Math.max(1, Number(event.target.value) || 1) } })
-              }
-            />
-          </Field>
+          <WholeNumber
+            label="Minutes"
+            value={settings.minutes}
+            onCommit={(minutes) => set({ with: { ...settings, minutes } })}
+          />
         </section>
       ) : null}
 
@@ -337,9 +346,26 @@ function LaneForm({
                 </p>
               ) : null}
               {conditional ? (
-                <p className="note">
-                  This outcome has conditions, kept in the JSON view. Choosing here replaces them.
-                </p>
+                // every way this outcome can go, in the order they are tried
+                <>
+                  <ol className="ways note">
+                    {steps.map((step) => (
+                      <li key={JSON.stringify(step)}>
+                        to{" "}
+                        {/* text that is JSON but not yet a workflow can lead anywhere: it is shown, not trusted */}
+                        {typeof step.to !== "string"
+                          ? JSON.stringify(step.to)
+                          : lanes.find((l) => l.id === step.to)?.name?.toString() ||
+                            END_NAME[step.to] ||
+                            step.to}{" "}
+                        {step.when === undefined ? "otherwise" : whenWords(step.when)}
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="note">
+                    Conditions are edited in the JSON view. Choosing above replaces them.
+                  </p>
+                </>
               ) : null}
             </div>
           );
@@ -429,9 +455,8 @@ export function Inspector({
   const lanes = lanesIn(doc);
   const lane = lanes.find((l) => l?.id === selected);
   const laneAt = (path: string) => lanes[Number(/^lanes\[(\d+)\]/.exec(path)?.[1] ?? -1)]?.id;
+  const elsewhere = lane ? problems.filter((p) => laneAt(p.path) !== lane.id).length : 0;
   const limits = record(doc.limits);
-  const setLimit = (key: string, value: string) =>
-    onChange({ ...doc, limits: { ...limits, [key]: Math.max(1, Number(value) || 1) } });
   return (
     <aside className="inspector" aria-label="Inspector" data-open={open}>
       <header>
@@ -447,6 +472,14 @@ export function Inspector({
         laneAt={laneAt}
         onSelect={onSelect}
       />
+      {elsewhere > 0 ? (
+        // the status line counts every problem: the ones that are not this lane's are one key away
+        <p className="elsewhere">
+          <button type="button" onClick={() => onSelect(undefined)}>
+            {elsewhere} {elsewhere === 1 ? "problem" : "problems"} elsewhere in the workflow
+          </button>
+        </p>
+      ) : null}
       {lane ? (
         <LaneForm doc={doc} lane={lane} connectRef={connectRef} onChange={onChange} onSelect={onSelect} />
       ) : selected ? (
@@ -464,22 +497,16 @@ export function Inspector({
               />
             </Field>
             <div className="pair">
-              <Field label="Minutes for one run">
-                <input
-                  type="number"
-                  min={1}
-                  value={Number(limits.minutes) || ""}
-                  onChange={(event) => setLimit("minutes", event.target.value)}
-                />
-              </Field>
-              <Field label="Tokens for one run">
-                <input
-                  type="number"
-                  min={1}
-                  value={Number(limits.tokens) || ""}
-                  onChange={(event) => setLimit("tokens", event.target.value)}
-                />
-              </Field>
+              <WholeNumber
+                label="Minutes for one run"
+                value={Number(limits.minutes) || undefined}
+                onCommit={(minutes) => onChange({ ...doc, limits: { ...limits, minutes } })}
+              />
+              <WholeNumber
+                label="Tokens for one run"
+                value={Number(limits.tokens) || undefined}
+                onCommit={(tokens) => onChange({ ...doc, limits: { ...limits, tokens } })}
+              />
             </div>
           </section>
           <section>

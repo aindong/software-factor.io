@@ -12,66 +12,8 @@ work=$(mktemp -d)
 session="runs-$$"
 server=""
 
-fail() {
-  echo "FAIL: $1"
-  playwright-cli -s="$session" close > /dev/null 2>&1
-  [ -n "$server" ] && kill "$server" 2> /dev/null
-  exit 1
-}
-pw() { playwright-cli -s="$session" "$@" > "$work/pw.log" 2>&1; }
-# the value a script returns in the page, as text: reading only
-js() {
-  playwright-cli -s="$session" eval "$1" 2> /dev/null | awk 'found { print; exit } /^### Result/ { found = 1 }' | sed -e 's/^"//' -e 's/"$//'
-}
-expect() { # expect <what> <got> <wanted pattern>
-  echo "$2" | grep -Eq "$3" || fail "$1: got \"$2\", wanted /$3/"
-}
-# wait until what the page shows matches, for at most 6 seconds
-wait_for() { # wait_for <what> <script> <wanted pattern>
-  local got=""
-  for _ in $(seq 1 30); do
-    got=$(js "$2")
-    echo "$got" | grep -Eq "$3" && return 0
-    sleep 0.2
-  done
-  fail "$1: got \"$got\", wanted /$3/"
-}
-focused='() => { const a = document.activeElement; return (a?.getAttribute("aria-label") || a?.labels?.[0]?.textContent || a?.textContent || a?.tagName || "").replace(/\s+/g, " ").trim(); }'
-tab_to() { # Tab until the keyboard is on what matches
-  for _ in $(seq 1 80); do
-    js "$focused" | grep -Eq "$1" && return 0
-    pw press Tab
-  done
-  fail "Tab never reached /$1/, the keyboard is on \"$(js "$focused")\""
-}
-back_to() { # Shift+Tab until the keyboard is on what matches
-  for _ in $(seq 1 80); do
-    js "$focused" | grep -Eq "$1" && return 0
-    pw press Shift+Tab
-  done
-  fail "Shift+Tab never reached /$1/, the keyboard is on \"$(js "$focused")\""
-}
-shot() {
-  [ -n "$shots" ] || return 0
-  mkdir -p "$shots"
-  pw screenshot --filename="$shots/$1.png" || fail "screenshot $1"
-}
-theme() { # the rail's own theme button, by keyboard: it is the last stop before the section
-  back_to '^(Auto|Light|Dark)$'
-  for _ in 1 2 3; do
-    if [ "$(js "$focused")" = "$1" ]; then
-      # the page itself took the theme: its ground is light or dark as asked
-      expect "the page is in the $1 theme" "$(js "() => { const l = Number(/oklch\\(([0-9.]+)/.exec(getComputedStyle(document.body).backgroundColor)?.[1] ?? -1); return l > 0.6 ? 'Light' : 'Dark'; }")" "^$1$"
-      return 0
-    fi
-    pw press Enter
-  done
-  fail "the theme did not become $1"
-}
-section() { # a section of the rail, by keyboard
-  tab_to "^$1$"
-  pw press Enter
-}
+# shellcheck source=test/ui/keys.sh
+. "$here/test/ui/keys.sh"
 
 [ -f "$here/dist/cli.js" ] && [ -f "$here/dist/ui/index.html" ] || fail "build first: pnpm run build"
 export FACTOR_HOME="$work/home" COUNT="$work/count.txt"
@@ -129,10 +71,7 @@ fs.writeFileSync(".factor/factory.json", JSON.stringify({ ...f, workflow: "deliv
 fs.writeFileSync(".factor/tasks.md", "- [ ] Add an export button\n- [ ] Fix the date format\n- [ ] Show the cost of each lane\n");
 '
 
-sf ui --port 0 > "$work/ui.log" 2>&1 &
-server=$!
-for _ in $(seq 1 50); do grep -q "#t=" "$work/ui.log" && break; sleep 0.1; done
-address=$(grep -o 'http://127.0.0.1:[0-9]*/#t=[0-9a-f]*' "$work/ui.log") || fail "the interface did not start: $(cat "$work/ui.log")"
+start_ui 0
 pw open "$address" || fail "the browser did not open"
 grep -q "Console: [1-9]" "$work/pw.log" && fail "the page logged an error: $(cat "$work/pw.log")"
 pw resize 1440 900
@@ -192,7 +131,7 @@ expect "the run that was shown is still the one shown" "$(js "() => document.que
 shot runs-light-1440
 
 # ---- 1. through the list by keyboard
-tab_to '^Add an export button.*Done\.$'
+tab_to '^[0-9]+ Add an export button.*Done\.$'
 expect "the keyboard is on the run that is shown" "$(js "() => document.activeElement.getAttribute('aria-selected')")" '^true$'
 pw press Home
 expect "Home goes to the newest" "$(js "$focused")" 'Show the cost of each lane'
@@ -204,6 +143,9 @@ expect "End goes to the oldest" "$(js "$focused")" 'Add an export button'
 pw press Enter
 expect "Enter goes into the run" "$(js "$focused")" '^Add an export button$'
 expect "the run says how it stands" "$(js "() => document.querySelector('.rundetail .sentence').textContent")" '^Done\.$'
+expect "the run that was entered is in the address" "$(js "() => location.pathname")" "^/runs/$first$"
+in_window "a run"
+shot run-light-1440
 
 # ---- 2. the run on its map, stepped back and forth
 expect "the map shows what the run did at each station" "$(js "() => [...document.querySelectorAll('.runmap .station.lane')].map((s) => s.getAttribute('aria-label').split(', ').pop()).join(' | ')")" '^passed in this run \| passed in this run \| passed in this run \| passed in this run$'
@@ -222,6 +164,9 @@ expect "the first step is before any lane" "$(js "() => document.activeElement.g
 pw press End
 
 # ---- 3. the evidence, each piece opened in place
+shown() { # what the open proof with that label shows (several can be open at once)
+  echo "() => [...document.querySelectorAll('.proof')].find((p) => p.querySelector('.what').textContent.startsWith('$1'))?.querySelector('.shown .output')?.textContent ?? ''"
+}
 tab_to '^The diff of the whole run'
 pw press Enter
 wait_for "the diff" "() => document.querySelector('.diff')?.textContent ?? ''" '\+\+\+ b/src/export\.ts'
@@ -231,36 +176,60 @@ tab_to '^Before and after'
 pw press Enter
 wait_for "a screenshot pair, both loaded" "() => [...document.querySelectorAll('.pair-shots img')].map((i) => i.complete && i.naturalWidth > 0).join(' ')" '^true true$'
 expect "the pair is side by side" "$(js "() => { const [a, b] = [...document.querySelectorAll('.pair-shots img')].map((i) => i.getBoundingClientRect()); return a.right <= b.left && Math.abs(a.top - b.top) < 2; }")" '^true$'
-expect "the diff closed when the pair opened" "$(js "() => document.querySelectorAll('.diff').length")" '^0$'
+expect "the diff stays open beside the pair, to compare" "$(js "() => document.querySelectorAll('.diff').length")" '^1$'
 shot run-pair-light-1440
 tab_to '^Recording: walkthrough\.webm'
 pw press Enter
 wait_for "a recording that has decoded" "() => (document.querySelector('video.shot')?.videoWidth ?? 0) > 0" '^true$'
+in_window "a run with a pair and a recording open"
 shot run-recording-light-1440
 tab_to '^File: notes\.txt'
 pw press Enter
-wait_for "an attached note" "() => document.querySelector('.proof .shown .output')?.textContent ?? ''" 'Checked at 1440 and 390 wide'
+wait_for "an attached note" "$(shown 'File: notes.txt')" 'Checked at 1440 and 390 wide'
 tab_to '^Gate verify passed'
 pw press Enter
-wait_for "a gate's output" "() => document.querySelector('.proof .shown .output')?.textContent ?? ''" '^\$ true'
+wait_for "a gate's output" "$(shown 'Gate verify passed')" '^\$ true'
 expect "its claims name their evidence" "$(js "() => [...document.querySelectorAll('.visits > li:first-child .ref')].map((r) => r.textContent).join(' ')")" '^file:src/export\.ts commit:HEAD attached:before\.png attached:after\.png attached:walkthrough\.webm attached:notes\.txt$'
+# a claim's reference says the host checked it, and leads to the file it names
+expect "each reference says whether the host found it" "$(js "() => [...document.querySelectorAll('.visits > li:first-child .ref .mark')].map((m) => m.getAttribute('aria-label')).join(' | ')")" '^(The host checked this: \| ){5}The host checked this:$'
+back_to '^attached:notes\.txt$'
+pw press Enter
+wait_for "a reference opens the file it names" "() => [...document.querySelectorAll('.proof button[aria-expanded=true] .what')].map((w) => w.textContent).join(' | ')" 'File: notes\.txt'
 tab_to '^Hand-off'
 pw press Enter
-wait_for "a hand-off" "() => document.querySelector('.proof .shown .output')?.textContent ?? ''" 'Added the export button'
+wait_for "a hand-off" "$(shown 'Hand-off')" 'Added the export button'
 shot run-lanes-light-1440
 
 # ---- 4. the run that waits says what to do
-back_to '^Add an export button.*Done\.$'
+back_to '^[0-9]+ Add an export button.*Done\.$'
 pw press Home
 expect "back on the newest run" "$(js "$focused")" 'Show the cost of each lane'
-expect "what waits names the command" "$(js "() => document.querySelector('.waits')?.textContent ?? ''")" 'Ship it waits for your approval\. From your terminal: softwarefactor approve [0-9a-f]+'
+expect "what waits names the command too" "$(js "() => document.querySelector('.waits')?.textContent.replace(/\\s+/g, ' ') ?? ''")" 'Ship it waits for your approval\..*Decide in the inbox.*softwarefactor approve [0-9a-f]+'
+expect "the waiting run's train is yellow on its own map too" "$(js "() => document.querySelector('.runmap .train')?.getAttribute('class') ?? ''")" 'asks'
+expect "the tab says that one waits" "$(js "() => document.title")" '^\(1\) Runs · Software Factor\.io$'
+# from the run to its decision, and back with the keys for a section: g, then r
+tab_to '^Decide in the inbox$'
+pw press Enter
+wait_for "the run's decision is one key away" "() => location.pathname.replace(/[0-9a-f]{8}/, 'RUN') + ' ' + (document.querySelector('.decide .asks')?.textContent ?? '')" '^/inbox/RUN Ship it waits for your approval before it runs\.$'
+pw press g && pw press r
+wait_for "g then r goes to Runs" "() => document.querySelector('h1').textContent + ' ' + location.pathname" '^Runs /runs$'
 
 # ---- 5. dark, then the floor with the run on its map
 theme Dark
 shot runs-dark-1440
+tab_to '^Before and after'
+pw press Enter
+wait_for "the pair in the dark" "() => [...document.querySelectorAll('.pair-shots img')].map((i) => i.complete && i.naturalWidth > 0).join(' ')" '^true true$'
+shot run-dark-1440
 section Floor
 wait_for "the waiting run is on the floor's map" "() => document.querySelector('.map .train')?.closest('.station').getAttribute('aria-label') ?? ''" '^Lane Ship it, command, waits for a person, task 3 is here$'
 expect "it is drawn as waiting for a person" "$(js "() => document.querySelector('.map .train').getAttribute('class')")" 'asks'
+# the train is a way to its run's decision
+tab_to '^Task 3: Show the cost of each lane'
+pw press Enter
+wait_for "a train leads to its decision" "() => location.pathname.replace(/[0-9a-f]{8}/, 'RUN')" '^/inbox/RUN$'
+pw press g && pw press f
+wait_for "g then f goes to the Floor" "() => document.querySelector('h1').textContent" '^Floor$'
 shot floor-runs-dark-1440
 tab_to '^Runs on map$'
 pw press Space
@@ -269,17 +238,28 @@ pw press Space
 theme Light
 shot floor-runs-light-1440
 
+# ---- 5b. the workflow is changed after the runs: each run keeps the map it ran on
+node -e 'const fs = require("fs"); const f = ".factor/workflows/delivery.json"; const w = JSON.parse(fs.readFileSync(f)); w.lanes.find((l) => l.id === "review").name = "Audit"; fs.writeFileSync(f, JSON.stringify(w, null, 2) + "\n");'
+section Runs
+wait_for "a run is drawn on the workflow it ran on" "() => [...document.querySelectorAll('.runmap .station.lane .name')].map((n) => n.textContent).join(' > ') + ' ' + (document.querySelector('.rundetail')?.textContent.includes('as it is today') ?? '')" '^Build > Review > Check > Ship it false$'
+expect "its strip keeps its names too" "$(js "() => document.querySelector('.run[aria-selected=true] .strip')?.getAttribute('aria-label') ?? ''")" 'Review'
+expect "a run's map is drawn to fit its box" "$(js "() => String(document.querySelector('.runmap .map').getBoundingClientRect().width <= document.querySelector('.runmap .map-scroll').clientWidth)")" '^true$'
+section Floor
+wait_for "the floor shows the workflow as it is now" "() => [...document.querySelectorAll('.station.lane .name')].map((n) => n.textContent).join(' > ')" '^Build > Audit > Check > Ship it$'
+
 # ---- 6. phone width: the list, then the run in its place
 section Runs
 pw resize 390 844
 wait_for "the list at phone width" "() => document.querySelectorAll('.run').length" '^3$'
-expect "the page does not scroll sideways" "$(js "() => document.documentElement.scrollWidth <= 390")" '^true$'
+fits "the runs"
+walk "the runs"
 expect "only the list shows" "$(js "() => getComputedStyle(document.querySelector('.rundetail')).display")" '^none$'
 shot runs-light-390
 tab_to 'Show the cost of each lane'
 pw press End && pw press Enter
 expect "Enter shows the run in place of the list" "$(js "() => getComputedStyle(document.querySelector('.runlist')).display + ' ' + document.activeElement.textContent")" '^none Add an export button$'
-expect "the run does not scroll sideways" "$(js "() => document.documentElement.scrollWidth <= 390")" '^true$'
+fits "a run"
+walk "a run"
 shot run-light-390
 tab_to '^Before and after'
 pw press Enter
@@ -287,6 +267,7 @@ wait_for "the pair, one above the other" "() => { const s = [...document.querySe
 shot run-pair-light-390
 theme Dark
 shot run-pair-dark-390
+shot run-dark-390
 back_to '^All runs$'
 pw press Enter
 expect "back to the list, on the run that was open" "$(js "$focused")" 'Add an export button'

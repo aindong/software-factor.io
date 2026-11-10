@@ -4,6 +4,7 @@
 // something runs the command line's own command in a process of its own: there is one
 // implementation, and a run goes on after the interface or the agent that started it has gone.
 import { spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   closeSync,
   existsSync,
@@ -100,31 +101,56 @@ export function workspaceInfo(root: string) {
   return { name: basename(root), root, workflow, workflows: names };
 }
 
-export function readWorkflow(root: string, given: string): { workflow: unknown; problems: Problem[] } {
+/** The version of a workflow's file: what a save names to say which text it began from. */
+const versionOf = (text: string) => createHash("sha256").update(text).digest("hex");
+
+export function readWorkflow(
+  root: string,
+  given: string,
+): { workflow: unknown; problems: Problem[]; version: string } {
   const file = workflowFile(root, given);
   if (!file) throw noWorkflow();
+  const text = readFileSync(file, "utf8");
+  const version = versionOf(text);
   let workflow: unknown;
   try {
-    workflow = JSON.parse(readFileSync(file, "utf8"));
+    workflow = JSON.parse(text);
   } catch (error) {
     const problem = {
       path: "(file)",
       message: `The file is not JSON: ${(error as Error).message}`,
       fix: "Fix it in an editor.",
     };
-    return { workflow: null, problems: [problem] };
+    return { workflow: null, problems: [problem], version };
   }
-  return { workflow, problems: parseWorkflow(workflow).problems };
+  return { workflow, problems: parseWorkflow(workflow).problems, version };
 }
 
 /** Write a workflow, when the checker the command line uses finds nothing wrong with it. */
+/** A save that began from a version of the file that is no longer the file's. */
+export class Changed extends UserError {
+  version: string;
+  constructor(version: string) {
+    super(
+      "The workflow's file was changed since this copy of it was read.",
+      "Read it again and make the change there, or save over it.",
+    );
+    this.version = version;
+  }
+}
+
 export function saveWorkflow(
   root: string,
   given: string,
   workflow: Record<string, unknown>,
-): { saved: boolean; workflow: unknown; problems: Problem[] } {
+  /** The version the change began from, when the caller knows it, and whether to save over a newer file. */
+  from: { base?: string; over?: boolean } = {},
+): { saved: boolean; workflow: unknown; problems: Problem[]; version?: string } {
   const file = workflowFile(root, given);
   if (!file) throw noWorkflow();
+  // a change made to the file elsewhere (an editor, another tab, an agent) is never saved over unasked
+  const now = versionOf(readFileSync(file, "utf8"));
+  if (from.base !== undefined && from.base !== now && !from.over) throw new Changed(now);
   const problems = parseWorkflow(workflow).problems;
   if (workflow.name !== given) {
     problems.push({
@@ -133,17 +159,18 @@ export function saveWorkflow(
       fix: `Set "name" to "${given}".`,
     });
   }
-  if (problems.length > 0) return { saved: false, workflow, problems };
+  if (problems.length > 0) return { saved: false, workflow, problems, version: now };
+  const text = `${JSON.stringify(workflow, null, 2)}\n`;
   // written beside and moved into place: never through a link, and never left half written
   const beside = `${file}.${process.pid}.tmp`;
   try {
-    writeFileSync(beside, `${JSON.stringify(workflow, null, 2)}\n`, { flag: "wx" });
+    writeFileSync(beside, text, { flag: "wx" });
     renameSync(beside, file);
   } catch (error) {
     rmSync(beside, { force: true }); // or the next save would find it in its way
     throw new Error(`The workflow could not be written: ${(error as Error).message}`);
   }
-  return { saved: true, workflow, problems: [] };
+  return { saved: true, workflow, problems: [], version: versionOf(text) };
 }
 
 // ---- the command line's own commands, for what changes something
@@ -273,10 +300,19 @@ export const OPERATIONS: Operation[] = [
     name: "workflow_save",
     description:
       "Save a workflow under its name. It is written only when the checker finds no problem: otherwise the problems come back.",
-    input: z.strictObject({ name, workflow: z.record(z.string(), z.unknown()) }),
+    input: z.strictObject({
+      name,
+      workflow: z.record(z.string(), z.unknown()),
+      // the version workflow_get gave: a save that names it is refused when the file changed since
+      base: z
+        .string()
+        .regex(/^[0-9a-f]{64}$/)
+        .optional(),
+      over: z.boolean().optional(),
+    }),
     changes: true,
     cli: [["check"]],
-    run: (at, input) => saveWorkflow(at.root, input.name, input.workflow),
+    run: (at, input) => saveWorkflow(at.root, input.name, input.workflow, input),
   }),
   op({
     name: "runs_list",
