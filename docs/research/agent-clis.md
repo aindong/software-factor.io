@@ -152,6 +152,18 @@ Sources: https://code.claude.com/docs/en/cli-reference , https://learn.chatgpt.c
 - **Codex.** Pass each server as `-c 'mcp_servers.<name>.<key>=<toml value>'`. Add `--ignore-user-config` so the user's own servers do not load; login still comes from `CODEX_HOME`. Both flags together in a real run: Not verified. Set `required = true` when a missing server must fail the run.
 - **Kimi Code.** Write `.kimi-code/mcp.json` in the run's worktree, set `KIMI_CODE_TRUST_WORKSPACE=1`, and keep the file out of commits. User servers from `$KIMI_CODE_HOME/mcp.json` still merge in. To drop them, use a per-run `KIMI_CODE_HOME`. Not verified by a run.
 
+## What a CLI prints when the account's limit is reached
+
+Not verified for any of the three CLIs: no run here has hit a limit, and the documentation read for this note
+gives no exact text. The adapters look for "usage limit", "rate limit", "limit reached", "quota exceeded",
+"out of credits" and "too many requests", and only in an error the CLI reported (a Claude result with
+`is_error`, a Codex `turn.failed` or `error` event, the diagnostics of a run that exited non-zero). When a real
+message is seen, record it here with its reset time format, and replace the fixed one-hour hold.
+
+Checked from `codex exec --help` (0.167.0): with `-` as the prompt, or with none, the instructions are read
+from stdin. Checked from `claude --help` (2.1.311): `--tools` sets the built-in tools that exist for the run,
+`--allowedTools` and `--disallowedTools` set which need no approval or are refused.
+
 ## What we take
 
 Source: https://code.claude.com/docs/en/headless and the sections above.

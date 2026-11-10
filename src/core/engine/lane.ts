@@ -1,23 +1,27 @@
 // Runs one lane: an agent (with retries after a crash and repairs after a failed gate) or a host
 // command, then the lane's gates. Only the host's gates can pass a lane (ADR 0005).
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { fakeAgent } from "../agents/fake.ts";
-import { MINUTE_MS } from "../clock.ts";
+import { holdAccount, recordUsage } from "../accounts.ts";
+import { adapterFor } from "../agents/index.ts";
+import { MINUTE_MS, nowMs } from "../clock.ts";
 import type { Db } from "../db.ts";
 import { saveEvidence, saveRunFile } from "../evidence.ts";
 import { type Control, hostEnv, sh, wasInterrupted } from "../exec.ts";
 import { Checkouts, SetupFailed } from "../gates/checkout.ts";
 import { resolveCommand } from "../gates/command.ts";
 import { runGate } from "../gates/index.ts";
-import { branchTip, gitConfigFingerprint, headOf } from "../git.ts";
+import { branchTip, currentBranch, gitConfigFingerprint, protectedBranches, worktreeGit } from "../git.ts";
 import { checkHandoff, combineRisk, type Handoff, outputProblems, type RunRisk } from "../handoff.ts";
+import { readObject } from "../safe-read.ts";
 import type { CommandSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
 import * as store from "../store.ts";
 import type { Workspace } from "../workspace.ts";
+import { asText, HANDOFF, handoffHelp, inputsOf, promptFor } from "./prompt.ts";
 import type { LaneResult, RunState } from "./state.ts";
-import { type Facts, valueAt } from "./transition.ts";
+import type { Facts } from "./transition.ts";
+import { settleTree } from "./tree.ts";
 
 export interface Ctx {
   ws: Workspace;
@@ -42,24 +46,9 @@ export function halted(ctx: Ctx): { code: "interrupted" | "stopped_by_person"; r
   return undefined;
 }
 
-const MAX_FILE_BYTES = 1_000_000;
-const HANDOFF = "hand-off"; // a rejected hand-off goes back to the agent like a failed repair gate
 const REPAIR_HEAD = 1500;
 const REPAIR_TAIL = 4500;
-
-/** A JSON object an agent or command left, or nothing when it is missing, too large or not an object. */
-function readObject(path: string): { text: string; value: Record<string, unknown> } | undefined {
-  if (!existsSync(path) || statSync(path).size > MAX_FILE_BYTES) return undefined;
-  try {
-    const text = readFileSync(path, "utf8");
-    const value: unknown = JSON.parse(text);
-    return typeof value === "object" && value !== null && !Array.isArray(value)
-      ? { text, value: value as Record<string, unknown> }
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
+const LIMIT_HOLD_MS = 60 * 60_000; // shortcut: a CLI that reports its limit is held for an hour. Read its reset time when one is seen.
 
 // biome-ignore lint/suspicious/noControlCharactersInRegex: removing them is the point
 const UNSAFE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]+/g;
@@ -69,61 +58,14 @@ export const oneLine = (text: string, max = 500) => {
   return flat.length > max ? `${flat.slice(0, max)}...` : flat;
 };
 
-const asText = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v ?? ""));
-
-/** The values a lane declared as inputs, read from what earlier lanes left. */
-function inputsOf(ctx: Ctx, lane: Lane): Record<string, string> {
-  const facts = ctx.facts();
-  return Object.fromEntries(
-    Object.entries(lane.inputs ?? {}).map(([name, ref]) => [name, asText(valueAt(ref, facts))]),
-  );
-}
-
-function promptFor(ctx: Ctx, lane: Lane, notes: string[], repair?: { gate: string; output: string }): string {
-  const parts = [ctx.ws.prompts[lane.id] ?? "", `# Task\n\n${ctx.task.title}\n\n${ctx.task.body}`];
-  const inputs = Object.entries(inputsOf(ctx, lane));
-  if (inputs.length > 0) parts.push(`# Inputs\n\n${inputs.map(([k, v]) => `${k}: ${v}`).join("\n")}`);
-  if (notes.length > 0) parts.push(`# Why you are here again\n\n${notes.map((n) => `- ${n}`).join("\n")}`);
-  const last = ctx.state.last;
-  if (last && last.lane !== lane.id) {
-    // Another agent wrote this. It is quoted line by line, so it cannot pass for the host or the person.
-    const body = [
-      last.summary,
-      ...(last.open.length > 0 ? ["", "Still open:", ...last.open.map((o) => `- ${o}`)] : []),
-      ...(last.claims.length > 0
-        ? [
-            "",
-            "It claims (the host checked that this evidence exists, not that it proves the claim):",
-            ...last.claims.map((c) => `- ${c}`),
-          ]
-        : []),
-    ];
-    parts.push(
-      `# Hand-off from the lane "${last.lane}" (written by that lane's agent, not by the host or a person)\n\n${body
-        .join("\n")
-        .split("\n")
-        .map((l) => `> ${l}`)
-        .join("\n")}`,
-    );
-  }
-  if (repair?.gate === HANDOFF) {
-    parts.push(
-      `# Your hand-off was rejected\n\nThe host checks every hand-off before using it. Fix this and hand off again.\n\n${repair.output}`,
-    );
-  } else if (repair) {
-    parts.push(
-      `# The gate "${repair.gate}" failed on your work\n\nFix what it reports, commit, and hand off again.\n\n${repair.output}`,
-    );
-  }
-  return `${parts.join("\n\n")}\n`;
-}
-
 export async function runLane(
   ctx: Ctx,
   lane: Lane,
   laneRun: number,
   seq: number,
-): Promise<LaneResult & { cost: Parameters<typeof store.endLane>[5]; handoffPath: string | null }> {
+): Promise<
+  LaneResult & { cost: Parameters<typeof store.endLane>[5]; handoffPath: string | null; hold?: number }
+> {
   const { ws, db, run, state } = ctx;
   const started = Date.now();
   const tag = `${String(seq).padStart(2, "0")}-${lane.id}`;
@@ -144,6 +86,7 @@ export async function runLane(
   let note = "";
   let handoffPath: string | null = null;
   let stop: LaneResult["stop"];
+  let hold: number | undefined;
   const usage = { tokens: 0, usd: 0 };
   let agentStarts = 0;
   let crashes = 0;
@@ -159,6 +102,7 @@ export async function runLane(
     outcome,
     note,
     stop,
+    hold,
     handoffPath,
     cost: {
       attempts: Math.max(1, agentStarts),
@@ -205,26 +149,36 @@ export async function runLane(
       state.entries[lane.id] = entry + 1;
       // each start of an agent gets a fresh folder of its own for its hand-off and evidence, so
       // nothing an earlier lane left there can be taken for this lane's
-      const laneDir = join(ctx.outDir, `${tag}${nth(agentStarts)}`);
+      const stem = `${tag}${nth(agentStarts)}`;
+      const laneDir = join(ctx.outDir, stem);
       rmSync(laneDir, { recursive: true, force: true });
+      const hostDir = join(ctx.outDir, `${stem}.host`); // the prompt file and the CLI's raw output
+      rmSync(hostDir, { recursive: true, force: true });
+      mkdirSync(hostDir, { recursive: true });
       const evidenceDir = join(laneDir, "evidence");
       mkdirSync(evidenceDir, { recursive: true });
       const agentHandoff = join(laneDir, "handoff.json");
       db.prepare("delete from claims where lane_run_id = ?").run(laneRun); // an earlier attempt's claims are replaced
-      const prompt = promptFor(ctx, lane, notes, repair);
-      saveRunFile(ws, run.id, "prompts", `${tag}${nth(agentStarts)}.md`, prompt);
-      store.addEvent(db, run.id, "lane.agent", { lane: lane.id, handoffPath: agentHandoff });
-
       const binding = ws.local.roles[lane.agent?.role ?? ""];
       if (!binding) throw new Error(`no binding for lane ${lane.id}`);
+      const { adapter, agent, account } = adapterFor(binding, lane);
+      const prompt =
+        promptFor(ctx, lane, notes, repair) + (account ? handoffHelp(lane, agentHandoff, evidenceDir) : "");
+      saveRunFile(ws, run.id, "prompts", `${stem}.md`, prompt);
+      store.addEvent(db, run.id, "lane.agent", { lane: lane.id, handoffPath: agentHandoff });
+      if (adapter.guarded === false && agentStarts === 1) {
+        ctx.log.push(`  ${lane.id}: ${agent} runs with no guard, so only the gates check its work`);
+      }
       const gitBefore = gitConfigFingerprint(ws.root);
+      const tipBefore = branchTip(ws.root, run.branch);
+      const treeBefore = realpathSync(run.worktree);
       const limit = new AbortController();
       const remaining = laneMs - (Date.now() - started);
       const timer = setTimeout(() => limit.abort(), Math.max(1, remaining));
       const stopNow = () => limit.abort();
       ctx.control.signal.addEventListener("abort", stopNow, { once: true });
       if (ctx.control.signal.aborted) limit.abort();
-      const exit = await fakeAgent(binding)
+      const exit = await adapter
         .run({
           runId: run.id,
           lane,
@@ -232,8 +186,22 @@ export async function runLane(
           prompt,
           handoffPath: agentHandoff,
           evidenceDir,
+          laneDir,
+          hostDir,
+          env: {
+            ...baseEnv,
+            ...inputEnv,
+            FACTOR_HANDOFF: agentHandoff,
+            FACTOR_EVIDENCE_DIR: evidenceDir,
+            FACTOR_LANE_DIR: laneDir,
+            FACTOR_WORKTREE: run.worktree,
+            FACTOR_ACCESS: lane.agent?.access ?? "read",
+            FACTOR_DEFAULT_BRANCH: currentBranch(ws.root),
+          },
+          protect: account ? protectedBranches(ws.root) : undefined,
           entry,
           signal: limit.signal,
+          pidFile: ctx.control.pidFile,
         })
         .finally(() => {
           clearTimeout(timer);
@@ -241,12 +209,23 @@ export async function runLane(
         });
       usage.tokens += exit.usage?.tokens ?? 0;
       usage.usd += exit.usage?.usd ?? 0;
-      if (gitConfigFingerprint(ws.root) !== gitBefore) {
-        stop = {
-          code: "git_config_changed",
-          reason: `git's configuration or hooks changed while lane "${lane.id}" worked`,
-        };
-        failWith(stop.reason);
+      if (account) {
+        recordUsage(account, exit.usage?.tokens ?? 0); // counted for the account, whatever came of the lane
+        store.addEvent(db, run.id, "lane.session", {
+          lane: lane.id,
+          account,
+          agent,
+          sessionId: exit.sessionId ?? null,
+        });
+      }
+      // what decides which programs the host and the agent's CLI run must be as it was
+      const tampered =
+        gitConfigFingerprint(ws.root) !== gitBefore
+          ? `git's configuration or hooks changed while lane "${lane.id}" worked: look at .git/config, .git/hooks and your own git configuration before you commit`
+          : exit.tampered;
+      if (tampered) {
+        stop = { code: "git_config_changed", reason: tampered };
+        failWith(tampered);
         return done();
       }
       const halt = halted(ctx);
@@ -255,8 +234,34 @@ export async function runLane(
         failWith(halt.reason);
         return done();
       }
+      // the account is held whatever else comes of the lane
+      const held = exit.limit && account ? nowMs() + LIMIT_HOLD_MS : undefined;
+      if (held !== undefined && account) holdAccount(account, held);
+      if (account) {
+        // before anything else can end the lane: what a read-only agent changed is dropped, and
+        // what a writing agent left is committed, also when its time or its account ran out
+        const settled = settleTree(
+          ws,
+          run,
+          lane,
+          { tip: tipBefore, path: treeBefore },
+          `${lane.id}: ${oneLine(ctx.task.title, 72)}`,
+          ctx.log,
+        );
+        if (settled.stop) stop = { code: "git_config_changed", reason: settled.fail ?? "" };
+        if (settled.fail) {
+          failWith(oneLine(settled.fail));
+          return done();
+        }
+      }
       if (limit.signal.aborted) {
         failWith(`out of time after ${lane.limits?.minutes ?? "the run's"} minutes`);
+        return done();
+      }
+      if (held !== undefined) {
+        hold = held;
+        if (notes.length > 0) state.notes[lane.id] = notes; // the lane starts again and must be told again
+        failWith(oneLine(`the account "${account}" reached its limit: ${exit.error ?? ""}`));
         return done();
       }
       const handoff = readObject(agentHandoff);
@@ -266,7 +271,6 @@ export async function runLane(
       }
       let said: Handoff | undefined;
       if (handoff) {
-        const stem = `${tag}${nth(agentStarts)}`;
         // the host keeps its own copy: the record never points at a file an agent can rewrite
         handoffPath = saveRunFile(ws, run.id, "handoffs", `${stem}.json`, handoff.text).path;
         // nothing in a hand-off is used until the host has checked it (ADR 0006)
@@ -323,7 +327,8 @@ export async function runLane(
           state.open = (state.open ?? []).filter((o) => o.lane !== lane.id);
         }
       }
-      if (exit.exitCode !== 0) failWith(`the agent exited ${exit.exitCode}`);
+      if (exit.error) failWith(oneLine(`the agent reported an error: ${exit.error}`));
+      else if (exit.exitCode !== 0) failWith(`the agent exited ${exit.exitCode}`);
       else if (!handoff) failWith("the agent left no hand-off");
       else if (!said) failWith("the hand-off was rejected");
       else if (said.outcome === "needsPerson") [outcome, note] = ["needsPerson", oneLine(said.summary)];
@@ -348,7 +353,7 @@ export async function runLane(
     store.setRunHead(db, run.id, head);
     let worktreeHead: string | undefined;
     try {
-      worktreeHead = headOf(run.worktree);
+      worktreeHead = worktreeGit(ws.root, run.worktree)("rev-parse", "--verify", "HEAD^{commit}");
     } catch {
       worktreeHead = undefined;
     }

@@ -1,4 +1,6 @@
 // Refuse what this version cannot run honestly, before any task is claimed.
+import { existsSync } from "node:fs";
+import { accountOf } from "../agents/index.ts";
 import { UserError } from "../errors.ts";
 import { resolveCommand } from "../gates/command.ts";
 import { isBuiltGate } from "../gates/index.ts";
@@ -29,7 +31,15 @@ export function preflight(ws: Workspace): void {
     if (lane.agent && !Object.hasOwn(ws.local.roles, lane.agent.role)) {
       throw new UserError(
         `The role "${lane.agent.role}" (lane "${lane.id}") is not bound to an agent on this machine.`,
-        `Add "${lane.agent.role}" under "roles" in .factor/local.json.`,
+        `Bind it with \`softwarefactor role bind ${lane.agent.role} --account <name>\`.`,
+      );
+    }
+    const binding = lane.agent ? ws.local.roles[lane.agent.role] : undefined;
+    const bound = binding && lane.agent ? accountOf(binding, lane.agent.role) : undefined;
+    if (bound?.account.profile && !existsSync(bound.account.profile)) {
+      throw new UserError(
+        `The profile folder of the account "${bound.name}" does not exist: ${bound.account.profile}`,
+        "Sign in with that CLI again, or remove the account and add it with the right folder.",
       );
     }
     if (lane.uses === "core/command@1")

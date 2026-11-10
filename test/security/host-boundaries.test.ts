@@ -24,6 +24,9 @@ describe("what an agent cannot do to the host", () => {
         prompt: "",
         handoffPath: join(root, "h"),
         evidenceDir: join(root, "e"),
+        laneDir: root,
+        hostDir: root,
+        env: {},
         entry: 0,
         signal: new AbortController().signal,
       })
@@ -49,6 +52,9 @@ describe("what an agent cannot do to the host", () => {
         prompt: "",
         handoffPath: join(root, "h"),
         evidenceDir: join(root, "e"),
+        laneDir: root,
+        hostDir: root,
+        env: {},
         entry: 0,
         signal: new AbortController().signal,
       })

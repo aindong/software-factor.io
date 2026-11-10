@@ -2,6 +2,8 @@
 // rounds, parks a run that waits for a person or a clock, and names every way a run can end (ADR 0013).
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { heldUntil } from "../accounts.ts";
+import { accountOf } from "../agents/index.ts";
 import { MINUTE_MS, nowMs } from "../clock.ts";
 import { collectFile } from "../collectors/file.ts";
 import type { Db } from "../db.ts";
@@ -109,8 +111,8 @@ function park(
 ): RunSummary {
   ctx.state.parked = parked;
   if (inbox) store.addInbox(ctx.db, ctx.run.id, parked.lane, inbox.kind, inbox.body);
-  const wakeAt =
-    parked.kind === "wait" ? new Date(parked.nextCheck ?? parked.deadline ?? nowMs()).toISOString() : null;
+  const timed = parked.kind === "wait" || parked.kind === "account";
+  const wakeAt = timed ? new Date(parked.nextCheck ?? parked.deadline ?? nowMs()).toISOString() : null;
   return finish(ctx, "waiting", code, reason, wakeAt);
 }
 
@@ -157,7 +159,12 @@ export function applyOutcome(
     });
   }
   if (outcome !== "pass")
-    addNote(state, choice.to, `Lane "${lane.id}" ended ${outcome}: ${note || "no reason given"}`);
+    // the reason may be an agent's own words: it is marked as a quote, so it cannot pass for the host
+    addNote(
+      state,
+      choice.to,
+      `Lane "${lane.id}" ended ${outcome}. Its reason, which its agent may have written: "${note || "none given"}"`,
+    );
   state.next = choice.to;
   state.seq += 1;
   store.saveState(ctx.db, run.id, state);
@@ -251,6 +258,19 @@ export async function advance(ctx: Ctx): Promise<RunSummary> {
           `the run has used its budget of ${over[1]}, before lane "${lane.id}"`,
         );
 
+      // an account near its limit starts no lane: the run waits until the account has room again
+      const binding = lane.agent ? ws.local.roles[lane.agent.role] : undefined;
+      const bound = binding && lane.agent ? accountOf(binding, lane.agent.role) : undefined;
+      const until = bound ? heldUntil(bound.name, bound.account) : undefined;
+      if (bound && until !== undefined) {
+        return park(
+          ctx,
+          { kind: "account", lane: lane.id, nextCheck: until },
+          "account_limit",
+          `lane "${lane.id}" waits: the account "${bound.name}" is held until ${new Date(until).toISOString()}`,
+        );
+      }
+
       // a command, a wait or anything one-way is approved before it runs: afterwards is too late
       const before = lane.uses !== "core/agent@1" || lane.oneWay === true;
       const midWait = state.parked?.kind === "wait" && state.parked.lane === lane.id; // approved before it began waiting
@@ -290,11 +310,21 @@ export async function advance(ctx: Ctx): Promise<RunSummary> {
         state.parked = undefined;
         const result = await runLane(ctx, lane, laneRun, state.seq);
         ({ outcome, note } = result);
-        store.endLane(db, laneRun, outcome, note, result.handoffPath, result.cost);
         state.spent.ms += result.cost?.durationMs ?? 0;
         state.spent.tokens += result.cost?.tokens ?? 0;
         state.spent.usd += result.cost?.usd ?? 0;
+        store.endLane(db, laneRun, outcome, note, result.handoffPath, result.cost);
         if (result.stop) return finish(ctx, "stopped", result.stop.code, result.stop.reason);
+        if (result.hold !== undefined) {
+          // the account ran out while the lane worked: this try failed, and the lane starts again later
+          state.seq += 1;
+          return park(
+            ctx,
+            { kind: "account", lane: lane.id, nextCheck: result.hold },
+            "account_limit",
+            `lane "${lane.id}" waits: ${note}`,
+          );
+        }
       }
       ctx.log.push(`  ${lane.id}: ${outcome}${note ? ` (${note})` : ""}`);
       store.saveState(db, run.id, state);

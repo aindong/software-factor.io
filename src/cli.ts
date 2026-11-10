@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 // The command line. Every command is a thin layer over a core operation, so the interface and the
 // MCP server can offer the same ones (ADR 0008).
 import { parseArgs } from "node:util";
+import { judge, type Verdict } from "./core/agents/guard.ts";
+import { accountCommand, roleCommand } from "./core/commands.ts";
 import { openDb } from "./core/db.ts";
 import { decide } from "./core/engine/inbox.ts";
 import { handoffPath, riskLine } from "./core/engine/report.ts";
@@ -36,6 +38,14 @@ Usage: softwarefactor <command>
   reject <run> [--note]    Reject it: the lane's fail transition is taken
   send-back <run> --note   Run the lane again with your note
   answer <run> --note      Answer a lane's question and run it again
+  account add <name> --agent claude|codex|kimi|command --profile <folder>
+          [--limit 5h=2000000] [--headroom 0.9] [--bin <path>] [--command "<shell command>"]
+                           Name an agent login on this machine. The login stays in the CLI's own
+                           profile folder: the factory stores only where it is
+  account list | remove <name>
+  role bind <role> --account <name> [--small <model>] [--medium <model>] [--large <model>] [--effort <level>]
+                           Say which account works a role of the workflow, in this workspace
+  role list                Show each role, its account, and any role that should be on another vendor
 
 Exit codes for run and for a decision: 0 the task is done or dropped, 1 it stopped, 3 it waits.
 `;
@@ -48,7 +58,49 @@ const say = (line: string) => console.log(line.replace(CONTROL, ""));
 
 const EXIT = { none: 0, done: 0, dropped: 0, running: 0, stopped: 1, waiting: 3 } as const;
 
+/**
+ * The hook an agent CLI calls before each tool call: the call on stdin, the lane on the command
+ * line (never from the environment, which an agent can set). Exit 0 allows. Exit 2 denies, with the
+ * reason on stderr for the agent. Nothing else is ever returned, because a CLI reads any other code
+ * as "the hook broke, carry on".
+ */
+function guard(args: string[]): number {
+  let verdict: Verdict;
+  try {
+    const named: Record<string, string[]> = { worktree: [], "lane-dir": [], access: [], protect: [] };
+    for (let i = 0; i < args.length; i += 2) {
+      const list = named[(args[i] ?? "").replace(/^--/, "")];
+      const value = args[i + 1];
+      if (!list || !args[i]?.startsWith("--") || value === undefined)
+        throw new Error("its command line is wrong");
+      list.push(value);
+    }
+    const [worktree] = named.worktree ?? [];
+    const [laneDir] = named["lane-dir"] ?? [];
+    const [access] = named.access ?? [];
+    if (!worktree || !laneDir || (access !== "read" && access !== "write")) {
+      throw new Error("the guard was not told where the lane works");
+    }
+    const call: unknown = JSON.parse(readFileSync(0, "utf8"));
+    if (typeof call !== "object" || call === null) throw new Error("the tool call is not an object");
+    const { tool_name, tool_input } = call as Record<string, unknown>;
+    verdict = judge(
+      { tool: tool_name, input: tool_input },
+      { worktree, laneDir, access, defaultBranch: named.protect ?? [] },
+    );
+  } catch (error) {
+    verdict = {
+      allow: false,
+      reason: `The guard could not read this tool call, so it is denied: ${(error as Error).message}`,
+    };
+  }
+  if (verdict.allow) return 0;
+  console.error(verdict.reason ?? "Denied by the guard.");
+  return 2;
+}
+
 async function main(): Promise<number> {
+  if (process.argv[2] === "guard") return guard(process.argv.slice(3));
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: {
@@ -56,6 +108,17 @@ async function main(): Promise<number> {
       note: { type: "string" },
       all: { type: "boolean" },
       parallel: { type: "string" },
+      agent: { type: "string" },
+      profile: { type: "string" },
+      bin: { type: "string" },
+      command: { type: "string" },
+      limit: { type: "string", multiple: true },
+      headroom: { type: "string" },
+      account: { type: "string" },
+      small: { type: "string" },
+      medium: { type: "string" },
+      large: { type: "string" },
+      effort: { type: "string" },
     },
   });
   const command = positionals[0];
@@ -83,6 +146,9 @@ async function main(): Promise<number> {
     console.log("Next: commit .factor/, then `softwarefactor run`.");
     return 0;
   }
+
+  if (command === "account") return accountCommand(positionals.slice(1), values, say);
+  if (command === "role") return roleCommand(loadWorkspace(cwd), positionals.slice(1), values, say);
 
   if (command === "collect") {
     const ws = loadWorkspace(cwd);
@@ -198,6 +264,6 @@ main().then(
   (error) => {
     if (error instanceof UserError) console.error(`error: ${error.message}\n  fix: ${error.fix}`);
     else console.error(error);
-    process.exitCode = 1;
+    process.exitCode = process.argv[2] === "guard" ? 2 : 1; // the guard never fails open
   },
 );

@@ -4,7 +4,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { UserError } from "./errors.ts";
 import { hostEnv } from "./exec.ts";
 
@@ -36,6 +36,14 @@ export function repoRoot(cwd: string): string {
   }
 }
 
+/** The branch the repository is on, which runs branch from and must not be pushed to. */
+export function currentBranch(root: string): string {
+  try {
+    return git(root, "symbolic-ref", "--short", "-q", "HEAD");
+  } catch {
+    return "main"; // not on a branch
+  }
+}
 export const headOf = (cwd: string) => git(cwd, "rev-parse", "--verify", "HEAD^{commit}");
 export const treeOf = (cwd: string, commit: string) => git(cwd, "rev-parse", `${commit}^{tree}`);
 
@@ -61,12 +69,43 @@ export function removeWorktree(root: string, path: string): void {
   }
 }
 
+/** The git folder of a run's worktree, as the repository itself names it. */
+export function worktreeGitDir(root: string, worktree: string): string {
+  return join(resolve(root, git(root, "rev-parse", "--git-common-dir")), "worktrees", basename(worktree));
+}
+
+/**
+ * Git on a run's worktree, for the host. An agent can rewrite the worktree's `.git` file to point
+ * git somewhere else, so the host names the git folder and the work tree itself: both beat the file
+ * and any `core.worktree` setting.
+ */
+export function worktreeGit(root: string, worktree: string): (...args: string[]) => string {
+  const gitDir = worktreeGitDir(root, worktree);
+  return (...args) => git(worktree, `--git-dir=${gitDir}`, `--work-tree=${worktree}`, ...args);
+}
+
+/** The branches an agent must not push to: the one the repository is on, and the remote's default. */
+export function protectedBranches(root: string): string[] {
+  const names = [currentBranch(root)];
+  try {
+    names.push(
+      git(root, "symbolic-ref", "--short", "-q", "refs/remotes/origin/HEAD").replace(/^origin\//, ""),
+    );
+  } catch {
+    // no remote, or it names no default
+  }
+  return [...new Set(names)];
+}
+
 /** Commit everything in `cwd`. Returns false when there was nothing to commit. */
-export function commitAll(cwd: string, message: string): boolean {
-  git(cwd, "add", "-A");
-  if (git(cwd, "status", "--porcelain") === "") return false;
-  git(
-    cwd,
+export function commitAll(
+  cwd: string,
+  message: string,
+  run: (...args: string[]) => string = (...args) => git(cwd, ...args),
+): boolean {
+  run("add", "-A");
+  if (run("status", "--porcelain") === "") return false;
+  run(
     "-c",
     "user.name=Software Factor.io",
     "-c",
@@ -86,9 +125,17 @@ export function commitAll(cwd: string, message: string): boolean {
 export function gitConfigFingerprint(root: string): string {
   const gitDir = resolve(root, git(root, "rev-parse", "--git-common-dir"));
   const hash = createHash("sha256");
-  for (const name of ["config", "config.worktree"]) {
+  for (const name of ["config", "config.worktree", "info/attributes"]) {
     const file = join(gitDir, name);
     hash.update(`${name}\0${existsSync(file) ? readFileSync(file, "utf8") : ""}\0`);
+  }
+  // every setting git will use, from the system, the user and the repository, with where it is set:
+  // a filter or a signing program the agent adds to the user's own file would run in the host's git
+  hash.update(git(root, "config", "--list", "--show-origin"));
+  const worktrees = join(gitDir, "worktrees");
+  for (const id of existsSync(worktrees) ? readdirSync(worktrees).sort() : []) {
+    const file = join(worktrees, id, "config.worktree");
+    if (existsSync(file)) hash.update(`${id}\0${readFileSync(file, "utf8")}\0`);
   }
   const hooks = join(gitDir, "hooks");
   for (const name of existsSync(hooks) ? readdirSync(hooks).sort() : []) {

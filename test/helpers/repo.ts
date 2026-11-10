@@ -250,3 +250,67 @@ export const alive = (name: string) => spawnSync("pgrep", ["-f", name]).status =
 /** A sleep no other process uses, so a leftover cannot be mistaken for this test's. */
 export const uniqueNap = (seconds: number) =>
   `sleep ${seconds}.${process.pid}${Math.floor(Math.random() * 1e6)}`;
+
+// ---- real adapters, against stand-in CLIs
+
+const STANDINS = resolve("test/fixtures/bin");
+
+export interface Profile {
+  dir: string;
+  /** How the stand-in was called, one entry per start. */
+  calls: () => { argv: string[]; cwd: string; stdin: string; env: Record<string, string> }[];
+}
+
+/** Add an account whose binary is a stand-in, with a profile folder that tells the stand-in what to do. */
+export function standinAccount(
+  repo: Repo,
+  name: string,
+  kind: "claude" | "codex" | "kimi",
+  plan: Json,
+  extra: string[] = [],
+): Profile {
+  const dir = join(repo.home, "profiles", name);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "standin.json"), JSON.stringify(plan));
+  const bin = join(STANDINS, kind);
+  const r = repo.sf("account", "add", name, "--agent", kind, "--profile", dir, "--bin", bin, ...extra);
+  if (r.status !== 0) throw new Error(`account add failed: ${r.stdout}${r.stderr}`);
+  return {
+    dir,
+    calls: () => {
+      try {
+        return readFileSync(join(dir, "calls.jsonl"), "utf8")
+          .trim()
+          .split("\n")
+          .map((l) => JSON.parse(l));
+      } catch {
+        return [];
+      }
+    },
+  };
+}
+
+/** What the run's hooks answered to each tool call the stand-in asked about. */
+export const hooksOf = (profile: Profile): { tool: string; status: number; stderr: string }[] =>
+  readFileSync(join(profile.dir, "hooks.jsonl"), "utf8")
+    .trim()
+    .split("\n")
+    .map((l) => JSON.parse(l));
+/** Whether the stand-in's own process is still there. */
+export function standinAlive(profile: Profile): boolean {
+  try {
+    process.kill(Number(readFileSync(join(profile.dir, "pid"), "utf8")), 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Bind a role of the workspace to an account. */
+export function bind(repo: Repo, role: string, account: string, ...extra: string[]): void {
+  const r = repo.sf("role", "bind", role, "--account", account, ...extra);
+  if (r.status !== 0) throw new Error(`role bind failed: ${r.stdout}${r.stderr}`);
+}
+/** The value that follows a flag in a recorded command line. */
+export const flag = (argv: string[], name: string) =>
+  argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined;

@@ -13,6 +13,7 @@ const NEXT: Record<string, string> = {
   awaiting_approval: "Look at the evidence, then `softwarefactor approve`, `reject` or `send-back` this run.",
   needs_person: 'Read the question, then `softwarefactor answer <run> --note "..."`.',
   waiting: "Nothing to do: `softwarefactor run` continues it when its wait is over.",
+  account_limit: "Nothing to do: `softwarefactor run` continues it when the account has room again.",
   out_of_rounds:
     "The loop used its rounds. Read the last lane's reason and finish the work by hand on the run's branch, or raise maxRounds.",
   no_progress: "The last round brought no new commit. The work needs a person, or a clearer task.",

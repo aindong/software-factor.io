@@ -61,7 +61,7 @@ export const FakeAction = z.union([
 ]);
 export type FakeAction = z.infer<typeof FakeAction>;
 
-export const RoleBinding = z.strictObject({
+const FakeBinding = z.strictObject({
   adapter: z.enum(["fake"]),
   script: z
     .record(z.string(), z.union([z.array(FakeAction), z.array(z.array(FakeAction))]))
@@ -71,6 +71,24 @@ export const RoleBinding = z.strictObject({
         'For the fake adapter: what to do in each lane, by lane id, with "*" for any lane. A list of lists gives one list per time the lane is entered, the last one repeating.',
     }),
 });
+export type FakeBinding = z.infer<typeof FakeBinding>;
+
+const AccountBinding = z.strictObject({
+  account: id.meta({ description: "An account on this machine: see `softwarefactor account list`." }),
+  models: z
+    .strictObject({ small: z.string().min(1), medium: z.string().min(1), large: z.string().min(1) })
+    .partial()
+    .optional()
+    .meta({
+      description: "The model for each tier a lane can ask for. A tier left out uses the CLI's default.",
+    }),
+  effort: z.enum(["low", "medium", "high", "max"]).optional().meta({
+    description: "The effort for lanes that name none.",
+  }),
+});
+export type AccountBinding = z.infer<typeof AccountBinding>;
+
+export const RoleBinding = z.union([FakeBinding, AccountBinding]);
 export type RoleBinding = z.infer<typeof RoleBinding>;
 
 export const LocalConfig = z.strictObject({
