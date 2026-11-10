@@ -74,9 +74,10 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
       const failed = failedAt > doneAt ? out.events[failedAt] : undefined;
       const started = out.events.find((e) => e.type === "thread.started");
       let error: string | undefined;
+      let said: string | undefined;
       if (failed) error = messageOf(failed) || "the turn failed";
       else if (out.exitCode !== 0) error = out.stderr || `codex exited ${out.exitCode}`;
-      else handoffFromText(job, last);
+      else said = handoffFromText(job, last);
       return {
         exitCode: out.exitCode,
         // the CLI reports no cost: the host prices the tokens. No finished turn means no usage at all.
@@ -86,6 +87,7 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
         error,
         limit: error !== undefined && LIMIT.test(error),
         streamPath: out.streamPath,
+        said,
       };
     },
   };

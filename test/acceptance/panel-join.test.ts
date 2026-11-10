@@ -65,7 +65,7 @@ describe("a member's own settings", () => {
         ),
       ],
     });
-    const plan = { actions: [{ handoff: { outcome: "pass", summary: "ok" } }] };
+    const plan = { actions: [{ final: { outcome: "pass", summary: "ok" } }] };
     const reviewer = standinAccount(repo, "claude-r", "claude", plan);
     const author = standinAccount(repo, "claude-a", "claude", plan);
     bind(repo, "reviewer", "claude-r", "--large", "opus", "--small", "haiku");

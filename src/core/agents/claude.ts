@@ -93,11 +93,12 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
       const cost = result?.total_cost_usd;
       const costReported = typeof cost === "number" && Number.isFinite(cost) && cost >= 0;
       let error: string | undefined;
+      let said: string | undefined;
       if (result?.is_error) {
         const listed = Array.isArray(result.errors) ? result.errors.join(" ") : "";
         error = text || listed || String(result.subtype ?? "the run ended in an error");
       } else if (out.exitCode !== 0) error = out.stderr || `claude exited ${out.exitCode}`;
-      else handoffFromText(job, text);
+      else said = handoffFromText(job, text);
       return {
         exitCode: out.exitCode,
         // a run that was cut off prints no result: what it used is then not known
@@ -113,6 +114,7 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
         limit: error !== undefined && LIMIT.test(error),
         streamPath: out.streamPath,
         tampered,
+        said,
       };
     },
   };

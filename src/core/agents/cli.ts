@@ -91,9 +91,9 @@ export async function runCli(
 /**
  * An agent that cannot write the hand-off file, such as one in a read-only sandbox, gives it in its
  * last message: the whole message, or its last fenced block. The host checks it like any hand-off.
+ * Returns what it found there, also when a file was already in the folder.
  */
-export function handoffFromText(job: AgentJob, text: string): void {
-  if (existsSync(job.handoffPath)) return;
+export function handoffFromText(job: AgentJob, text: string): string | undefined {
   // fences are paired in order, whatever language they name: the closing fence of a code block
   // must not be taken for the opening of the next one
   const blocks: string[] = [];
@@ -109,10 +109,16 @@ export function handoffFromText(job: AgentJob, text: string): void {
     try {
       const value: unknown = JSON.parse(candidate);
       if (typeof value !== "object" || value === null || !("outcome" in value)) continue;
-      writeFileSync(job.handoffPath, candidate, { flag: "wx" }); // never through a link an agent left
-      return;
     } catch {
-      // not a hand-off
+      continue; // not a hand-off
     }
+    try {
+      // a file the agent wrote itself stands. Never through a link an agent left.
+      if (!existsSync(job.handoffPath)) writeFileSync(job.handoffPath, candidate, { flag: "wx" });
+    } catch {
+      // the text is still returned: a panel takes it from here, not from the folder
+    }
+    return candidate;
   }
+  return undefined;
 }

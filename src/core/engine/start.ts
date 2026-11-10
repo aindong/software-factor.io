@@ -25,6 +25,8 @@ export interface Started {
   agentHandoff: string;
   agent: string;
   account?: string;
+  /** The agent's CLI was given the factor server. */
+  server: boolean;
 }
 
 export async function startAgent(
@@ -42,6 +44,8 @@ export async function startAgent(
     env: Record<string, string>;
     /** How long the start may take. */
     ms: number;
+    /** This start is a panel member's. */
+    member?: boolean;
   },
 ): Promise<Started> {
   const { ws, db, run } = ctx;
@@ -60,8 +64,10 @@ export async function startAgent(
   const binding = ws.local.roles[lane.agent?.role ?? ""];
   if (!binding) throw new Error(`no binding for lane ${lane.id}`);
   const { adapter, agent, account } = adapterFor(binding, lane);
+  const served = adapter.server === true;
   const prompt =
-    at.prompt + (account ? handoffHelp(lane, agentHandoff, evidenceDir, adapter.server === true) : "");
+    at.prompt +
+    (account ? handoffHelp(lane, agentHandoff, evidenceDir, served, at.member === true && served) : "");
   saveRunFile(ws, run.id, "prompts", `${at.stem}.md`, prompt);
   store.addEvent(db, run.id, "lane.agent", { lane: lane.id, handoffPath: agentHandoff });
   if (adapter.guarded === false && at.try === 1) {
@@ -69,7 +75,8 @@ export async function startAgent(
   }
 
   const limit = new AbortController();
-  const timer = setTimeout(() => limit.abort(), Math.max(1, at.ms));
+  // a delay past 2^31 ms overflows and fires at once
+  const timer = setTimeout(() => limit.abort(), Math.min(2 ** 31 - 1, Math.max(1, at.ms)));
   const stopNow = () => limit.abort();
   ctx.control.signal.addEventListener("abort", stopNow, { once: true });
   if (ctx.control.signal.aborted) limit.abort();
@@ -112,5 +119,6 @@ export async function startAgent(
     { agent, account },
     exit,
   );
-  return { exit, usd, cutOff: limit.signal.aborted, laneDir, evidenceDir, agentHandoff, agent, account };
+  const cutOff = limit.signal.aborted;
+  return { exit, usd, cutOff, laneDir, evidenceDir, agentHandoff, agent, account, server: served };
 }

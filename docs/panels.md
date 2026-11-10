@@ -13,8 +13,12 @@ How a panel runs:
   left out.
 - Members only read. They share the run's worktree, and whatever one of them changed is dropped and fails the
   lane.
-- A member's hand-off is taken and checked the moment that member ends, so a member that is still running
-  cannot rewrite it.
+- A member's hand-off is taken and checked the moment that member ends. Members share the folder their lane
+  folders sit in, so a hand-off file there could be another member's work. A member on Claude Code or Codex
+  therefore hands off through the factor server or in its last message, and a file is not read. Only an agent
+  with no other way (the scripted agent, Kimi Code, a command) hands off by file.
+- When a member's start breaks, the others are left to end before the run ends as crashed, so none is left
+  running and what they used is counted.
 - The verdict: with `all`, one deciding member that fails makes the lane fail; otherwise a member that asks a
   person makes the run wait with its question; otherwise the lane passes. With `any`, one deciding member that
   passes is enough; otherwise a question waits; otherwise the lane fails. A member that crashed, left no
@@ -22,9 +26,12 @@ How a panel runs:
 - The lane's note and the hand-off to the next lane list each member's verdict, such as
   `logic: pass. The logic holds.` An advising member is marked `(advises)`.
 - Outputs that are lists are joined in the order of the members, from every member whose hand-off the host
-  accepted, advising ones too. Any other output is the first member's that gave it. Each member must give the
+  accepted, advising ones too. Any other output comes from one member: a deciding one that agrees with the
+  verdict before a deciding one that does not, and an advising one last. Each member must give the
   outputs the lane requires, and the joined value is checked like any output.
 - The lane's gates run once, after the panel, as for any lane.
+- What members claimed, and the risk they stated, go on the run's record only when the panel was not cut off
+  by its time limit, a hold, a stop or a change to the repository.
 - The lane's time limit is every member's. When it is up, all are stopped, and what they used is still
   counted. An account that is held holds the whole panel before it starts, but only when a member that takes
   part this time is on it. A member whose account hits its limit in the middle holds the run: the panel fails

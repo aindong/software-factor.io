@@ -66,16 +66,26 @@ export function promptFor(
 }
 
 /** What a real agent must be told that the scripted one is not: where and how to hand off. */
-export function handoffHelp(lane: Lane, handoffPath: string, evidenceDir: string, server: boolean): string {
+export function handoffHelp(
+  lane: Lane,
+  handoffPath: string,
+  evidenceDir: string,
+  server: boolean,
+  /** A panel member with the factor server: other members share its folder, so a file there is not taken. */
+  noFile = false,
+): string {
   const outputs = Object.entries(lane.outputs ?? {}).map(([name, o]) => `${name} (${o.type})`);
-  return `
-# How to hand off
-
-When you are done, write your hand-off as one JSON object to this file:
+  const where = noFile
+    ? "When you are done, give your hand-off as one JSON object to the handoff_write tool of the factor server, or end your last message with it in a ```json block. A file is not read."
+    : `When you are done, write your hand-off as one JSON object to this file:
 
     ${handoffPath}
 
-If you cannot write that file, end your last message with the same JSON object in a \`\`\`json block.
+If you cannot write that file, end your last message with the same JSON object in a \`\`\`json block.`;
+  return `
+# How to hand off
+
+${where}
 
     {"outcome": "pass", "summary": "What you did.", "claims": [{"text": "One thing you assert.", "evidence": ["file:src/a.ts"]}], "open": ["What is still open or unsure."]}
 
@@ -85,7 +95,7 @@ If you cannot write that file, end your last message with the same JSON object i
 - If the repository has a CLAUDE.md or AGENTS.md at its top, read it first: it holds the project's own rules.
 - ${
     server
-      ? "You have the tools of the factor server: handoff_write (instead of the file above), ask_question, evidence_attach, memory_read, and memory_note to leave a fact for the lanes after you."
+      ? "You have the tools of the factor server: handoff_write (the surest way to hand off), ask_question, evidence_attach, memory_read, and memory_note to leave a fact for the lanes after you."
       : "This agent has no factor server: use the file."
   }
 - No other keys. The host checks the hand-off, and its own gates decide whether the lane passes.

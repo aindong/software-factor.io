@@ -53,6 +53,8 @@ export interface AgentExit {
   error?: string;
   /** The CLI said the account's limit is reached. */
   limit?: boolean;
+  /** The hand-off the agent gave in its last message, when it gave one there. */
+  said?: string;
   /** Set when the agent changed something that decides what its CLI runs later: the run stops. */
   tampered?: string;
   /** The CLI's raw output, one JSON object per line, when it has one. */

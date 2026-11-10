@@ -155,6 +155,8 @@ export async function runLane(
       [stop, hold, outputs] = [panel.stop, panel.hold, panel.outputs];
       if (panel.outcome === "fail") failWith(panel.note);
       else [outcome, note] = [panel.outcome, panel.note];
+      // a panel held by an account starts again later, and must be told again why it is here
+      if (panel.hold !== undefined && notes.length > 0) state.notes[lane.id] = notes;
       if (panel.final) return done();
     } else {
       agentStarts += 1;

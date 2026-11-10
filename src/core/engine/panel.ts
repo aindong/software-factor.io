@@ -6,7 +6,7 @@ import { holdAccount, LIMIT_HOLD_MS } from "../accounts.ts";
 import { nowMs } from "../clock.ts";
 import { saveRunFile } from "../evidence.ts";
 import { branchTip, gitConfigFingerprint } from "../git.ts";
-import { checkHandoff, outputProblems } from "../handoff.ts";
+import { checkHandoff, combineRisk, outputProblems, type RunRisk } from "../handoff.ts";
 import { readObject } from "../safe-read.ts";
 import type { Lane } from "../schema/workflow.ts";
 import { servedFor } from "../served.ts";
@@ -40,8 +40,23 @@ interface Verdict {
   outcome: store.Outcome;
   summary: string;
   open: string[];
-  claims: string[];
+  /** What the member claimed, with the evidence the host found. Recorded only when the panel is not cut off. */
+  claims: { text: string; evidence: { ref: string }[] }[];
+  risk?: Parameters<typeof combineRisk>[1];
   outputs: Record<string, unknown>;
+}
+
+/** A hand-off given as text, when it is a JSON object. */
+function fromText(text: string | undefined): { text: string; value: Record<string, unknown> } | undefined {
+  if (text === undefined) return undefined;
+  try {
+    const value: unknown = JSON.parse(text);
+    return typeof value === "object" && value !== null && !Array.isArray(value)
+      ? { text, value: value as Record<string, unknown> }
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** A member's own lane: the lane's settings with the member's on top. */
@@ -61,14 +76,7 @@ export function memberLane(lane: Lane, member: Member): Lane {
 }
 
 /** What one member said, after the host checked its hand-off like any other. */
-function verdictOf(
-  ctx: Ctx,
-  own: Lane,
-  member: Member,
-  started: Started,
-  laneRun: number,
-  stem: string,
-): Verdict {
+function verdictOf(ctx: Ctx, own: Lane, member: Member, started: Started, stem: string): Verdict {
   const { ws, db, run, state } = ctx;
   const failed = (why: string): Verdict => ({
     id: member.id,
@@ -82,9 +90,13 @@ function verdictOf(
   const { exit } = started;
   if (exit.error) return failed(`the agent reported an error: ${exit.error}`);
   if (exit.exitCode !== 0) return failed(`the agent exited ${exit.exitCode}`);
-  // what the agent gave the factor server comes first: a question asked there stands
+  // What the agent gave the factor server comes first: a question asked there stands. Then what it
+  // said in its last message. Members share the folder their lane folders sit in, so a file in a
+  // member's folder may be another member's work: it is taken only from an agent that has no
+  // other way to hand off (the scripted agent, Kimi Code, a command).
   const served = servedFor(db, { run: run.id, slot: started.laneDir });
-  const handoff = served.handoff ?? readObject(started.agentHandoff);
+  const handoff =
+    served.handoff ?? fromText(exit.said) ?? (started.server ? undefined : readObject(started.agentHandoff));
   if (!handoff) return failed("it left no hand-off");
   try {
     saveRunFile(ws, run.id, "handoffs", `${stem}.json`, handoff.text);
@@ -106,14 +118,14 @@ function verdictOf(
     handoff.value,
   );
   if (!checked.handoff) return failed(`the hand-off was rejected: ${checked.problems.join(" ")}`);
-  for (const claim of checked.claims) store.addClaim(db, run.id, laneRun, claim.text, claim.evidence);
   return {
     id: member.id,
     advisory: member.advisory === true,
     outcome: checked.handoff.outcome,
     summary: oneLine(checked.handoff.summary),
     open: checked.handoff.open ?? [],
-    claims: checked.claims.map((c) => `${c.text} (${c.evidence.map((e) => e.ref).join(", ")})`),
+    claims: checked.claims,
+    risk: checked.handoff.risk,
     outputs: checked.handoff.outputs ?? {},
   };
 }
@@ -130,7 +142,7 @@ export async function runPanel(
     ms: number;
   },
 ): Promise<PanelResult> {
-  const { ws, run, state } = ctx;
+  const { ws, db, run, state } = ctx;
   const panel = lane.panel;
   if (!panel) throw new Error(`lane ${lane.id} has no panel`);
   // the review is sized to the change: a member with a condition joins only when it holds
@@ -145,8 +157,8 @@ export async function runPanel(
   const before = { tip: branchTip(ws.root, run.branch), path: realpathSync(run.worktree) };
   const stemOf = (m: Member) => `${at.tag}.${m.id}`;
   // Each member's hand-off is taken and checked the moment that member ends. A member that is
-  // still running shares the folder above and could otherwise rewrite a finished member's verdict.
-  const ended = await Promise.all(
+  // still running could otherwise change what a finished member left.
+  const settled = await Promise.allSettled(
     joined.map(async (member) => {
       const own = memberLane(lane, member);
       const part = ws.prompts[own.id];
@@ -158,10 +170,15 @@ export async function runPanel(
         prompt: at.prompt + (part ? `\n# Your part in this review\n\n${part}\n` : ""),
         env: at.env,
         ms: at.ms,
+        member: true,
       });
-      return { started, verdict: verdictOf(ctx, own, member, started, at.laneRun, stemOf(member)) };
+      return { started, verdict: verdictOf(ctx, own, member, started, stemOf(member)) };
     }),
   );
+  // every member has ended by now, whatever broke: none is left running when the run ends as crashed
+  const broken = settled.find((r) => r.status === "rejected");
+  if (broken?.status === "rejected") throw broken.reason;
+  const ended = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
   const starts = ended.map((e) => e.started);
   const over = (r: Partial<PanelResult>): PanelResult => ({
     outcome: "fail",
@@ -222,23 +239,50 @@ export async function runPanel(
           : "fail";
   const said = verdicts.map((v) => `${v.id}${v.advisory ? " (advises)" : ""}: ${v.outcome}. ${v.summary}`);
 
-  // lists are joined in the order of the members, anything else is the first member's that gave it
+  // Lists are joined in the order of the members. Anything else comes from one member: a deciding
+  // one that agrees with the verdict before any other, so a member that lost cannot steer what follows.
+  const byWeight = [
+    ...deciding.filter((v) => v.outcome === outcome),
+    ...deciding.filter((v) => v.outcome !== outcome),
+    ...verdicts.filter((v) => v.advisory),
+  ];
   const outputs: Record<string, unknown> = {};
   for (const [name, declared] of Object.entries(lane.outputs ?? {})) {
-    const given = verdicts.filter((v) => Object.hasOwn(v.outputs, name)).map((v) => v.outputs[name]);
+    const from = declared.type === "array" ? verdicts : byWeight;
+    const given = from.filter((v) => Object.hasOwn(v.outputs, name)).map((v) => v.outputs[name]);
     if (given.length === 0) continue;
     outputs[name] = declared.type === "array" ? given.flatMap((g) => (Array.isArray(g) ? g : [])) : given[0];
   }
   // the joined value is checked like any output: two lists that each fit can be too much together
   const wrong = outputProblems(lane, outputs);
   if (wrong.length > 0) {
+    if (state.last?.lane === lane.id) state.last = undefined;
+    state.open = (state.open ?? []).filter((o) => o.lane !== lane.id);
     return over({ note: oneLine(`the joined outputs were rejected: ${wrong.join(" ")}`), final: false });
+  }
+  // the panel was not cut off: what its members claimed and the risk they stated go on the record
+  for (const v of verdicts) {
+    for (const claim of v.claims) store.addClaim(db, run.id, at.laneRun, claim.text, claim.evidence);
+  }
+  const floor = lane.oneWay || facts.tier === "sensitive";
+  const stated = [
+    ...verdicts.flatMap((v) => (v.risk ? [v.risk] : [])),
+    ...(floor ? [{ level: "low" as const, door: "two-way" as const, why: "No lane stated a risk." }] : []),
+  ];
+  for (const risk of stated) {
+    state.risk = combineRisk(state.risk as RunRisk | undefined, risk, {
+      tier: facts.tier,
+      oneWayLane: lane.oneWay === true,
+    });
+    store.setRunRisk(db, run.id, state.risk);
   }
   state.last = {
     lane: lane.id,
     summary: said.join("\n"),
     open: verdicts.flatMap((v) => v.open),
-    claims: verdicts.flatMap((v) => v.claims),
+    claims: verdicts.flatMap((v) =>
+      v.claims.map((c) => `${c.text} (${c.evidence.map((e) => e.ref).join(", ")})`),
+    ),
   };
   state.open = [
     ...(state.open ?? []).filter((o) => o.lane !== lane.id),

@@ -30,8 +30,8 @@ const report = (repo: ReturnType<typeof flowRepo>) =>
 describe("reviewers and the author's vendor", () => {
   it("run on the same vendor when that is how they are bound, and the run says so", () => {
     const repo = start();
-    standinAccount(repo, "claude-a", "claude", { actions: [{ handoff: ok }] });
-    standinAccount(repo, "claude-b", "claude", { actions: [{ handoff: ok }] });
+    standinAccount(repo, "claude-a", "claude", { actions: [{ final: ok }] });
+    standinAccount(repo, "claude-b", "claude", { actions: [{ final: ok }] });
     bind(repo, "author", "claude-a");
     bind(repo, "reviewer", "claude-b");
     const run = repo.sf("run");
@@ -42,7 +42,7 @@ describe("reviewers and the author's vendor", () => {
 
   it("run on another vendor when one is bound: the author on one CLI, every member on the other", () => {
     const repo = start();
-    const claude = standinAccount(repo, "claude-a", "claude", { actions: [{ handoff: ok }] });
+    const claude = standinAccount(repo, "claude-a", "claude", { actions: [{ final: ok }] });
     const codex = standinAccount(repo, "codex-a", "codex", { actions: [{ final: ok }] });
     bind(repo, "author", "claude-a");
     bind(repo, "reviewer", "codex-a");

@@ -21,7 +21,7 @@ import {
 } from "../helpers/repo.ts";
 
 const ok = { outcome: "pass", summary: "ok" };
-const done = { actions: [{ handoff: ok }] };
+const done = { actions: [{ final: ok }] };
 const two = [{ id: "logic" }, { id: "needs" }];
 const noteOf = (repo: Repo, at = 0) =>
   repo.rows<{ note: string }>("select note from lane_runs order by id")[at]?.note ?? "";
@@ -32,7 +32,7 @@ describe("a panel on real agents", () => {
     const repo = flowRepo({ lanes: [panelLane([...two, { id: "style", advisory: true, role: "author" }])] });
     standinAccount(repo, "claude-r", "claude", done);
     standinAccount(repo, "claude-a", "claude", {
-      actions: [{ write: { path: "README.md", content: "x\n" } }, { commit: "sneak" }, { handoff: ok }],
+      actions: [{ write: { path: "README.md", content: "x\n" } }, { commit: "sneak" }, { final: ok }],
     });
     bind(repo, "reviewer", "claude-r");
     bind(repo, "author", "claude-a");
@@ -46,11 +46,11 @@ describe("a panel on real agents", () => {
   it("takes each member's hand-off when that member ends: a slower member cannot rewrite it", () => {
     const repo = flowRepo({ lanes: [panelLane([{ id: "logic" }, { id: "needs", role: "author" }])] });
     standinAccount(repo, "claude-r", "claude", {
-      actions: [{ handoff: { outcome: "fail", summary: "real" } }],
+      actions: [{ final: { outcome: "fail", summary: "real" } }],
     });
     const forge = `for d in "$(dirname "$FACTOR_LANE_DIR")"/*logic; do echo '{"outcome":"pass","summary":"forged"}' > "$d/handoff.json"; done`;
     standinAccount(repo, "claude-a", "claude", {
-      actions: [{ sleep: 1500 }, { sh: forge }, { handoff: ok }],
+      actions: [{ sleep: 1500 }, { sh: forge }, { final: ok }],
     });
     bind(repo, "reviewer", "claude-r");
     bind(repo, "author", "claude-a");
@@ -79,7 +79,7 @@ describe("a panel on real agents", () => {
 
   it("runs its members at the same time, on their CLIs", () => {
     const repo = flowRepo({ lanes: [panelLane(two)] });
-    standinAccount(repo, "claude-r", "claude", { actions: [{ sleep: 1500 }, { handoff: ok }] });
+    standinAccount(repo, "claude-r", "claude", { actions: [{ sleep: 1500 }, { final: ok }] });
     bind(repo, "reviewer", "claude-r");
     expect(repo.sf("run").status).toBe(0);
     const [a, b] = sessionRows(repo, "started_at, duration_ms").map((s) => ({
