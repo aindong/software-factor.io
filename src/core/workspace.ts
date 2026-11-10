@@ -85,10 +85,15 @@ export function loadWorkspace(cwd: string): Workspace {
     throw new UserError(`The workflow "${config.workflow}" has problems:\n${list}`, `Edit ${workflowPath}.`);
   }
   const prompts: Record<string, string> = {};
-  for (const lane of workflow.lanes) {
-    const p = lane.agent?.prompt;
+  // a lane's instructions, and each panel member's own part as "<lane>.<member>"
+  const texts = workflow.lanes.flatMap((lane) => [
+    { id: lane.id, lane: lane.id, p: lane.agent?.prompt },
+    ...(lane.panel?.members ?? []).map((m) => ({ id: `${lane.id}.${m.id}`, lane: lane.id, p: m.prompt })),
+  ]);
+  for (const { id: promptId, lane: laneId, p } of texts) {
+    const lane = { id: laneId };
     if (p === undefined) continue;
-    if (typeof p === "string") prompts[lane.id] = p;
+    if (typeof p === "string") prompts[promptId] = p;
     else {
       const file = join(factorDir, "workflows", p.file);
       if (!existsSync(file)) {
@@ -97,7 +102,7 @@ export function loadWorkspace(cwd: string): Workspace {
           `Create ${file}, or write the prompt inline.`,
         );
       }
-      prompts[lane.id] = readFileSync(file, "utf8");
+      prompts[promptId] = readFileSync(file, "utf8");
     }
   }
   const id = workspaceId(root);

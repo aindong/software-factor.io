@@ -210,7 +210,7 @@ checks the declared outputs before any transition, and rejects a claim with no e
 A panel runs several agents on the same lane at once, each starting from the lane's `agent` settings and
 overriding `role`, `prompt`, `tier` or `effort`. `join` is `all` or `any`. A member with `"advisory": true` is
 reported but never decides the outcome. A member with `when` only joins when the condition holds, which is how a
-review is sized to the change.
+review is sized to the change. How a panel runs and how its verdict is joined is in `docs/panels.md`.
 
 ## Collectors
 

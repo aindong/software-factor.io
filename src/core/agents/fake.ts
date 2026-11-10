@@ -37,7 +37,12 @@ const nap = (ms: number, signal: AbortSignal) =>
 export function fakeAgent(binding: FakeBinding): AgentAdapter {
   return {
     async run(job: AgentJob) {
-      const scripted = binding.script?.[job.lane.id] ?? binding.script?.["*"] ?? [];
+      // a panel member is "<lane>.<member>": its own script, else the lane's, else the one for any lane
+      const scripted =
+        binding.script?.[job.lane.id] ??
+        binding.script?.[job.lane.id.split(".")[0] ?? ""] ??
+        binding.script?.["*"] ??
+        [];
       // a list of lists is one script per entry to the lane, the last one repeating
       const perEntry = scripted.every((s) => Array.isArray(s)) && scripted.length > 0;
       const script = (

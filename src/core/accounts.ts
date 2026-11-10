@@ -10,6 +10,8 @@ import { factorHome } from "./workspace.ts";
 export const AGENTS = ["claude", "codex", "kimi", "command"] as const;
 const HOUR_MS = 3_600_000;
 const DEFAULT_HEADROOM = 0.9;
+/** How long an account is held when its CLI says the limit is reached. shortcut: a fixed hour. Read the CLI's reset time when one is seen. */
+export const LIMIT_HOLD_MS = 60 * 60_000;
 
 export const accountName = z.string().regex(/^[a-z][a-z0-9-]*$/);
 const Account = z.strictObject({

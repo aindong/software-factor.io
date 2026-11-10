@@ -35,6 +35,8 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
           ? [
               ...["-c", `mcp_servers.factor.command=${JSON.stringify(job.server[0])}`],
               ...["-c", `mcp_servers.factor.args=${JSON.stringify(job.server.slice(1))}`],
+              // nobody is there to approve a tool call, and without this the CLI refuses every one
+              ...["-c", 'mcp_servers.factor.default_tools_approval_mode="approve"'],
             ]
           : []),
         "-", // the prompt comes on stdin
@@ -72,9 +74,10 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
       const failed = failedAt > doneAt ? out.events[failedAt] : undefined;
       const started = out.events.find((e) => e.type === "thread.started");
       let error: string | undefined;
+      let said: string | undefined;
       if (failed) error = messageOf(failed) || "the turn failed";
       else if (out.exitCode !== 0) error = out.stderr || `codex exited ${out.exitCode}`;
-      else handoffFromText(job, last);
+      else said = handoffFromText(job, last);
       return {
         exitCode: out.exitCode,
         // the CLI reports no cost: the host prices the tokens. No finished turn means no usage at all.
@@ -84,6 +87,7 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
         error,
         limit: error !== undefined && LIMIT.test(error),
         streamPath: out.streamPath,
+        said,
       };
     },
   };

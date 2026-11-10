@@ -1,10 +1,8 @@
 // Runs one lane: an agent (with retries after a crash and repairs after a failed gate) or a host
 // command, then the lane's gates. Only the host's gates can pass a lane (ADR 0005).
-import { mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { readFileSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { holdAccount } from "../accounts.ts";
-import { adapterFor, serverFor } from "../agents/index.ts";
-import type { AgentExit } from "../agents/types.ts";
+import { holdAccount, LIMIT_HOLD_MS } from "../accounts.ts";
 import { MINUTE_MS, nowMs } from "../clock.ts";
 import type { Db } from "../db.ts";
 import { saveEvidence, saveRunFile } from "../evidence.ts";
@@ -12,17 +10,18 @@ import { type Control, hostEnv, sh, wasInterrupted } from "../exec.ts";
 import { Checkouts, SetupFailed } from "../gates/checkout.ts";
 import { resolveCommand } from "../gates/command.ts";
 import { runGate } from "../gates/index.ts";
-import { branchTip, currentBranch, gitConfigFingerprint, protectedBranches, worktreeGit } from "../git.ts";
+import { branchTip, gitConfigFingerprint, worktreeGit } from "../git.ts";
 import { checkHandoff, combineRisk, type Handoff, outputProblems, type RunRisk } from "../handoff.ts";
 import { readObject } from "../safe-read.ts";
 import type { CommandSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
-import { clearServed, servedFor } from "../served.ts";
+import { servedFor } from "../served.ts";
 import * as store from "../store.ts";
 import { oneLine } from "../text.ts";
 import type { Workspace } from "../workspace.ts";
-import { asText, HANDOFF, handoffHelp, inputsOf, promptFor } from "./prompt.ts";
-import { recordSession } from "./session.ts";
+import { runPanel } from "./panel.ts";
+import { asText, HANDOFF, inputsOf, promptFor } from "./prompt.ts";
+import { startAgent } from "./start.ts";
 import type { LaneResult, RunState } from "./state.ts";
 import type { Facts } from "./transition.ts";
 import { settleTree } from "./tree.ts";
@@ -52,7 +51,6 @@ export function halted(ctx: Ctx): { code: "interrupted" | "stopped_by_person"; r
 
 const REPAIR_HEAD = 1500;
 const REPAIR_TAIL = 4500;
-const LIMIT_HOLD_MS = 60 * 60_000; // shortcut: a CLI that reports its limit is held for an hour. Read its reset time when one is seen.
 
 export async function runLane(
   ctx: Ctx,
@@ -139,85 +137,47 @@ export async function runLane(
       if ((lane.gates ?? []).length === 0 && branchTip(ws.root, run.branch) !== tipBefore) {
         failWith("its command committed to the run's branch, and the lane has no gate to check that commit");
       }
+    } else if (lane.panel) {
+      const entry = state.entries[lane.id] ?? 0;
+      state.entries[lane.id] = entry + 1;
+      db.prepare("delete from claims where lane_run_id = ?").run(laneRun);
+      const panel = await runPanel(ctx, lane, {
+        laneRun,
+        tag,
+        entry,
+        prompt: promptFor(ctx, lane, notes),
+        env: { ...baseEnv, ...inputEnv },
+        ms: laneMs,
+      });
+      agentStarts += panel.starts;
+      usage.tokens += panel.tokens;
+      usage.usd += panel.usd;
+      [stop, hold, outputs] = [panel.stop, panel.hold, panel.outputs];
+      if (panel.outcome === "fail") failWith(panel.note);
+      else [outcome, note] = [panel.outcome, panel.note];
+      // a panel held by an account starts again later, and must be told again why it is here
+      if (panel.hold !== undefined && notes.length > 0) state.notes[lane.id] = notes;
+      if (panel.final) return done();
     } else {
       agentStarts += 1;
       const entry = state.entries[lane.id] ?? 0;
       state.entries[lane.id] = entry + 1;
-      // each start of an agent gets a fresh folder of its own for its hand-off and evidence, so
-      // nothing an earlier lane left there can be taken for this lane's
       const stem = `${tag}${nth(agentStarts)}`;
-      const laneDir = join(ctx.outDir, stem);
-      rmSync(laneDir, { recursive: true, force: true });
-      const hostDir = join(ctx.outDir, `${stem}.host`); // the prompt file and the CLI's raw output
-      rmSync(hostDir, { recursive: true, force: true });
-      mkdirSync(hostDir, { recursive: true });
-      const evidenceDir = join(laneDir, "evidence");
-      mkdirSync(evidenceDir, { recursive: true });
-      clearServed(db, { run: run.id, slot: laneDir });
-      const agentHandoff = join(laneDir, "handoff.json");
       db.prepare("delete from claims where lane_run_id = ?").run(laneRun); // an earlier attempt's claims are replaced
-      const binding = ws.local.roles[lane.agent?.role ?? ""];
-      if (!binding) throw new Error(`no binding for lane ${lane.id}`);
-      const { adapter, agent, account } = adapterFor(binding, lane);
-      const prompt =
-        promptFor(ctx, lane, notes, repair) +
-        (account ? handoffHelp(lane, agentHandoff, evidenceDir, adapter.server === true) : "");
-      saveRunFile(ws, run.id, "prompts", `${stem}.md`, prompt);
-      store.addEvent(db, run.id, "lane.agent", { lane: lane.id, handoffPath: agentHandoff });
-      if (adapter.guarded === false && agentStarts === 1) {
-        ctx.log.push(`  ${lane.id}: ${agent} runs with no guard, so only the gates check its work`);
-      }
       const gitBefore = gitConfigFingerprint(ws.root);
       const tipBefore = branchTip(ws.root, run.branch);
       const treeBefore = realpathSync(run.worktree);
-      const limit = new AbortController();
-      const remaining = laneMs - (Date.now() - started);
-      const timer = setTimeout(() => limit.abort(), Math.max(1, remaining));
-      const stopNow = () => limit.abort();
-      ctx.control.signal.addEventListener("abort", stopNow, { once: true });
-      if (ctx.control.signal.aborted) limit.abort();
-      const startedMs = Date.now();
-      const exit = await adapter
-        .run({
-          runId: run.id,
-          lane,
-          cwd: run.worktree,
-          prompt,
-          handoffPath: agentHandoff,
-          evidenceDir,
-          laneDir,
-          hostDir,
-          env: {
-            ...baseEnv,
-            ...inputEnv,
-            FACTOR_HANDOFF: agentHandoff,
-            FACTOR_EVIDENCE_DIR: evidenceDir,
-            FACTOR_LANE_DIR: laneDir,
-            FACTOR_WORKTREE: run.worktree,
-            FACTOR_ACCESS: lane.agent?.access ?? "read",
-            FACTOR_DEFAULT_BRANCH: currentBranch(ws.root),
-          },
-          protect: account ? protectedBranches(ws.root) : undefined,
-          server: account ? serverFor(ws.root, run.id, lane.id, laneDir, account) : undefined,
-          entry,
-          signal: limit.signal,
-          pidFile: ctx.control.pidFile,
-        })
-        // an adapter that breaks on its CLI's output is a failed start, not a crashed run
-        .catch(
-          (error): AgentExit => ({ exitCode: 1, error: `the adapter failed: ${(error as Error).message}` }),
-        )
-        .finally(() => {
-          clearTimeout(timer);
-          ctx.control.signal.removeEventListener("abort", stopNow);
-        });
+      const { exit, usd, cutOff, laneDir, evidenceDir, agentHandoff, account } = await startAgent(ctx, lane, {
+        laneRun,
+        stem,
+        try: agentStarts,
+        entry,
+        prompt: promptFor(ctx, lane, notes, repair),
+        env: { ...baseEnv, ...inputEnv },
+        ms: laneMs - (Date.now() - started),
+      });
       usage.tokens += exit.usage?.tokens ?? 0;
-      usage.usd += recordSession(
-        ctx,
-        { lane: lane.id, laneRun, stem, try: agentStarts, startedMs },
-        { agent, account },
-        exit,
-      );
+      usage.usd += usd;
       // what decides which programs the host and the agent's CLI run must be as it was
       const tampered =
         gitConfigFingerprint(ws.root) !== gitBefore
@@ -254,7 +214,7 @@ export async function runLane(
           return done();
         }
       }
-      if (limit.signal.aborted) {
+      if (cutOff) {
         failWith(`out of time after ${lane.limits?.minutes ?? "the run's"} minutes`);
         return done();
       }
