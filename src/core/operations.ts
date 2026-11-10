@@ -453,7 +453,7 @@ export const OPERATIONS: Operation[] = [
     input: none,
     changes: false,
     cli: [["plugins"]],
-    run: () => pluginsView(),
+    run: (at) => pluginsView(at.root),
   }),
 ];
 

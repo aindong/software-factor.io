@@ -115,13 +115,18 @@ A task's words can be anyone's. In a lane's prompt they are quoted and named as 
 instructions from the factory. A title is kept to one line and a body to 60,000 characters. A task that is found
 again while it still waits takes its newest title, body and labels; once it has started it keeps its own.
 
+## A plugin's collector
+
+A plugin can add a collector of its own (`docs/plugins.md`). A workflow names it as `<plugin>/<type>@<major>`.
+Its command runs in the workspace with the collector's settings and prints the tasks as JSON, read like an MCP
+query's answer.
+
 ## Not built
 
 - A collector cannot query an MCP server that lives in an agent's profile or is reached by a URL. Collecting says
   so and names the change: declare the server with `"from": "command"`.
 - Jira has no collector of its own. It is reached through `core/mcp-query@1` and an MCP server for Jira that a
   command starts. This has been run against a stand-in server that answers in Jira's shape, not against a real Jira.
-- Collectors from plugins: a workflow may name one, and collecting says that it is not on this machine.
 - A collector never writes back: closing an issue when its task is done is a lane's job, not the collector's.
 - A schedule in the hour the clocks skip in spring (02:30 where 02:00 to 03:00 does not exist) is not due that day.
 - Nothing shows whether an issue's text was edited after it was labelled.

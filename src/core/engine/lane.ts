@@ -12,6 +12,7 @@ import { resolveCommand } from "../gates/command.ts";
 import { runGate } from "../gates/index.ts";
 import { branchTip, gitConfigFingerprint, worktreeGit } from "../git.ts";
 import { checkHandoff, combineRisk, type Handoff, outputProblems, type RunRisk } from "../handoff.ts";
+import { pluginType } from "../plugins/use.ts";
 import { readObject } from "../safe-read.ts";
 import type { CommandSettings } from "../schema/builtins.ts";
 import type { Lane } from "../schema/workflow.ts";
@@ -111,15 +112,25 @@ export async function runLane(
     note = "";
     let outputs: Record<string, unknown> = {};
 
-    if (lane.uses === "core/command@1") {
-      const command = resolveCommand(ws, (lane.with ?? {}) as CommandSettings, `Lane "${lane.id}"`);
+    // a plugin's lane type is its command, run as a command lane is: in the run's worktree
+    const plugin = lane.uses.startsWith("core/") ? undefined : pluginType(ws, "lane", lane.uses, lane.with);
+    if (lane.uses === "core/command@1" || plugin) {
+      const command =
+        plugin?.run ?? resolveCommand(ws, (lane.with ?? {}) as CommandSettings, `Lane "${lane.id}"`);
       const tipBefore = branchTip(ws.root, run.branch);
       const outputsFile = join(ctx.outDir, `${tag}.outputs.json`);
       rmSync(outputsFile, { force: true }); // an earlier lane may have left a file here in this lane's name
-      const minutes = (lane.with as CommandSettings).timeoutMinutes ?? 10;
+      // a plugin's settings are not checked by the schema: only a real number of minutes is taken
+      const asked = (lane.with as CommandSettings | undefined)?.timeoutMinutes;
+      const minutes = typeof asked === "number" && asked > 0 ? asked : 10;
       const result = await sh(command, {
         cwd: run.worktree,
-        env: hostEnv(ws.config.gateEnv, { ...baseEnv, ...inputEnv, FACTOR_OUTPUTS: outputsFile }),
+        env: hostEnv(ws.config.gateEnv, {
+          ...baseEnv,
+          ...inputEnv,
+          ...plugin?.env,
+          FACTOR_OUTPUTS: outputsFile,
+        }),
         timeoutMs: Math.min(minutes * MINUTE_MS, laneMs),
         ...ctx.control,
       });

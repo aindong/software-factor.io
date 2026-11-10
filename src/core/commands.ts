@@ -14,6 +14,7 @@ import {
 import { describeServer, printOf } from "./collectors/mcp.ts";
 import { LocalConfig } from "./config.ts";
 import type { Db } from "./db.ts";
+import { printOfSkill, skillProblem, skillsNeeded } from "./engine/skills.ts";
 import { UserError } from "./errors.ts";
 import { dropNote, keepNote, lines, proposedNotes, readMemory } from "./memory.ts";
 import { own } from "./schema/builtins.ts";
@@ -281,7 +282,13 @@ export function memoryCommand(ws: Workspace, db: Db, args: string[], say: (line:
 }
 
 /** `softwarefactor allow <server>`: show what an MCP server of the workflow runs, and let collectors start it here. */
-export function allowCommand(ws: Workspace, args: string[], say: (line: string) => void): number {
+export function allowCommand(
+  ws: Workspace,
+  args: string[],
+  flags: { skill?: string },
+  say: (line: string) => void,
+): number {
+  if (flags.skill !== undefined) return allowSkill(ws, flags.skill, say);
   const name = args[0] ?? "";
   const server = own(ws.workflow.mcp, name);
   if (!server) {
@@ -303,6 +310,35 @@ export function allowCommand(ws: Workspace, args: string[], say: (line: string) 
   say(`allowed: collectors may start "${name}" on this machine, until the workflow changes what it runs`);
   say(
     "This allows the command as written, not the program behind it: pin a version, and read a script it names.",
+  );
+  return 0;
+}
+
+/** `softwarefactor allow --skill <name>`: show where a skill of the workflow comes from, and let runs install it here. */
+function allowSkill(ws: Workspace, name: string, say: (line: string) => void): number {
+  const skill = skillsNeeded(ws).find((s) => s.name === name);
+  if (!skill) {
+    const known = skillsNeeded(ws).map((s) => s.name);
+    throw new UserError(
+      `No lane of the workflow names a skill "${name}" that comes from a repository.`,
+      known.length > 0
+        ? `Name one of: ${known.join(", ")}.`
+        : "A skill in an agent's profile needs no approval here.",
+    );
+  }
+  const print = printOfSkill(skill);
+  const local = { ...ws.local, skills: { ...ws.local.skills, [name]: print } };
+  const problem = skillProblem({ ...ws, local }, skill);
+  if (problem) throw problem; // a source that is no repository name is not allowed at all
+  say(
+    `The skill "${name}" is ${skill.skill ?? "every skill"} from ${skill.source}, installed with npx skills for: ${skill.agents.join(", ") || "no agent bound yet"}.`,
+  );
+  writeFileSync(join(ws.factorDir, "local.json"), `${JSON.stringify(local, null, 2)}\n`);
+  say(
+    `allowed: a run may install "${name}" into its worktree on this machine, until the workflow names another source`,
+  );
+  say(
+    "This allows the source as named, not what it holds tomorrow: read the skill before you trust it with a lane.",
   );
   return 0;
 }

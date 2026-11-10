@@ -214,7 +214,7 @@ wait_for "what is built in" "() => document.querySelector('.page')?.innerText ??
 for name in core/command@1 core/wait@1 core/test-floor@1 core/file@1 claude codex kimi fake alleo-loop bugfix-fast research-only; do
   expect "$name is listed" "$(js "() => document.querySelector('.page').innerText.includes('$name')")" '^true$'
 done
-expect "installing is said to be not built yet" "$(js "() => document.querySelector('.page').innerText")" 'not built yet'
+expect "the page says how a plugin is installed" "$(js "() => document.querySelector('.page').innerText")" 'softwarefactor add'
 shot plugins-light-1440
 
 # ---- 10. dark, and phone width: no section scrolls sideways

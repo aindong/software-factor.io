@@ -104,5 +104,9 @@ export const LocalConfig = z.strictObject({
   roles: z.record(id, RoleBinding),
   // MCP servers a collector may start here, each by the print of what it runs (`softwarefactor allow`)
   servers: z.record(id, z.string()).optional(),
+  // plugins installed and said yes to here, each by the hash of its files (`softwarefactor add`)
+  plugins: z.record(id, z.string()).optional(),
+  // skills from a repository that a run may install here, each by the print of its source (`softwarefactor allow --skill`)
+  skills: z.record(z.string(), z.string()).optional(),
 });
 export type LocalConfig = z.infer<typeof LocalConfig>;

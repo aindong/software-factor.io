@@ -43,9 +43,9 @@ describe("what is built in", () => {
     for (const w of body.workflows) expect(w.description.length, w.name).toBeGreaterThan(10);
   });
 
-  it("says that installing more is not built yet", async () => {
+  it("says how more is installed, and that nothing is installed here yet", async () => {
     const { body } = await op<Plugins>(ui, "plugins_list");
-    expect(body.installing).toMatch(/not built yet/);
+    expect(body.installing).toMatch(/No plugin is installed here\..*softwarefactor add/);
   });
 
   it("is the same through the MCP server and on the command line", async () => {
@@ -61,6 +61,6 @@ describe("what is built in", () => {
     ]) {
       expect(printed, name).toContain(name);
     }
-    expect(printed).toMatch(/not built yet/);
+    expect(printed).toMatch(/softwarefactor add/);
   });
 });
