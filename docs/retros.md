@@ -5,7 +5,8 @@ A factory that makes the same mistake twice has learned nothing. Two things open
 - **An escape**: a defect that got through a lane and was found later, reported with
   `softwarefactor escape <run> --lane <lane> --note "<what got through>"` (`docs/ladder.md`).
 - **A repeat**: the same gate failing at the same lane, or the same lane's work sent back or rejected, in
-  3 of the last 20 ended runs of the workflow.
+  3 of the last 20 ended runs of the workflow. A gate that failed and was then mended in the same run counts: a
+  check that keeps catching the same thing first time round is worth a look.
 
 ```
 $ softwarefactor retro
@@ -68,8 +69,13 @@ A person, in the repository. Not a lane:
   the rest refuse to run inside a run.
 - The factory reads its memory, its workflows and its settings from the workspace, never from a run's change.
 - A lane whose change holds a file under `.factor/memory/`, `.factor/workflows/` or `.factor/retros/`, or
-  `.factor/factory.json` or `.factor/plugins.lock.json`, fails, whatever gates the workflow has. So such a change
-  cannot ride into the repository inside a run's branch.
+  `.factor/factory.json`, `.factor/local.json` or `.factor/plugins.lock.json`, fails, whatever gates the workflow
+  has. So such a change cannot ride into the repository inside a run's branch. (A file that came into the branch
+  from the workspace's own commit, because the lane took in the default branch, is the person's and is let be.)
+
+What this does not stop: a program with your own rights writing into the workspace's folder directly, without a
+commit. An agent held only by the guard could do that; an agent in an OS sandbox cannot. It is the same limit
+as for plugins (`docs/plugins.md`).
 
 ## Not built
 

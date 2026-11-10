@@ -71,22 +71,22 @@ function sync(ws: Workspace, db: Db): void {
   // A repeat is one retro for its lane and gate (or its lane's decisions), however often it goes
   // on. Once that retro is kept or dropped, it is opened anew only if the same thing happens
   // three more times in runs that ended after it was closed: a lesson that did not help is news.
-  const repeat = (key: string, lane: string, runs: string[], words: (n: number) => string) => {
+  const repeat = (key: string, lane: string, runs: string[], words: (runs: string[]) => string) => {
     const before = db
       .prepare("select status, closed_at from retros where key = ? or key like ? order by id desc limit 1")
       .get(key, `${key}#%`) as { status: string; closed_at: string | null } | undefined;
-    if (!before) return open(key, "repeat", lane, words(runs.length), runs);
+    if (!before) return open(key, "repeat", lane, words(runs), runs);
     if (before.status === "open" || before.status === "drafted") return;
     const since = runs.filter((id) => {
       const ended = (db.prepare("select ended_at from runs where id = ?").get(id) as { ended_at: string })
         .ended_at;
       return ended > (before.closed_at ?? "");
     });
-    if (since.length >= TIMES) open(`${key}#${since.at(-1)}`, "repeat", lane, words(since.length), since);
+    if (since.length >= TIMES) open(`${key}#${since.at(-1)}`, "repeat", lane, words(since), since);
   };
   for (const f of group(failed)) {
-    repeat(`repeat:gate:${workflow}:${f.lane}:${f.what}`, f.lane, f.runs, (n) => {
-      return `lane ${f.lane}: the gate ${f.what} failed in ${n} of the last ${LAST} runs (${f.runs.join(", ")})`;
+    repeat(`repeat:gate:${workflow}:${f.lane}:${f.what}`, f.lane, f.runs, (runs) => {
+      return `lane ${f.lane}: the gate ${f.what} failed in ${runs.length} of the last ${LAST} runs (${runs.join(", ")})`;
     });
   }
   const edited = all<{ lane: string; what: string; run_id: string }>(
@@ -95,15 +95,18 @@ function sync(ws: Workspace, db: Db): void {
     ...recent,
   );
   for (const f of group(edited)) {
-    repeat(`repeat:decision:${workflow}:${f.lane}`, f.lane, f.runs, (n) => {
-      return `lane ${f.lane}: its work was sent back or rejected in ${n} of the last ${LAST} runs (${f.runs.join(", ")})`;
+    repeat(`repeat:decision:${workflow}:${f.lane}`, f.lane, f.runs, (runs) => {
+      return `lane ${f.lane}: its work was sent back or rejected in ${runs.length} of the last ${LAST} runs (${runs.join(", ")})`;
     });
   }
 }
 
-function retroOf(db: Db, id: string): Retro {
+function retroOf(db: Db, ws: Workspace, id: string): Retro {
+  // of the workflow this workspace runs: the ones the list shows
   const retro = /^\d+$/.test(id)
-    ? (db.prepare("select * from retros where id = ?").get(Number(id)) as Retro | undefined)
+    ? (db.prepare("select * from retros where id = ? and workflow = ?").get(Number(id), ws.workflow.name) as
+        | Retro
+        | undefined)
     : undefined;
   if (!retro)
     throw new UserError(`There is no retro "${oneLine(id, 40)}".`, "See them with `softwarefactor retro`.");
@@ -186,18 +189,26 @@ export function retroCommand(
   sync(ws, db);
   const [verb, id = ""] = args;
   if (verb === "draft") {
-    const retro = retroOf(db, id);
+    const retro = retroOf(db, ws, id);
     stillOpen(retro, "drafted");
-    if (retro.status === "drafted") {
+    // drafted, and the file is still there: it is the person's now
+    if (retro.status === "drafted" && retro.path && existsSync(join(ws.root, retro.path))) {
       say(`already drafted: ${retro.path}`);
       return 0;
     }
-    const rel = `.factor/retros/${nowIso().slice(0, 10)}-${retro.kind}-${retro.lane}-${retro.id}.md`;
-    mkdirSync(join(ws.factorDir, "retros"), { recursive: true });
+    const rel =
+      retro.path ?? `.factor/retros/${nowIso().slice(0, 10)}-${retro.kind}-${retro.lane}-${retro.id}.md`;
     try {
+      mkdirSync(join(ws.factorDir, "retros"), { recursive: true });
       writeFileSync(join(ws.root, rel), `${draftOf(db, retro)}\n`, { flag: "wx" }); // never over a file a person may have begun
-    } catch {
-      // the file is there already: it is the draft
+    } catch (error) {
+      // a file that is already there is the draft. Anything else, and there is no draft to speak of
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw new UserError(
+          `The draft could not be written (${rel}): ${(error as Error).message}`,
+          "Mend that, and draft it again.",
+        );
+      }
     }
     db.prepare("update retros set status = 'drafted', path = ? where id = ?").run(rel, retro.id);
     say(`drafted: ${rel}`);
@@ -205,7 +216,7 @@ export function retroCommand(
     return 0;
   }
   if (verb === "keep") {
-    const retro = retroOf(db, id);
+    const retro = retroOf(db, ws, id);
     stillOpen(retro, "kept");
     const lesson = (flags.lesson ?? "").trim();
     // one plain line: it goes into every later prompt under the project's own heading
@@ -230,11 +241,18 @@ export function retroCommand(
       retro.kind === "escape"
         ? `From retro ${retro.id}: a defect that got through lane ${retro.lane} in run ${runs}.`
         : `From retro ${retro.id}: something that happened again and again at lane ${retro.lane} (runs ${runs}).`;
-    writeFileSync(
-      join(dir, name),
-      `# ${lesson}\n\n${origin} Kept by a person on ${nowIso().slice(0, 10)}.\n`,
-      { flag: "wx" },
-    );
+    try {
+      writeFileSync(
+        join(dir, name),
+        `# ${lesson}\n\n${origin} Kept by a person on ${nowIso().slice(0, 10)}.\n`,
+        { flag: "wx" },
+      );
+    } catch (error) {
+      throw new UserError(
+        `The lesson could not be written (${name}): ${(error as Error).message}`,
+        "A lesson in these words may be there already.",
+      );
+    }
     const rel = `.factor/memory/lessons/${name}`;
     db.prepare("update retros set status = 'kept', path = ?, closed_at = ? where id = ?").run(
       rel,
@@ -246,7 +264,7 @@ export function retroCommand(
     return 0;
   }
   if (verb === "drop") {
-    const retro = retroOf(db, id);
+    const retro = retroOf(db, ws, id);
     stillOpen(retro, "dropped");
     const note = oneLine(flags.note ?? "", 300);
     if (!note)

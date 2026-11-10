@@ -28,7 +28,7 @@ import type { Facts } from "./transition.ts";
 import { settleTree } from "./tree.ts";
 
 // Paths of a repository that the factory reads as its own, in any spelling a file system may fold.
-const FACTORY_OWN = ["memory", "workflows", "retros", "factory.json", "plugins.lock.json"].map(
+const FACTORY_OWN = ["memory", "workflows", "retros", "factory.json", "local.json", "plugins.lock.json"].map(
   (path) => `:(icase).factor/${path}`,
 );
 
@@ -347,13 +347,21 @@ export async function runLane(
     if (worktreeHead !== head) failWith("the worktree is no longer on the run's branch");
     // What the factory reads as its lessons, workflows and settings is changed by a person in the
     // repository, never by a lane's own change, whatever gates the workflow has.
-    const own = git(ws.root, "diff", "--name-only", run.base_commit, head, "--", ...FACTORY_OWN);
-    if (own)
-      failWith(
-        oneLine(
-          `its change holds a file the factory reads (${own.split("\n")[0]}): only a person changes those`,
-        ),
-      );
+    // A file that is the same as in the workspace's own commit came in from there (the lane took
+    // in the default branch after a person changed it): that is the person's change.
+    const same = (path: string) => {
+      try {
+        return git(ws.root, "rev-parse", `${head}:${path}`) === git(ws.root, "rev-parse", `HEAD:${path}`);
+      } catch {
+        return false; // on one side only
+      }
+    };
+    const own = git(ws.root, "diff", "--name-only", run.base_commit, head, "--", ...FACTORY_OWN)
+      .split("\n")
+      .filter((path) => path && !same(path));
+    if (own.length > 0) {
+      failWith(oneLine(`its change holds a file the factory reads (${own[0]}): only a person changes those`));
+    }
 
     const outputEnv = Object.fromEntries(
       Object.entries(outputs).map(([k, v]) => [`FACTOR_OUTPUT_${k.toUpperCase()}`, asText(v)]),
