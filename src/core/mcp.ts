@@ -9,6 +9,7 @@ import { z } from "zod";
 import { FACTOR_TOOLS, type FactorTool } from "./agents/factor-tools.ts";
 import { type Db, openDb } from "./db.ts";
 import { type Asker, addNote, proposedNotes, readMemory, recordRead } from "./memory.ts";
+import { readObject } from "./safe-read.ts";
 
 export interface Served extends Asker {
   /** The workspace's root: its .factor folder holds the memory and the database. */
@@ -63,6 +64,10 @@ const TOOLS: Record<
       "Hand off: give your hand-off as an object with `outcome` (pass, fail or needsPerson) and `summary`, and optionally `claims`, `open`, `risk`, `outputs`. The host checks it. Call this once, when you are done.",
     input: z.strictObject({ handoff: z.record(z.string(), z.unknown()) }),
     run: (args: { handoff: Record<string, unknown> }, at) => {
+      // a question that was asked stands: a hand-off after it would hide it from the person
+      if (readObject(join(at.laneDir, "handoff.json"))?.value.outcome === "needsPerson") {
+        throw new Error("You asked a person a question. End now: the run waits for the answer.");
+      }
       put(at.laneDir, "handoff.json", `${JSON.stringify(args.handoff, null, 2)}\n`);
       return "The hand-off is written. The host checks it when you end.";
     },

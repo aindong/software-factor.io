@@ -62,6 +62,8 @@ Exit codes for run and for a decision: 0 the task is done or dropped, 1 it stopp
 const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g;
 const say = (line: string) => console.log(line.replace(CONTROL, ""));
 
+const READ_ONLY = new Set(["check", "status", "sessions", "inbox"]);
+const LISTS = new Set(["memory", "account", "role"]);
 const EXIT = { none: 0, done: 0, dropped: 0, running: 0, stopped: 1, waiting: 3 } as const;
 
 /**
@@ -92,7 +94,7 @@ function guard(args: string[]): number {
     const { tool_name, tool_input } = call as Record<string, unknown>;
     verdict = judge(
       { tool: tool_name, input: tool_input },
-      { worktree, laneDir, access, defaultBranch: named.protect ?? [] },
+      { worktree, laneDir, access, defaultBranch: named.protect ?? [], self: process.argv[1] },
     );
   } catch (error) {
     verdict = {
@@ -112,6 +114,14 @@ async function mcpCommand(args: string[]): Promise<number> {
   const { workspace: root, run, lane, "lane-dir": laneDir, account } = named;
   if (!root || !run || !lane || !laneDir) {
     console.error("softwarefactor mcp needs --workspace, --run, --lane and --lane-dir: the lane it serves.");
+    return 1;
+  }
+  // started from inside a lane, it serves that lane and no other
+  const { FACTOR_RUN_ID: inRun, FACTOR_LANE: inLane } = process.env;
+  if ((inRun && inRun !== run) || (inLane && inLane !== lane)) {
+    console.error(
+      "softwarefactor mcp was started inside one lane to serve another. It serves its own lane only.",
+    );
     return 1;
   }
   await serve({ root, run, lane, laneDir, account: account || undefined });
@@ -146,6 +156,16 @@ async function main(): Promise<number> {
   if (values.help || !command) {
     console.log(HELP);
     return command || values.help ? 0 : 1;
+  }
+  // Inside a run only looking is allowed: an agent, or a command a lane runs, must not approve its
+  // own work, keep its own note or change who works a role. (A wall for accidents and plain
+  // attempts: a shell can drop the variable.)
+  const looks = READ_ONLY.has(command) || (positionals[1] === "list" && LISTS.has(command));
+  if (process.env.FACTOR_RUN_ID && !looks) {
+    throw new UserError(
+      `"softwarefactor ${command}" was started from inside a run, where only a person's commands that look are allowed.`,
+      "Run it yourself, in a terminal of your own.",
+    );
   }
 
   if (command === "init") {

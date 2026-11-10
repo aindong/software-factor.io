@@ -154,7 +154,8 @@ export function memorySection(entries: Entry[]): string | undefined {
 export function notesSection(notes: Note[]): string | undefined {
   if (notes.length === 0) return undefined;
   const quoted = notes
-    .flatMap((n) => [`${n.title} (lane "${n.lane}")`, ...n.body.split("\n"), ""])
+    // every kind of line end starts a new quoted line: a lone carriage return would hide the mark
+    .flatMap((n) => [`${n.title} (lane "${n.lane}")`, ...n.body.split(/\r\n|\r|\n/), ""])
     .map((line) => `> ${line}`.trimEnd());
   return `# Notes from earlier lanes of this run (written by agents, not by the host or a person)\n\n${quoted.join("\n")}`;
 }

@@ -26,6 +26,8 @@ export interface Where {
   access: "read" | "write";
   /** The branches an agent must not push to or move, besides main and master. */
   defaultBranch: string | string[];
+  /** The path of the factory's own program, which an agent may not run, move or change. */
+  self?: string;
 }
 export interface Verdict {
   allow: boolean;
@@ -76,6 +78,7 @@ const WRAPPERS = new Set([
 // Commands whose other words are text, such as a commit message: "sudo" there is only a word.
 const TEXT_ONLY = new Set(["git", "echo", "printf", "grep", "rg"]);
 const SUPERUSER = new Set(["sudo", "doas"]);
+const FACTORY = "softwarefactor";
 const READS_CONFIG = new Set(["--get", "--get-all", "--get-regexp", "--list", "-l"]);
 const GIT_VALUE_OPTIONS = new Set(["-C", "-c", "--exec-path"]);
 const GIT_ELSEWHERE = /^--(git-dir|work-tree|namespace|config-env)(=|$)/;
@@ -241,6 +244,9 @@ function judgeShell(command: unknown, where: Where): Verdict {
       "This command names something that git, the factory or an agent CLI owns, such as .git or CLI settings. Use git commands, and leave the rest alone.",
     );
   }
+  if (where.self && command.includes(where.self)) {
+    return deny("The factory's own program may not be run, moved or changed by an agent.");
+  }
   if (SECRET_IN_SHELL.some((p) => p.test(command))) {
     return deny("This command names a file or a store that holds secrets. An agent may not read those.");
   }
@@ -274,6 +280,10 @@ function judgeShell(command: unknown, where: Where): Verdict {
     const rest = words.slice(1);
     if (SUPERUSER.has(first) || (!TEXT_ONLY.has(first) && rest.some((w) => SUPERUSER.has(nameOf(w))))) {
       return deny("sudo is not allowed. An agent works with the rights of its own user.");
+    }
+    // the factory's command is for people: an agent that runs it could approve or keep its own work
+    if (first === FACTORY || (!TEXT_ONLY.has(first) && rest.some((w) => nameOf(w) === FACTORY))) {
+      return deny("The softwarefactor command is for people. Use the tools of the factor server.");
     }
     if (first === "cd" || first === "pushd") moved = true;
     const verdict =

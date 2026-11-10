@@ -24,6 +24,7 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
         job.cwd,
         "-s",
         canWrite ? "workspace-write" : "read-only",
+        "--ignore-user-config", // the run's settings are the factory's: no MCP server of the user's own comes along
         "-c",
         'approval_policy="never"',
         ...(choice.model ? ["-m", choice.model] : []),
