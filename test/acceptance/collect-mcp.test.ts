@@ -14,6 +14,7 @@ function querying(repo: Repo, answer: unknown, args?: Record<string, unknown>, m
       },
     ];
   });
+  if (repo.sf("allow", "board").status !== 0) throw new Error("the server was not allowed");
 }
 
 it("calls the tool with the arguments and adds a task for each item of a plain list", () => {

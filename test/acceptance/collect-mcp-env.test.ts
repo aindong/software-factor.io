@@ -12,6 +12,7 @@ function querying(repo: Repo, mode: McpMode, env?: string[]) {
       { id: "tasks", uses: "core/file@1", with: { path: ".factor/tasks.md" } },
     ];
   });
+  if (repo.sf("allow", "board").status !== 0) throw new Error("the server was not allowed");
 }
 
 it("gives the server the variables the workflow lists, and no other of the caller's", () => {
