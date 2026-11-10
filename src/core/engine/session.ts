@@ -1,0 +1,80 @@
+// The record of one start of an agent: who worked, on which model, what it used and what that
+// cost, with the CLI's own output kept as a transcript. The numbers are the CLI's, stored as it
+// printed them, so any later report can be checked against these rows to the token.
+import { recordUsage } from "../accounts.ts";
+import type { Bound } from "../agents/index.ts";
+import type { AgentExit } from "../agents/types.ts";
+import { saveRunFile } from "../evidence.ts";
+import { priceOf } from "../prices.ts";
+import { readTail } from "../safe-read.ts";
+import * as store from "../store.ts";
+import type { Ctx } from "./lane.ts";
+
+const MAX_TRANSCRIPT = Number(process.env.FACTOR_TRANSCRIPT_MAX_BYTES) || 50_000_000;
+
+/** Record the session. Returns the cost to count against the run's budget: 0 when it is unknown. */
+export function recordSession(
+  ctx: Ctx,
+  at: { lane: string; laneRun: number; stem: string; try: number; startedMs: number },
+  bound: Pick<Bound, "agent" | "account">,
+  exit: AgentExit,
+): number {
+  const { ws, db, run } = ctx;
+  const used = exit.usage;
+  const tokens = used?.tokens ?? 0;
+  // an agent that gives no kinds (the scripted one) has all its tokens counted as input
+  const counts = {
+    input: used?.input ?? tokens,
+    output: used?.output ?? 0,
+    cacheRead: used?.cacheRead ?? 0,
+    cacheWrite: used?.cacheWrite ?? 0,
+  };
+  const reported = used !== undefined && used.costReported !== false;
+  const priced = reported ? undefined : priceOf(exit.model, counts);
+  const usd = reported ? used.usd : (priced ?? null);
+
+  // the CLI's output sits in a folder the agent can reach: it is read without following a link
+  let transcript: { path: string; sha256: string } | undefined;
+  const raw = exit.streamPath ? readTail(exit.streamPath, MAX_TRANSCRIPT) : undefined;
+  if (raw) {
+    // a transcript over the cap keeps its end, where the result is, from the first whole line
+    const whole = raw.cut ? raw.data.subarray(raw.data.indexOf(10) + 1) : raw.data;
+    const mark = `${JSON.stringify({ type: "factor.cut", bytes: raw.size, kept: whole.length })}\n`;
+    transcript = saveRunFile(
+      ws,
+      run.id,
+      "sessions",
+      `${at.stem}.jsonl`,
+      raw.cut ? Buffer.concat([Buffer.from(mark), whole]) : whole,
+    );
+  }
+  if (bound.account) recordUsage(bound.account, tokens); // counted for the account, whatever came of the lane
+  store.addEvent(db, run.id, "lane.session", {
+    lane: at.lane,
+    account: bound.account ?? null,
+    agent: bound.agent,
+    sessionId: exit.sessionId ?? null,
+  });
+  store.addSession(db, {
+    run_id: run.id,
+    lane_run_id: at.laneRun,
+    lane: at.lane,
+    try: at.try,
+    account: bound.account ?? null,
+    agent: bound.agent,
+    model: exit.model ?? null,
+    session_id: exit.sessionId ?? null,
+    input_tokens: counts.input,
+    output_tokens: counts.output,
+    cache_read_tokens: counts.cacheRead,
+    cache_write_tokens: counts.cacheWrite,
+    tokens,
+    usd,
+    usd_source: reported ? "reported" : priced === undefined ? "unknown" : "priced",
+    transcript_path: transcript?.path ?? null,
+    transcript_sha256: transcript?.sha256 ?? null,
+    started_at: new Date(at.startedMs).toISOString(),
+    duration_ms: Date.now() - at.startedMs,
+  });
+  return usd ?? 0;
+}

@@ -2,7 +2,7 @@
 // command, then the lane's gates. Only the host's gates can pass a lane (ADR 0005).
 import { mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { holdAccount, recordUsage } from "../accounts.ts";
+import { holdAccount } from "../accounts.ts";
 import { adapterFor } from "../agents/index.ts";
 import { MINUTE_MS, nowMs } from "../clock.ts";
 import type { Db } from "../db.ts";
@@ -19,6 +19,7 @@ import type { Lane } from "../schema/workflow.ts";
 import * as store from "../store.ts";
 import type { Workspace } from "../workspace.ts";
 import { asText, HANDOFF, handoffHelp, inputsOf, promptFor } from "./prompt.ts";
+import { recordSession } from "./session.ts";
 import type { LaneResult, RunState } from "./state.ts";
 import type { Facts } from "./transition.ts";
 import { settleTree } from "./tree.ts";
@@ -178,6 +179,7 @@ export async function runLane(
       const stopNow = () => limit.abort();
       ctx.control.signal.addEventListener("abort", stopNow, { once: true });
       if (ctx.control.signal.aborted) limit.abort();
+      const startedMs = Date.now();
       const exit = await adapter
         .run({
           runId: run.id,
@@ -208,16 +210,12 @@ export async function runLane(
           ctx.control.signal.removeEventListener("abort", stopNow);
         });
       usage.tokens += exit.usage?.tokens ?? 0;
-      usage.usd += exit.usage?.usd ?? 0;
-      if (account) {
-        recordUsage(account, exit.usage?.tokens ?? 0); // counted for the account, whatever came of the lane
-        store.addEvent(db, run.id, "lane.session", {
-          lane: lane.id,
-          account,
-          agent,
-          sessionId: exit.sessionId ?? null,
-        });
-      }
+      usage.usd += recordSession(
+        ctx,
+        { lane: lane.id, laneRun, stem, try: agentStarts, startedMs },
+        { agent, account },
+        exit,
+      );
       // what decides which programs the host and the agent's CLI run must be as it was
       const tampered =
         gitConfigFingerprint(ws.root) !== gitBefore

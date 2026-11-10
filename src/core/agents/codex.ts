@@ -38,16 +38,22 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
         true,
       );
 
-      let tokens = 0;
+      const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
       let last = "";
       for (const e of out.events) {
-        const usage =
+        const used =
           e.type === "turn.completed" ? (e.usage as Record<string, unknown> | undefined) : undefined;
-        // cached input is part of input, and reasoning is part of output
-        if (usage) tokens += (Number(usage.input_tokens) || 0) + (Number(usage.output_tokens) || 0);
+        if (used) {
+          // cached input is part of the input the CLI reports, and reasoning is part of its output
+          const cached = Number(used.cached_input_tokens) || 0;
+          usage.input += (Number(used.input_tokens) || 0) - cached;
+          usage.cacheRead += cached;
+          usage.output += Number(used.output_tokens) || 0;
+        }
         const item = e.type === "item.completed" ? (e.item as Event | undefined) : undefined;
         if (item?.type === "agent_message" && typeof item.text === "string") last = item.text;
       }
+      const tokens = usage.input + usage.cacheRead + usage.output;
       // an error event can be a retry the CLI recovered from: it counts only when no turn finished after it
       const failedAt = out.events.findLastIndex((e) => e.type === "turn.failed" || e.type === "error");
       const doneAt = out.events.findLastIndex((e) => e.type === "turn.completed");
@@ -59,7 +65,8 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
       else handoffFromText(job, last);
       return {
         exitCode: out.exitCode,
-        usage: { tokens, usd: 0 }, // the CLI reports no cost: the cost report prices the tokens (task 11)
+        usage: { ...usage, tokens, usd: 0, costReported: false }, // the CLI reports no cost: the host prices the tokens
+        model: choice.model, // the CLI does not print the model it used
         sessionId: typeof started?.thread_id === "string" ? started.thread_id : undefined,
         error,
         limit: error !== undefined && LIMIT.test(error),

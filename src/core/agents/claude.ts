@@ -70,13 +70,18 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
 
       const result = out.events.findLast((e) => e.type === "result");
       const text = typeof result?.result === "string" ? result.result : "";
-      const usage = (result?.usage ?? {}) as Record<string, unknown>;
-      const tokens = [
-        "input_tokens",
-        "output_tokens",
-        "cache_read_input_tokens",
-        "cache_creation_input_tokens",
-      ].reduce((sum, key) => sum + (Number(usage[key]) || 0), 0);
+      const used = (result?.usage ?? {}) as Record<string, unknown>;
+      const count = (key: string) => Number(used[key]) || 0;
+      const usage = {
+        input: count("input_tokens"),
+        output: count("output_tokens"),
+        cacheRead: count("cache_read_input_tokens"),
+        cacheWrite: count("cache_creation_input_tokens"),
+      };
+      const tokens = usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
+      // the model that did most of the work, by the CLI's own account
+      const models = Object.entries((result?.modelUsage ?? {}) as Record<string, { costUSD?: number }>);
+      const model = models.sort((x, y) => (y[1].costUSD ?? 0) - (x[1].costUSD ?? 0))[0]?.[0] ?? choice.model;
       let error: string | undefined;
       if (result?.is_error) {
         const listed = Array.isArray(result.errors) ? result.errors.join(" ") : "";
@@ -85,7 +90,13 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
       else handoffFromText(job, text);
       return {
         exitCode: out.exitCode,
-        usage: { tokens, usd: Number(result?.total_cost_usd) || 0 },
+        usage: {
+          ...usage,
+          tokens,
+          usd: Number(result?.total_cost_usd) || 0,
+          costReported: typeof result?.total_cost_usd === "number",
+        },
+        model,
         sessionId: typeof result?.session_id === "string" ? result.session_id : undefined,
         error,
         limit: error !== undefined && LIMIT.test(error),

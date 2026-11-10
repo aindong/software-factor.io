@@ -37,10 +37,11 @@ describe("a transcript the host cannot trust", () => {
       actions: [{ handoff: { outcome: "pass", summary: "ok" } }],
     });
     bind(repo, "author", "claude-a");
-    repo.env.FACTOR_TRANSCRIPT_MAX_BYTES = "4000";
+    repo.env.FACTOR_TRANSCRIPT_MAX_BYTES = "30000"; // the stream is 40 KB: two lines of 20 KB
     expect(repo.sf("run").status).toBe(0);
     const [transcript] = transcripts(repo);
-    expect(transcript?.length).toBeLessThan(4200);
+    expect(transcript?.length).toBeLessThan(30_200);
+    expect(transcript?.length).toBeGreaterThan(20_000);
     expect(transcript).toMatch(/^\{"type":"factor\.cut"/);
     expect(transcript).toContain('"total_cost_usd":0.42'); // the result is at the end, and is kept
     expect(repo.rows<{ tokens: number }>("select tokens from sessions")[0]?.tokens).toBe(1350);
