@@ -51,6 +51,17 @@
           "description": {
             "type": "string",
             "minLength": 1
+          },
+          "differentVendorFrom": {
+            "description": "Bind this role to another vendor than these roles when the machine has one.",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z][a-z0-9-]*$",
+              "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+            }
           }
         },
         "required": [
@@ -627,6 +638,10 @@
             "description": "This lane does something that cannot be undone.",
             "type": "boolean"
           },
+          "pin": {
+            "description": "The autonomy ladder never changes this lane's checkpoint.",
+            "type": "boolean"
+          },
           "limits": {
             "type": "object",
             "properties": {
@@ -690,12 +705,13 @@
                         "type": "string",
                         "enum": [
                           "@done",
+                          "@drop",
                           "@stop",
                           "@inbox"
                         ]
                       }
                     ],
-                    "description": "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person)."
+                    "description": "A lane id, or @done (finished), @drop (not work after all), @stop (ended, a person takes over), @inbox (wait for a person)."
                   },
                   {
                     "minItems": 1,
@@ -715,12 +731,13 @@
                               "type": "string",
                               "enum": [
                                 "@done",
+                                "@drop",
                                 "@stop",
                                 "@inbox"
                               ]
                             }
                           ],
-                          "description": "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person)."
+                          "description": "A lane id, or @done (finished), @drop (not work after all), @stop (ended, a person takes over), @inbox (wait for a person)."
                         },
                         "when": {
                           "type": "object",
@@ -789,12 +806,13 @@
                         "type": "string",
                         "enum": [
                           "@done",
+                          "@drop",
                           "@stop",
                           "@inbox"
                         ]
                       }
                     ],
-                    "description": "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person)."
+                    "description": "A lane id, or @done (finished), @drop (not work after all), @stop (ended, a person takes over), @inbox (wait for a person)."
                   },
                   {
                     "minItems": 1,
@@ -814,12 +832,13 @@
                               "type": "string",
                               "enum": [
                                 "@done",
+                                "@drop",
                                 "@stop",
                                 "@inbox"
                               ]
                             }
                           ],
-                          "description": "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person)."
+                          "description": "A lane id, or @done (finished), @drop (not work after all), @stop (ended, a person takes over), @inbox (wait for a person)."
                         },
                         "when": {
                           "type": "object",
@@ -888,12 +907,13 @@
                         "type": "string",
                         "enum": [
                           "@done",
+                          "@drop",
                           "@stop",
                           "@inbox"
                         ]
                       }
                     ],
-                    "description": "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person)."
+                    "description": "A lane id, or @done (finished), @drop (not work after all), @stop (ended, a person takes over), @inbox (wait for a person)."
                   },
                   {
                     "minItems": 1,
@@ -913,12 +933,13 @@
                               "type": "string",
                               "enum": [
                                 "@done",
+                                "@drop",
                                 "@stop",
                                 "@inbox"
                               ]
                             }
                           ],
-                          "description": "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person)."
+                          "description": "A lane id, or @done (finished), @drop (not work after all), @stop (ended, a person takes over), @inbox (wait for a person)."
                         },
                         "when": {
                           "type": "object",

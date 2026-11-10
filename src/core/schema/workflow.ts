@@ -6,7 +6,10 @@ export const SCHEMA_URL = "https://softwarefactor.io/schema/workflow/v1.json";
 export const WORKFLOW_VERSION = 1;
 
 /** Where a run can end instead of entering another lane. */
-export const END_TARGETS = ["@done", "@stop", "@inbox"] as const;
+export const END_TARGETS = ["@done", "@drop", "@stop", "@inbox"] as const;
+
+/** How risky a change is, worked out by the host from the files it touches. */
+export const CHANGE_TIERS = ["docs", "refactor", "api", "ui", "sensitive"] as const;
 
 const id = z
   .string()
@@ -28,7 +31,7 @@ const envName = z
 
 const target = z.union([id, z.enum(END_TARGETS)]).meta({
   description:
-    "A lane id, or @done (finished), @stop (ended, a person takes over), @inbox (wait for a person).",
+    "A lane id, or @done (finished), @drop (not work after all), @stop (ended, a person takes over), @inbox (wait for a person).",
 });
 
 // A value a condition can look at. Never an expression.
@@ -50,6 +53,9 @@ export const Condition = z
     in: z.array(scalar).min(1).optional(),
     notIn: z.array(scalar).min(1).optional(),
   })
+  .refine((c) => (c.in === undefined) !== (c.notIn === undefined), {
+    message: 'Give the condition exactly one of "in" or "notIn", such as "in": ["ui"].',
+  })
   .meta({
     description:
       "True when the value at `ref` is (or, for a list, contains) one of `in`, or none of `notIn`.",
@@ -68,7 +74,13 @@ const Transition = z.union([target, z.array(Step).min(1)]).meta({
     "A target, or a list tried in order: the first entry that applies wins, the last is a plain default.",
 });
 
-const Prompt = z.union([z.string().min(1), z.strictObject({ file: z.string().min(1) })]);
+const insidePath = z
+  .string()
+  .min(1)
+  .refine((p) => !p.startsWith("/") && !p.startsWith("~") && !p.split(/[\\/]/).includes(".."), {
+    message: 'Use a relative path that stays inside the folder, with no leading / and no "..".',
+  });
+const Prompt = z.union([z.string().min(1), z.strictObject({ file: insidePath })]);
 const Tier = z.enum(["small", "medium", "large"]);
 const Effort = z.enum(["low", "medium", "high", "max"]);
 
@@ -140,6 +152,10 @@ export const Lane = z.strictObject({
     description: "in: wait for a person. near: tell a person and go on. out: no notice, audited later.",
   }),
   oneWay: z.boolean().optional().meta({ description: "This lane does something that cannot be undone." }),
+  pin: z
+    .boolean()
+    .optional()
+    .meta({ description: "The autonomy ladder never changes this lane's checkpoint." }),
   limits: LaneLimits.optional(),
   retry: z
     .strictObject({ max: z.number().int().min(0).max(3) })
@@ -200,9 +216,17 @@ export const Workflow = z.strictObject({
     .record(id, z.string().min(1))
     .optional()
     .meta({ description: "Plugin namespace to semver range." }),
-  roles: z.record(id, z.strictObject({ description: z.string().min(1) })).meta({
-    description: "Every role a lane names. A workflow never names an account.",
-  }),
+  roles: z
+    .record(
+      id,
+      z.strictObject({
+        description: z.string().min(1),
+        differentVendorFrom: z.array(id).min(1).optional().meta({
+          description: "Bind this role to another vendor than these roles when the machine has one.",
+        }),
+      }),
+    )
+    .meta({ description: "Every role a lane names. A workflow never names an account." }),
   mcp: z.record(id, McpServer).optional(),
   skills: z.record(z.string().min(1), Skill).optional(),
   limits: z

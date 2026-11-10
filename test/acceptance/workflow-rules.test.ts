@@ -221,6 +221,207 @@ const rejects: [string, Change, RegExp, RegExp][] = [
     /^lanes$/,
     /@done/,
   ],
+
+  // found by the skeptic's second pass over the schema
+  [
+    "a one-way lane that restarts after a crash",
+    (w) => {
+      lane(w, "open-pr").oneWay = true;
+      lane(w, "open-pr").retry = { max: 1 };
+    },
+    /^lanes\[1\]\.retry$/,
+    /retry/,
+  ],
+  [
+    "a loop back into a one-way lane",
+    (w) => {
+      lane(w, "fix").oneWay = true;
+      lane(w, "fix").checkpoint = "in";
+      lane(w, "fix").retry = { max: 0 };
+      lane(w, "open-pr").on.fail = bounded;
+    },
+    /^lanes\[1\]\.on\.fail\[0\]$/,
+    /once/,
+  ],
+  [
+    "a condition with nothing to compare against",
+    (w) => {
+      lane(w, "fix").on.pass = [{ to: "open-pr", when: { ref: "change.tier" } }, { to: "@stop" }];
+    },
+    /^lanes\[0\]\.on\.pass\[0\]\.when$/,
+    /"in"/,
+  ],
+  [
+    "a condition on a value that cannot occur",
+    (w) => {
+      lane(w, "fix").on.pass = [
+        { to: "open-pr", when: { ref: "change.tier", in: ["eazy"] } },
+        { to: "@stop" },
+      ];
+    },
+    /^lanes\[0\]\.on\.pass\[0\]\.when\.in$/,
+    /refactor/,
+  ],
+  [
+    "a gate result that cannot occur",
+    (w) => {
+      lane(w, "open-pr").on.pass = [
+        { to: "@done", when: { ref: "fix.gates.verify", in: ["passed"] } },
+        { to: "@stop" },
+      ];
+    },
+    /^lanes\[1\]\.on\.pass\[0\]\.when\.in$/,
+    /pass, fail/,
+  ],
+  [
+    "a value that is not one a condition may read",
+    (w) => {
+      lane(w, "fix").on.pass = [
+        { to: "open-pr", when: { ref: "task.priority", in: ["p1"] } },
+        { to: "@stop" },
+      ];
+    },
+    /^lanes\[0\]\.on\.pass\[0\]\.when\.ref$/,
+    /task\.labels/,
+  ],
+  [
+    "a lane that continues its own session",
+    (w) => {
+      lane(w, "fix").agent.session = { continue: "fix" };
+    },
+    /^lanes\[0\]\.agent\.session$/,
+    /another agent lane/,
+  ],
+  [
+    "a lane that takes its own output as input",
+    (w) => {
+      lane(w, "fix").inputs = { x: "fix.outputs.cause" };
+    },
+    /^lanes\[0\]\.inputs\.x$/,
+    /another lane/,
+  ],
+  [
+    "a repair gate on a lane with no agent",
+    (w) => {
+      lane(w, "open-pr").gates = ["verify"];
+    },
+    /^lanes\[1\]\.gates$/,
+    /repair/,
+  ],
+  [
+    "a panel that can change files",
+    (w) => {
+      lane(w, "fix").panel = { join: "all", members: [{ id: "a" }, { id: "b" }] };
+    },
+    /^lanes\[0\]\.panel$/,
+    /"read"/,
+  ],
+  [
+    "a panel where nobody decides",
+    (w) => {
+      lane(w, "fix").agent.access = "read";
+      lane(w, "fix").gates = [];
+      lane(w, "fix").panel = {
+        join: "all",
+        members: [
+          { id: "a", advisory: true },
+          { id: "b", advisory: true },
+        ],
+      };
+    },
+    /^lanes\[0\]\.panel\.members$/,
+    /advisory/,
+  ],
+  [
+    "a panel member with a role that is not declared",
+    (w) => {
+      lane(w, "fix").agent.access = "read";
+      lane(w, "fix").gates = [];
+      lane(w, "fix").panel = { join: "all", members: [{ id: "a" }, { id: "b", role: "ghost" }] };
+    },
+    /^lanes\[0\]\.panel\.members\[1\]\.role$/,
+    /ghost/,
+  ],
+  [
+    "a misspelt setting on a collector",
+    (w) => {
+      w.collectors[0].with.pth = 1;
+    },
+    /^collectors\[0\]\.with$/,
+    /pth/,
+  ],
+  [
+    "a schedule with no time",
+    (w) => {
+      w.collectors[0] = { id: "s", uses: "core/schedule@1", with: { title: "t", body: "b" } };
+    },
+    /^collectors\[0\]\.with\.cron$/,
+    /cron/,
+  ],
+  [
+    "a gate with two commands",
+    (w) => {
+      w.gates.verify.with = { run: "true", command: "verify" };
+    },
+    /^gates\.verify\.with$/,
+    /exactly one/,
+  ],
+  [
+    "a secret pasted into a setting",
+    (w) => {
+      w.collectors[0].with.label = `ghp_${"a1B2".repeat(9)}`;
+    },
+    /^collectors\[0\]\.with\.label$/,
+    /environment variable/,
+  ],
+  [
+    "a prompt file outside the workflow's folder",
+    (w) => {
+      lane(w, "fix").agent.prompt = { file: "/etc/passwd" };
+    },
+    /^lanes\[0\]\.agent\.prompt\.file$/,
+    /relative/,
+  ],
+  [
+    "a lane budget in dollars when the run has none",
+    (w) => {
+      lane(w, "fix").limits.usd = 5;
+    },
+    /^lanes\[0\]\.limits\.usd$/,
+    /run's/,
+  ],
+  [
+    "a vendor preference naming an unknown role",
+    (w) => {
+      w.roles.author.differentVendorFrom = ["ghost"];
+    },
+    /^roles\.author\.differentVendorFrom$/,
+    /declared/,
+  ],
+  [
+    "a transition written as a bare object",
+    (w) => {
+      lane(w, "fix").on.pass = { to: "open-pr" };
+    },
+    /^lanes\[0\]\.on\.pass$/,
+    /list/,
+  ],
+  [
+    "a version written as text",
+    (w) => {
+      w.version = "1";
+    },
+    /^version$/,
+    /number/,
+  ],
+  [
+    "a lane id with capitals",
+    (w) => {
+      lane(w, "open-pr").id = "Open_PR";
+    },
+    /^lanes\[1\]\.id$/,
+    /lowercase/,
+  ],
 ];
 
 // The valid form of each rule above must be accepted, so a rule cannot pass by rejecting everything.
@@ -267,6 +468,46 @@ const accepts: [string, Change][] = [
     "needsPerson written out",
     (w) => {
       lane(w, "fix").on.needsPerson = "@inbox";
+    },
+  ],
+
+  [
+    "a task dropped as not work",
+    (w) => {
+      lane(w, "fix").on.fail = "@drop";
+    },
+  ],
+  [
+    "a lane that waits for an outside event",
+    (w) => {
+      w.lanes.push({
+        id: "wait-review",
+        uses: "core/wait@1",
+        with: { until: { command: "pr-reviewed" }, everyMinutes: 10, timeoutHours: 72 },
+        checkpoint: "out",
+        on: { pass: "@done", fail: bounded },
+      });
+      lane(w, "open-pr").on.pass = "wait-review";
+    },
+  ],
+  [
+    "a checkpoint the ladder may not move",
+    (w) => {
+      lane(w, "open-pr").pin = true;
+    },
+  ],
+  [
+    "a role that prefers another vendor",
+    (w) => {
+      w.roles.reviewer = { description: "Reads the change.", differentVendorFrom: ["author"] };
+    },
+  ],
+  [
+    "a panel that only reads",
+    (w) => {
+      lane(w, "fix").agent.access = "read";
+      lane(w, "fix").gates = [];
+      lane(w, "fix").panel = { join: "all", members: [{ id: "a" }, { id: "b", advisory: true }] };
     },
   ],
 ];

@@ -1,7 +1,7 @@
 // One entry point: turn unknown JSON into a checked workflow, or the list of what to change.
 import type { z } from "zod";
 import { checkWorkflow, type Problem } from "./check.ts";
-import { WORKFLOW_VERSION, Workflow } from "./workflow.ts";
+import { SCHEMA_URL, WORKFLOW_VERSION, Workflow } from "./workflow.ts";
 
 export type { Problem } from "./check.ts";
 
@@ -40,14 +40,27 @@ function fixFor(path: PropertyKey[], issue: Issue, input: unknown): string {
     }
     return `Remove ${issue.keys.map((k) => `"${k}"`).join(", ")}, or check the spelling against docs/workflow-schema.md.`;
   }
+  if (issue.code === "custom") return issue.message;
   const last = String(path.at(-1) ?? "");
+  const value = valueAt(input, path);
+  if (value === undefined) return `Add "${last}" here. It is required.`;
   if (path.includes("env") || path.includes("headersEnv")) {
     return "Put only the name of an environment variable here, such as GITHUB_TOKEN. The value stays on the machine.";
   }
-  if (last === "when" || path.includes("when")) {
+  if (last === "ref") {
+    return "Use one of: task.source, task.labels, change.tier, <lane>.outputs.<name>, <lane>.gates.<gate>.";
+  }
+  if (last === "when") {
     return 'Write the condition as data, such as { "ref": "change.tier", "in": ["ui"] }. Expressions in strings are not allowed.';
   }
-  if (valueAt(input, path) === undefined) return `Add "${last}" here. It is required.`;
+  if (last === "id" || last === "to" || last === "name") {
+    return 'Use lowercase letters, digits and dashes, starting with a letter, such as "open-pr".';
+  }
+  if (last === "version") return `Write "version": ${WORKFLOW_VERSION}, as a number.`;
+  if (last === "$schema") return `Set "$schema" to "${SCHEMA_URL}".`;
+  if (path.at(-2) === "on") {
+    return 'Write a lane id such as "build", an end such as "@done", or a list such as [{ "to": "build" }].';
+  }
   return "Change this value to what docs/workflow-schema.md shows for this field.";
 }
 
