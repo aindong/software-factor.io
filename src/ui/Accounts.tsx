@@ -105,6 +105,8 @@ function RoleRow({
         >
           Bind
         </button>
+        {/* why it is off, said where it is off */}
+        {accounts.includes(account) ? null : <span className="quiet sub">Choose a login to bind.</span>}
       </td>
     </tr>
   );

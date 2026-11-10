@@ -132,6 +132,11 @@ textarea {
   background: var(--panel);
   color: var(--ink-soft);
 }
+/* every placeholder reads as text: the browser's own fades it */
+::placeholder {
+  color: var(--ink-soft);
+  opacity: 1;
+}
 .field .hint {
   color: var(--ink-soft);
   font-size: var(--text-label);
@@ -201,6 +206,7 @@ textarea {
 }
 .rail a,
 .rail button {
+  position: relative;
   display: grid;
   justify-items: center;
   gap: 2px;
@@ -226,12 +232,39 @@ textarea {
   outline-color: var(--rail-ink);
   outline-offset: -3px;
 }
+/* the floor holds changes that are not saved */
+.rail .unsaved {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rail-ink);
+}
+/* after g, each section shows the letter that goes to it */
+.rail.armed a::after {
+  content: attr(data-key);
+  position: absolute;
+  top: 3px;
+  left: 6px;
+  min-width: 16px;
+  border: 1px solid var(--rail-ink);
+  border-radius: 3px;
+  background: var(--rail);
+  color: var(--rail-ink);
+  font: 600 0.6875rem / 14px var(--font-tight);
+  text-align: center;
+}
 .rail .spacer {
   flex: 1;
 }
 .rail svg {
   width: 20px;
   height: 20px;
+}
+.work[hidden] {
+  display: none;
 }
 .work {
   display: grid;
@@ -311,7 +344,11 @@ textarea {
 @media (max-width: 760px) {
   /* a finger needs more than a pointer does */
   :root {
-    --row: 40px;
+    --row: 44px;
+  }
+  /* the key hints are for a keyboard */
+  .button kbd {
+    display: none;
   }
   .shell {
     grid-template-columns: minmax(0, 1fr);
@@ -340,6 +377,16 @@ textarea {
   }
 }
 
+/* What scrolls is positioned, so that text for a screen reader inside it (which is placed
+   absolutely) scrolls with it and does not stretch the page beyond the window. */
+.rundetail,
+.runlist,
+.page,
+.decide,
+.map-scroll,
+.shot-link {
+  position: relative;
+}
 /* read by assistive technology, not shown */
 .sr {
   position: absolute;

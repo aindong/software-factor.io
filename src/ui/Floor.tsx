@@ -14,7 +14,7 @@ import { statusOf } from "./status.ts";
 
 const print = (doc: Json) => `${JSON.stringify(doc, null, 2)}\n`;
 
-export function Floor() {
+export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsaved: boolean) => void }) {
   const [workspace, setWorkspace] = useState<WorkspaceInfo>();
   const [name, setName] = useState<string>();
   const [doc, setDoc] = useState<Json>();
@@ -106,8 +106,8 @@ export function Floor() {
   };
   const [discarding, setDiscarding] = useState(false); // Revert asks first when more than one change would go
   // the keys reach the latest undo and redo without being bound again at every change
-  const steps = useRef({ undo, redo });
-  steps.current = { undo, redo };
+  const steps = useRef({ undo, redo, shown });
+  steps.current = { undo, redo, shown };
 
   /** A change made on the map or in the inspector: the JSON view follows. */
   const change = (next: Json) => {
@@ -152,7 +152,7 @@ export function Floor() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey)) return;
+      if (!(event.metaKey || event.ctrlKey) || !steps.current.shown) return; // kept aside, the floor takes no key
       if (event.key === "s") {
         event.preventDefault();
         save();
@@ -201,8 +201,9 @@ export function Floor() {
       href: `${r.stopCode === "awaiting_approval" || r.stopCode === "needs_person" ? "/inbox" : "/runs"}/${r.id}`,
     }));
   const status = statusOf({ broken, problems: problems.length, dirty, notice });
+  useEffect(() => onUnsaved(dirty), [dirty, onUnsaved]);
   return (
-    <main className="work">
+    <main className="work" hidden={!shown}>
       <div className="topbar">
         <div className="where">
           <h1>Floor</h1>
@@ -309,7 +310,7 @@ export function Floor() {
           </button>
         </div>
       </div>
-      <div className="floor">
+      <div className="floor" data-sheet={sheet}>
         {view === "diagram" ? (
           <div className="map-side">
             {broken ? (
@@ -399,9 +400,11 @@ export function Floor() {
               onChange={(event) => type(event.target.value)}
             />
             {broken ? (
-              <p className="broken" role="alert">
-                This is not JSON yet, so the diagram shows the last version that was: {broken}
-              </p>
+              // said once when the text stops being JSON: the parser's own words change at every key and are not read out
+              <div className="broken">
+                <p role="status">This is not JSON yet, so the diagram shows the last version that was.</p>
+                <p className="quiet code">{broken}</p>
+              </div>
             ) : null}
           </div>
         )}

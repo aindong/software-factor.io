@@ -93,6 +93,18 @@ expect "the tab says how many wait" "$(js "() => document.title")" '^\(3\) Inbox
 expect "the address holds no item until one is entered" "$(js "() => location.pathname")" '^/inbox$'
 shot inbox-light-1440
 
+# ---- the deciding keys are for the inbox only: from the rail they do nothing, and g takes the next key whatever it is
+pw press a
+sleep 0.5
+expect "a key pressed outside the inbox decides nothing" "$(js "$tasks") $(js "$said")" '^Add an export button \| Publish the release \| Pick a database $'
+tab_to '^[0-9]+ Add an export button'
+pw press g
+sleep 2
+pw press a
+wait_for "g and then a, however slow, goes to Accounts and approves nothing" "() => document.querySelector('h1').textContent" '^Accounts$'
+pw press g && pw press i
+wait_for "back in the inbox, nothing was decided" "$tasks" '^Add an export button \| Publish the release \| Pick a database$'
+
 # ---- 2. s: a note first, and nothing is sent while it is empty
 tab_to '^[0-9]+ Add an export button'
 pw press s
@@ -117,6 +129,11 @@ expect "and back" "$(js "$focused")" '^[0-9]+ Publish the release'
 expect "work that is not done cannot be sent back" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve a \| Reject r$'
 pw press s
 expect "s says why not" "$(js "$said")" 'has not run yet'
+# a click on the proof to read it keeps the keyboard in the inbox: the key still decides
+at=$(js "() => { const b = document.querySelector('.deciding .rundetail h2').getBoundingClientRect(); return Math.round(b.x + 20) + ' ' + Math.round(b.y + b.height / 2); }")
+# shellcheck disable=SC2086
+pw mousemove $at && pw mousedown && pw mouseup
+expect "a click on the proof keeps the keyboard in the decision" "$(js "() => document.activeElement !== document.body && document.querySelector('.deciding').contains(document.activeElement)")" '^true$'
 pw press a
 wait_for "a approves, and the item leaves the list" "$tasks" '^Pick a database \| Add an export button$'
 wait_for "the rail counts one fewer" "() => document.querySelector('.rail .count')?.textContent ?? ''" '^2 wait for you$'
@@ -144,6 +161,7 @@ slow=""
 tab_to '^[0-9]+ Add an export button'
 pw press ArrowUp
 expect "the question is chosen" "$(js "$focused")" '^[0-9]+ Pick a database'
+expect "the refusal about the other item is not said here" "$(js "() => document.querySelector('.decide .said')?.textContent ?? 'nothing said'")" '^nothing said$'
 expect "the question is shown" "$(js "() => document.querySelector('.decide .asks').textContent")" '^Which database should the export read from\?$'
 pw press Enter
 expect "Enter puts the keyboard in the answer" "$(js "() => document.activeElement.tagName + ' ' + document.activeElement.labels[0].textContent")" '^TEXTAREA Your answer'
@@ -213,6 +231,10 @@ section Inbox
 wait_for "the new items appear" "$tasks" '^Ship the docs \| Ship the hotfix$'
 # r: a box for why, which may stay empty, and Enter rejects
 tab_to '^[0-9]+ Ship the docs'
+pw press r
+tab_to '^Cancel$'
+pw press Enter
+expect "Cancel leaves the note, with the keyboard back on the item" "$(js "() => (document.querySelector('.decide textarea') ? 'note' : 'no note') + ' ' + (document.activeElement.textContent ?? '')")" '^no note [0-9]+ Ship the docs'
 pw press r
 expect "r puts the keyboard in a note that may stay empty" "$(js "() => document.activeElement.tagName + ' ' + document.activeElement.labels[0].textContent")" '^TEXTAREA Why \(optional\)'
 pw press Enter

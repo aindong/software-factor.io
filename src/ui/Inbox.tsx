@@ -34,6 +34,8 @@ interface Said {
   text: string;
   fix?: string;
   bad: boolean;
+  /** The item a refusal is about: it is said at that item and at no other. */
+  item?: number;
 }
 
 export function Inbox() {
@@ -151,6 +153,7 @@ export function Inbox() {
         text: `Not ${DONE[decision].toLowerCase()}: ${current.task}. ${body.error ?? "The factory did not take the decision."}`,
         fix: body.fix,
         bad: true,
+        item: current.id,
       });
     }
   };
@@ -167,11 +170,11 @@ export function Inbox() {
     }
     decide(noting, note);
   };
-  // The keys that decide, heard anywhere on the page while the inbox is shown: a click on the proof
-  // to read it must not turn them off. Not while typing (letters in a note are letters), not with
-  // a modifier, not for a key held down.
-  const keys = useRef((_event: KeyboardEvent) => {});
-  keys.current = (event) => {
+  // The keys that decide, heard while the keyboard is in the inbox: on a row, or anywhere in the
+  // decision and its proof (a click on the proof to read it keeps the keyboard there). Not from the
+  // rest of the page: a key pressed with nothing chosen by the person must not decide. Not while
+  // typing (letters in a note are letters), not with a modifier, not for a key held down.
+  const onKey = (event: ReactKey) => {
     if (!current || typing(event.target) || event.metaKey || event.ctrlKey || event.altKey || event.repeat)
       return;
     const can = (d: Decision) => current.decisions.includes(d);
@@ -182,16 +185,12 @@ export function Inbox() {
       setSaid({
         text: "This lane has not run yet, so there is no work to send back. Approve it or reject it.",
         bad: true,
+        item: current.id,
       });
     } else if (event.key === "a" && question) box.current?.focus();
     else return;
     event.preventDefault();
   };
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => keys.current(event);
-    addEventListener("keydown", onKey);
-    return () => removeEventListener("keydown", onKey);
-  }, []);
   const onRowKey = (event: ReactKey, at: number) => {
     const list = items ?? [];
     const to = event.key === "ArrowDown" ? at + 1 : event.key === "ArrowUp" ? at - 1 : undefined;
@@ -206,12 +205,13 @@ export function Inbox() {
     } else if (to === undefined) return;
     event.preventDefault();
   };
-  const answer = said ? (
-    <p className={`said${said.bad ? " bad" : ""}`} role="status">
-      {said.text}
-      {said.fix ? ` ${said.fix}` : ""}
-    </p>
-  ) : null;
+  const answer =
+    said && (said.item === undefined || said.item === current?.id) ? (
+      <p className={`said${said.bad ? " bad" : ""}`} role="status">
+        {said.text}
+        {said.fix ? ` ${said.fix}` : ""}
+      </p>
+    ) : null;
   const label = (decision: Decision, words: string) => (sending === decision ? DOING[decision] : words);
 
   return (
@@ -249,7 +249,8 @@ export function Inbox() {
           </p>
         </div>
       ) : (
-        <div className="runs" data-inside={inside}>
+        // biome-ignore lint/a11y/noStaticElementInteractions: the keys that decide work while the keyboard is in the inbox, and each is also a button
+        <div className="runs" data-inside={inside} onKeyDown={onKey}>
           <div className="runlist" role="listbox" aria-label="What waits for you">
             {items.map((item, at) => {
               const run = runs?.find((r) => r.id === item.run);
@@ -276,7 +277,7 @@ export function Inbox() {
                     role="img"
                     aria-label={item.kind === "question" ? "A question" : "An approval"}
                   />
-                  <span className="task">
+                  <span className="task" title={item.task}>
                     {run ? <span className="number data">{run.taskId}</span> : null} {item.task}
                   </span>
                   <span className="when data">{item.kind === "question" ? "question" : "approval"}</span>
@@ -288,7 +289,8 @@ export function Inbox() {
             })}
           </div>
           {current ? (
-            <div className="deciding">
+            // it takes the keyboard when its text is clicked, so the deciding keys go on working while the proof is read
+            <div className="deciding" tabIndex={-1}>
               <fieldset className="decide">
                 <legend className="sr">Decide on {current.task}</legend>
                 <p className="asks">{question ? current.body : (row?.sentence ?? current.body)}</p>
@@ -343,14 +345,26 @@ export function Inbox() {
                       {label("answer", "Answer")}
                     </button>
                   ) : noting ? (
-                    <button
-                      type="button"
-                      className="button approve"
-                      disabled={sending !== undefined}
-                      onClick={send}
-                    >
-                      {label(noting, noting === "reject" ? "Reject" : "Send back")}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="button approve"
+                        disabled={sending !== undefined}
+                        onClick={send}
+                      >
+                        {label(noting, noting === "reject" ? "Reject" : "Send back")}
+                      </button>
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => {
+                          setNoting(undefined);
+                          rows.current.get(current.id)?.focus();
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </>
                   ) : (
                     <>
                       <button

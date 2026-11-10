@@ -39,9 +39,11 @@ function Table({
               <th scope="col" className="num">
                 Cost
               </th>
-              <th scope="col" className="rest">
-                {rest ? "Cost not known for" : ""}
-              </th>
+              {rest ? (
+                <th scope="col" className="rest">
+                  Cost not known for
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
@@ -51,11 +53,13 @@ function Table({
                 <td className="num data">{whole.format(row.sessions)}</td>
                 <td className="num data">{whole.format(row.tokens)}</td>
                 <td className="num data">{amount(row)}</td>
-                <td className="quiet">
-                  {row.unknown > 0 && row.usd !== null
-                    ? `${row.unknown} ${row.unknown === 1 ? "session" : "sessions"}`
-                    : ""}
-                </td>
+                {rest ? (
+                  <td className="quiet">
+                    {row.unknown > 0 && row.usd !== null
+                      ? `${row.unknown} ${row.unknown === 1 ? "session" : "sessions"}`
+                      : ""}
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>

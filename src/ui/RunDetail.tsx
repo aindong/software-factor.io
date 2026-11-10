@@ -117,9 +117,12 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
         <h2 ref={headRef} tabIndex={-1}>
           {row.task || row.id}
         </h2>
-        <p className="sentence" role="status">
-          {row.sentence}
-        </p>
+        {/* in the inbox the decision bar above says this already */}
+        {deciding ? null : (
+          <p className="sentence" role="status">
+            {row.sentence}
+          </p>
+        )}
         <dl className="facts data">
           <div>
             <dt>Run</dt>
@@ -198,7 +201,17 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
               route={routeOf(floor.lines, row.visits, step, end)}
               trains={
                 track.here
-                  ? [{ lane: track.here, label: String(row.taskId), title: `${row.task}. ${row.sentence}` }]
+                  ? [
+                      {
+                        lane: track.here,
+                        label: String(row.taskId),
+                        title: `${row.task}. ${row.sentence}`,
+                        // yellow while it waits for a person, as on the floor, and only at the last step
+                        asks:
+                          step === total &&
+                          (row.stopCode === "awaiting_approval" || row.stopCode === "needs_person"),
+                      },
+                    ]
                   : []
               }
             />

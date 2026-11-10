@@ -3,6 +3,7 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-rows: minmax(0, 1fr); /* its parts scroll, it does not grow */
   min-height: 0;
 }
 .map-side {
@@ -387,7 +388,7 @@
   .inspector {
     position: absolute;
     inset: auto 0 0 0;
-    max-height: 72%;
+    max-height: 50%;
     border-left: 0;
     border-top: 1px solid var(--rule);
     box-shadow: var(--shadow);
@@ -395,6 +396,10 @@
   }
   .inspector[data-open="false"] {
     display: none;
+  }
+  /* under an open sheet the map can still be moved clear of it */
+  .floor[data-sheet="true"] .map-scroll {
+    padding-bottom: 50vh;
   }
 }
 @media (min-width: 1001px) {

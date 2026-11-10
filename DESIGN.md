@@ -132,7 +132,7 @@ components:
 
 **Creative North Star: "The Line Diagram"**
 
-The record of the interface as shipped in plan task 17 (commit ab9d705). Every value is read from
+The record of what shipped in plan task 17. The signature move: the line diagram. Every value is read from
 `src/ui/tokens.css` and the style sheets beside it. `test/unit/design-record.test.ts` checks it against the code.
 
 The floor is drawn the way a transit authority draws a network. A lane is a station, a transition is a line,
@@ -197,7 +197,7 @@ must be seen: at least 3:1 on ground and on panel.
 
 **The Contrast Rule.** `test/unit/contrast.test.ts` holds the palette in both themes to 4.5:1 for text and 3:1
 for shapes and lines. Two things are deliberately not held to it: the text of a disabled control (end grey),
-and the lines, tags and ends of the workflow that step back to opacity 0.28 while a run is drawn over the map.
+and the lines and end marks of the workflow that step back to opacity 0.28 while a run is drawn over the map. Their labels and names do not fade: they turn end grey, which still reads at 3 to 1.
 
 ## Typography
 
@@ -241,16 +241,16 @@ list, a detail, a plain page. The page never scrolls.
 | `--md` | `12px` | The sides of a button. The padding of a screen under 1000px. |
 | `--lg` | `16px` | Between groups. The padding of the inspector and the top bar. |
 | `--xl` | `24px` | Between the parts of a run or a page, and their side padding. |
-| `--row` | `28px` | The height of a control and of a table row. It is 40px under 760px. |
+| `--row` | `28px` | The height of a control and of a table row. It is 44px under 760px. |
 | `--control` | `4px` | The radius of a control. |
 
 - **Above 1000px.** The floor is the map with a 360px inspector beside it. Runs and Inbox are a list (320px to
   440px) and the detail side by side.
-- **Under 1000px.** The inspector is a sheet over the lower part of the map, at most 72% of its height, opened
+- **Under 1000px.** The inspector is a sheet over the lower part of the map, at most half of its height, opened
   by one tap on a station or by the "Workflow settings" button, shut by its Close button. Runs and Inbox show
   one at a time: the list, or the run that was entered, with a button back to the list. The inbox's decision
   bar moves to the bottom, after the proof.
-- **Under 760px.** The rail is a bar along the bottom. Controls are 40px high. Tables fit the width: nothing scrolls
+- **Under 760px.** The rail is a bar along the bottom. Controls are 44px high. Tables fit the width: nothing scrolls
   sideways but the map and a diff.
 
 The map never reflows. It is laid out from the workflow (124px between stations, 28px between tracks) and

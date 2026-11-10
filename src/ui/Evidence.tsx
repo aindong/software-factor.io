@@ -182,7 +182,7 @@ export function DiffView({ runId, stamp }: { runId: string; stamp: string }) {
         <pre className="output diff">
           {lines.slice(0, MOST_LINES).map((line, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: the lines of one diff never move
-            <span key={i} className={lineKind(line)}>
+            <span key={i} className={`${lineKind(line)}${line.startsWith("diff --git") ? " first" : ""}`}>
               {line}
               {"\n"}
             </span>

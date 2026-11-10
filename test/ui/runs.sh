@@ -181,6 +181,7 @@ shot run-pair-light-1440
 tab_to '^Recording: walkthrough\.webm'
 pw press Enter
 wait_for "a recording that has decoded" "() => (document.querySelector('video.shot')?.videoWidth ?? 0) > 0" '^true$'
+in_window "a run with a pair and a recording open"
 shot run-recording-light-1440
 tab_to '^File: notes\.txt'
 pw press Enter
@@ -204,6 +205,7 @@ back_to '^[0-9]+ Add an export button.*Done\.$'
 pw press Home
 expect "back on the newest run" "$(js "$focused")" 'Show the cost of each lane'
 expect "what waits names the command too" "$(js "() => document.querySelector('.waits')?.textContent.replace(/\\s+/g, ' ') ?? ''")" 'Ship it waits for your approval\..*Decide in the inbox.*softwarefactor approve [0-9a-f]+'
+expect "the waiting run's train is yellow on its own map too" "$(js "() => document.querySelector('.runmap .train')?.getAttribute('class') ?? ''")" 'asks'
 expect "the tab says that one waits" "$(js "() => document.title")" '^\(1\) Runs · Software Factor\.io$'
 # from the run to its decision, and back with the keys for a section: g, then r
 tab_to '^Decide in the inbox$'

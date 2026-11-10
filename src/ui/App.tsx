@@ -43,22 +43,33 @@ export function App() {
   const path = usePath();
   const [theme, setTheme] = useState<Theme>(storedTheme);
 
-  // g, then a section's letter. The g is held for a moment only, and a screen's own keys (the
-  // inbox's a and r) are not taken: the second key is caught before the screen sees it.
+  // g, then a section's letter. After g the next key is for this and for nothing else, however
+  // long it takes: a screen's own keys (the inbox's a approves) must never get a key that was
+  // meant as the second half. The rail shows each section's letter while it waits.
+  const [armed, setArmed] = useState(false);
   useEffect(() => {
-    let armed = 0;
+    let waiting = false;
     const onKey = (event: KeyboardEvent) => {
       if (typing(event.target) || event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
-      const to = Date.now() < armed ? SECTIONS.find((s) => s.key === event.key) : undefined;
-      armed = event.key === "g" ? Date.now() + 1500 : 0;
-      if (!to) return;
+      if (["Shift", "Control", "Alt", "Meta"].includes(event.key)) return;
+      if (!waiting) {
+        if (event.key !== "g") return;
+        waiting = true;
+        setArmed(true);
+        event.preventDefault();
+        return;
+      }
+      waiting = false;
+      setArmed(false);
       event.preventDefault();
       event.stopImmediatePropagation();
-      go(to.path);
+      const to = SECTIONS.find((s) => s.key === event.key);
+      if (to) go(to.path);
     };
     addEventListener("keydown", onKey, true);
     return () => removeEventListener("keydown", onKey, true);
   }, []);
+  const [unsaved, setUnsaved] = useState(false); // the floor holds changes that are not saved
   useEffect(() => {
     if (theme === "auto") document.documentElement.removeAttribute("data-theme");
     else document.documentElement.setAttribute("data-theme", theme);
@@ -80,13 +91,14 @@ export function App() {
 
   return (
     <div className="shell">
-      <nav className="rail" aria-label="Sections">
+      <nav className={`rail${armed ? " armed" : ""}`} aria-label="Sections">
         {SECTIONS.map((s) => (
           <a
             key={s.path}
             href={s.path}
             aria-current={s.path === section.path ? "page" : undefined}
             aria-keyshortcuts={`g ${s.key}`}
+            data-key={s.key}
             title={`${s.name}: g then ${s.key}`}
             onClick={(event) => {
               event.preventDefault();
@@ -95,6 +107,9 @@ export function App() {
           >
             {icons[s.icon]}
             {s.name}
+            {s.path === "/" && unsaved ? (
+              <span className="unsaved" role="img" aria-label=", not saved" />
+            ) : null}
             {s.path === "/inbox" && waits > 0 ? (
               <span className="count">
                 {waits}
@@ -127,18 +142,22 @@ export function App() {
             <p>Open that address as it is, in this tab.</p>
           </div>
         </main>
-      ) : section.path === "/runs" ? (
-        <Runs />
-      ) : section.path === "/inbox" ? (
-        <Inbox />
-      ) : section.path === "/accounts" ? (
-        <Accounts />
-      ) : section.path === "/plugins" ? (
-        <Plugins />
-      ) : section.path === "/costs" ? (
-        <Costs />
       ) : (
-        <Floor />
+        <>
+          {section.path === "/runs" ? (
+            <Runs />
+          ) : section.path === "/inbox" ? (
+            <Inbox />
+          ) : section.path === "/accounts" ? (
+            <Accounts />
+          ) : section.path === "/plugins" ? (
+            <Plugins />
+          ) : section.path === "/costs" ? (
+            <Costs />
+          ) : null}
+          {/* the floor stays as it was left while another section is open: unsaved work is not thrown away */}
+          <Floor shown={section.path === "/"} onUnsaved={setUnsaved} />
+        </>
       )}
     </div>
   );

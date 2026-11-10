@@ -82,6 +82,16 @@ expect "undo takes back the connection" "$(js "$fails")" '^@stop$'
 pw press Control+Shift+z
 expect "redo makes it again" "$(js "$fails")" '^impact$'
 
+# to another section and back: the floor is as it was left, and the rail says it holds unsaved work
+back_to '^Lane lane,' # a letter typed in a field is the field's
+pw press g
+expect "after g the rail shows each section's letter" "$(js "() => document.querySelector('.rail').className")" 'armed'
+pw press r
+wait_for "g then r goes to Runs" "() => document.querySelector('h1').textContent" '^Runs$'
+expect "the rail says the floor is not saved" "$(js "() => document.querySelector('.rail .unsaved')?.getAttribute('aria-label') ?? 'no mark'")" 'not saved'
+pw press g && pw press f
+wait_for "the floor is as it was left" "() => document.querySelector('h1').textContent + ' ' + document.querySelectorAll('.station.lane').length + ' ' + document.querySelector('.topbar .status').textContent" '^Floor 7 Not saved$'
+
 # 3. the same change is in the JSON view, and a lane typed there shows on the map
 back_to '^JSON$'
 pw press Enter

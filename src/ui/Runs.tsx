@@ -136,7 +136,7 @@ export function Runs() {
                   onKeyDown={(event) => onKey(event, at)}
                 >
                   <span className={`mark ${stands.mark}`} role="img" aria-label={stands.word} />
-                  <span className="task">
+                  <span className="task" title={run.task}>
                     <span className="number data">{run.taskId}</span> {run.task || run.id}
                   </span>
                   <span className="when data">{ago(run.startedAt)}</span>
