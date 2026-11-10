@@ -120,22 +120,30 @@ describe("the factory's operations", () => {
       ["workflow_get", { name: "../factory" }, /name/],
       ["runs_list", { anything: true }, /anything/],
     ];
-    for (const [name, input, where] of wrong) {
-      const api = await op(ui, name, input);
-      expect(api.status, `${name} ${JSON.stringify(input)}`).toBe(422);
-      expect(`${api.body.path} ${api.body.error}`, name).toMatch(where);
-      const served = tool(repo, name, input);
-      expect(served.refused, `${name} ${JSON.stringify(input)}`).toBe(true);
-      expect(served.text, name).toMatch(where);
-    }
-    // every operation, given a key it does not know: refused at the same place, in the same words
-    for (const name of names) {
-      const api = await op(ui, name, { nope: 1 });
-      expect(api.status, name).toBe(422);
-      const served = tool(repo, name, { nope: 1 });
-      expect(served.refused, name).toBe(true);
-      expect(served.text, name).toContain(String(api.body.error));
-      expect(served.text, name).toContain(String(api.body.path));
+    // every operation too, given a key it does not know (one that also lacks a key says that first)
+    const cases = [...wrong, ...names.map((name): [string, unknown, RegExp] => [name, { nope: 1 }, /\S/])];
+    // the API first, then the MCP server in one go: a call to it holds this process up
+    const api = [];
+    for (const [name, input] of cases) api.push(await op(ui, name, input));
+    const { answers } = operator(
+      repo,
+      cases.map(([name, input], id) => ({
+        jsonrpc: "2.0",
+        id,
+        method: "tools/call",
+        params: { name, arguments: input },
+      })),
+    );
+    for (const [id, [name, input, where]] of cases.entries()) {
+      const told = `${name} ${JSON.stringify(input)}`;
+      expect(api[id]?.status, told).toBe(422);
+      expect(`${api[id]?.body.path} ${api[id]?.body.error}`, told).toMatch(where);
+      const served = answers.find((a) => a.id === id)?.result;
+      expect(served?.isError, told).toBe(true);
+      // refused at the same place, in the same words
+      expect(served?.content?.[0]?.text, told).toBe(
+        `The arguments are wrong at "${api[id]?.body.path}": ${api[id]?.body.error}`,
+      );
     }
     // an input that is no object at all
     for (const input of [null, [], "x", 3]) expect((await op(ui, "runs_list", input)).status).toBe(422);

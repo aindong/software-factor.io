@@ -8,7 +8,7 @@ import { protectedPathsGate } from "./paths.ts";
 import type { GateJob } from "./types.ts";
 import { testsNotWeakenedGate } from "./weakened.ts";
 
-const GATES: Record<string, (g: GateJob) => GateRecord | Promise<GateRecord>> = {
+export const GATES: Record<string, (g: GateJob) => GateRecord | Promise<GateRecord>> = {
   "core/command@1": commandGate,
   "core/protected-paths@1": protectedPathsGate,
   "core/tests-not-weakened@1": testsNotWeakenedGate,

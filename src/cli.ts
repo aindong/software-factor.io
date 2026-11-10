@@ -6,6 +6,7 @@ import { join, relative } from "node:path";
 import { parseArgs } from "node:util";
 import { judge, type Verdict } from "./core/agents/guard.ts";
 import { accountCommand, memoryCommand, roleCommand, sessionsCommand } from "./core/commands.ts";
+import { costCommand, pluginsCommand, runsCommand } from "./core/commands-view.ts";
 import { openDb } from "./core/db.ts";
 import { decide } from "./core/engine/inbox.ts";
 import { handoffPath, riskLine } from "./core/engine/report.ts";
@@ -17,6 +18,7 @@ import { interrupt } from "./core/exec.ts";
 import { repoRoot } from "./core/git.ts";
 import { init } from "./core/init.ts";
 import { serve } from "./core/mcp.ts";
+import { serveOperator } from "./core/mcp-operator.ts";
 import { reportFiles } from "./core/schema/check-files.ts";
 import { startServer } from "./core/server.ts";
 import { openInbox, readStatus } from "./core/store.ts";
@@ -35,6 +37,10 @@ Usage: softwarefactor <command>
                            is empty, several runs at once
   stop <run>               Stop a run that is working or waiting
   status                   Show tasks, runs, lanes, gates and where the evidence is
+  runs [run] [--diff]      Show every run with one sentence on what is happening, or one run lane by
+                           lane, or what it changed
+  cost                     Show tokens and cost by lane, by task and by account
+  plugins                  Show what is built in: lane types, gate types, collectors, agents, workflows
   ui [--port N]            Open the interface in a browser: the factory floor, on this machine only
   memory list | keep <id> | drop <id>
                            Show what the project remembers and what agents have proposed, and keep
@@ -54,6 +60,9 @@ Usage: softwarefactor <command>
   role bind <role> --account <name> [--small <model>] [--medium <model>] [--large <model>] [--effort <level>]
                            Say which account works a role of the workflow, in this workspace
   role list                Show each role, its account, and any role that should be on another vendor
+  mcp --operator --workspace <folder>
+                           Serve every operation of the factory to your own agent as an MCP server
+                           (docs/operations.md). Not for an agent inside a run
 
 Exit codes for run and for a decision: 0 the task is done or dropped, 1 it stopped, 3 it waits.
 `;
@@ -64,7 +73,7 @@ Exit codes for run and for a decision: 0 the task is done or dropped, 1 it stopp
 const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g;
 const say = (line: string) => console.log(line.replace(CONTROL, ""));
 
-const READ_ONLY = new Set(["check", "status", "sessions", "inbox"]);
+const READ_ONLY = new Set(["check", "status", "sessions", "inbox", "runs", "cost", "plugins"]);
 const LISTS = new Set(["memory", "account", "role"]);
 const EXIT = { none: 0, done: 0, dropped: 0, running: 0, stopped: 1, waiting: 3 } as const;
 
@@ -111,6 +120,22 @@ function guard(args: string[]): number {
 
 /** The factor MCP server for one lane. An agent's CLI starts it: see docs/memory.md. */
 async function mcpCommand(args: string[]): Promise<number> {
+  if (args.includes("--operator")) {
+    // the operator server decides as the person at this machine: an agent inside a run gets no such thing
+    if (process.env.FACTOR_RUN_ID || process.env.FACTOR_LANE) {
+      console.error(
+        "softwarefactor mcp --operator was started inside a run. It is for your own agent, outside one.",
+      );
+      return 1;
+    }
+    const root = args[args.indexOf("--workspace") + 1];
+    if (!args.includes("--workspace") || !root || !existsSync(join(root, ".factor", "factory.json"))) {
+      console.error("softwarefactor mcp --operator needs --workspace <folder>: a repository with a factory.");
+      return 1;
+    }
+    await serveOperator(repoRoot(root));
+    return 0;
+  }
   const named: Record<string, string> = {};
   for (let i = 0; i < args.length; i += 2) named[(args[i] ?? "").replace(/^--/, "")] = args[i + 1] ?? "";
   const { workspace: root, run, lane, "lane-dir": laneDir, account } = named;
@@ -152,6 +177,7 @@ async function main(): Promise<number> {
       large: { type: "string" },
       effort: { type: "string" },
       port: { type: "string" },
+      diff: { type: "boolean" },
     },
   });
   const command = positionals[0];
@@ -260,6 +286,18 @@ async function main(): Promise<number> {
     }
     return reportFiles(files, say) > 0 ? 1 : 0;
   }
+
+  if (command === "runs" || command === "cost") {
+    const ws = loadWorkspace(cwd);
+    const db = openDb(ws.dbPath);
+    try {
+      if (command === "cost") return costCommand(db, say);
+      return runsCommand(db, ws.root, positionals[1], values.diff === true, say);
+    } finally {
+      db.close();
+    }
+  }
+  if (command === "plugins") return pluginsCommand(say);
 
   if (command === "inbox") {
     const ws = loadWorkspace(cwd);
