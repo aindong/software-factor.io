@@ -55,6 +55,13 @@ describe("the server each CLI is given for one run", () => {
     expect(lanePart(args, "--lane")).toBe("review");
     expect(lanePart(args, "--account")).toBe("codex-a");
   });
+
+  it("is marked as approved for Codex, where nobody is there to approve a tool call", () => {
+    const argv = codex.calls()[0]?.argv ?? [];
+    const at = argv.indexOf('mcp_servers.factor.default_tools_approval_mode="approve"');
+    expect(at).toBeGreaterThan(0);
+    expect(argv[at - 1]).toBe("-c");
+  });
 });
 
 describe("the guard and MCP tools", () => {

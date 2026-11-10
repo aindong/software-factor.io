@@ -87,6 +87,17 @@ export async function standin(kind) {
       const input = `${send.map((m) => JSON.stringify(m)).join("\n")}\n`;
       // with a bare environment: a real CLI does not pass its own on to a server
       const bare = { PATH: process.env.PATH, HOME: process.env.HOME };
+      // The real Codex refuses a tool of an MCP server that needs approval when nobody can give one
+      // (seen on 0.167.0): the server must be marked as approved in the run's settings.
+      const approved = argv.includes('mcp_servers.factor.default_tools_approval_mode="approve"');
+      if (kind === "codex" && !approved) {
+        const error = { message: "MCP tool call requires approval, but approval policy is never" };
+        appendFileSync(
+          join(profile, "mcp.jsonl"),
+          `${JSON.stringify({ tool: a.mcp.tool, answer: { error } })}\n`,
+        );
+        continue;
+      }
       const r = server
         ? spawnSync(server.command, server.args, { input, encoding: "utf8", env: bare })
         : undefined;
