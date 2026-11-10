@@ -1,6 +1,7 @@
 // Costs: where the tokens and the money went, by lane, by task and by account, from the session
 // records. A cost that is not known is said to be not known: it is never shown as nothing spent.
 import { useEffect, useState } from "react";
+import { money } from "../core/text.ts";
 import type { CostLine, CostsView } from "../core/views.ts";
 import { op } from "./api.ts";
 import { useRuns } from "./live.ts";
@@ -8,7 +9,7 @@ import "./runs.css";
 import "./sections.css";
 
 const whole = new Intl.NumberFormat("en-US");
-const amount = (line: CostLine) => (line.usd === null ? "not known" : `$${line.usd.toFixed(4)}`);
+const amount = (line: CostLine) => (line.usd === null ? "not known" : money(line.usd));
 
 function Table({
   title,

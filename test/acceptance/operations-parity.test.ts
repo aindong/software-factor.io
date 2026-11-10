@@ -101,7 +101,7 @@ describe("the factory's operations", () => {
 
   it("each read is a command the command line runs to the end, with every word and flag", () => {
     const done = flowRepo({
-      lanes: [agentLane("build", { agent: { access: "write" } })],
+      lanes: [agentLane("build", { agent: { access: "write" }, gates: ["verify"] })],
       scripts: { author: { build: [...commitFile("a.txt"), pass()] } },
     });
     expect(done.sf("run").status).toBe(0);

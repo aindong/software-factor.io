@@ -208,7 +208,8 @@ export function startServer(root: string, config: { workflow: string }, port: nu
       const routes = [
         ...new Set(
           app.routes
-            .filter((r) => r.method !== "ALL" && !r.path.includes("*"))
+            // what is left out is asked of every route, or catches what no route took
+            .filter((r) => !r.path.includes("*"))
             .map((r) => `${r.method} ${r.path}`),
         ),
       ];

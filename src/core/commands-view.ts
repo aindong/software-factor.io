@@ -2,6 +2,7 @@
 import type { Db } from "./db.ts";
 import { UserError } from "./errors.ts";
 import { listRuns, runDetail, runDiff } from "./runs/view.ts";
+import { money } from "./text.ts";
 import { type CostLine, costsView, pluginsView } from "./views.ts";
 
 type Say = (line: string) => void;
@@ -9,6 +10,7 @@ type Say = (line: string) => void;
 /** `runs`: every run with its sentence. `runs <id>`: one run, lane by lane. `runs <id> --diff`: what it changed. */
 export function runsCommand(db: Db, root: string, id: string | undefined, diff: boolean, say: Say): number {
   if (id === undefined) {
+    if (diff) throw new UserError("--diff needs a run.", "Name it: softwarefactor runs <run> --diff.");
     const runs = listRuns(db, root);
     if (runs.length === 0) say("No task has run yet. Start one with `softwarefactor run`.");
     for (const r of runs) say(`${r.id}  ${r.status.padEnd(8)} ${r.task}\n    ${r.sentence}`);
@@ -41,7 +43,7 @@ export function runsCommand(db: Db, root: string, id: string | undefined, diff: 
 const amount = (line: CostLine) =>
   line.usd === null
     ? "unknown"
-    : `$${line.usd.toFixed(4)}${line.unknown > 0 ? `  (${line.unknown} of unknown cost not counted)` : ""}`;
+    : `${money(line.usd)}${line.unknown > 0 ? `  (${line.unknown} of unknown cost not counted)` : ""}`;
 const used = (line: CostLine) =>
   `${String(line.sessions).padStart(4)} session${line.sessions === 1 ? " " : "s"} ${String(line.tokens).padStart(12)} tokens  ${amount(line)}`;
 

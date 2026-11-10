@@ -54,7 +54,7 @@ function RoleRow({
           </span>
         ) : null}
       </th>
-      <td>
+      <td data-label="Account">
         <select
           aria-label={`Account for the role ${role.role}`}
           value={account}
@@ -63,13 +63,17 @@ function RoleRow({
           {bound === "" ? (
             <option value="">{role.works === "scripted" ? "the scripted agent" : "not bound"}</option>
           ) : null}
+          {bound !== "" && !accounts.includes(bound) ? (
+            // bound to a login that was removed, or made on another machine: shown as it is
+            <option value={bound}>{bound} (not on this machine)</option>
+          ) : null}
           {accounts.map((name) => (
             <option key={name}>{name}</option>
           ))}
         </select>
       </td>
       {(["small", "medium", "large"] as const).map((size) => (
-        <td key={size}>
+        <td key={size} data-label={`Model for ${size} lanes`}>
           <input
             aria-label={`Model for ${size} lanes of ${role.role}`}
             value={models[size] ?? ""}
@@ -79,7 +83,7 @@ function RoleRow({
           />
         </td>
       ))}
-      <td>
+      <td data-label="Effort">
         <select
           aria-label={`Effort for the role ${role.role}`}
           value={effort}
@@ -93,7 +97,12 @@ function RoleRow({
         </select>
       </td>
       <td>
-        <button type="button" className="button" disabled={!changed || account === "" || busy} onClick={bind}>
+        <button
+          type="button"
+          className="button"
+          disabled={!changed || !accounts.includes(account) || busy}
+          onClick={bind}
+        >
           Bind
         </button>
       </td>

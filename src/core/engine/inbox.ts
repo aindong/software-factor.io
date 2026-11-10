@@ -19,6 +19,8 @@ export async function decide(
   note: string,
   /** Told at once that the decision is recorded, before the run goes on: what waits on it need not wait for the run. */
   taken?: (line: string) => void,
+  /** The inbox item the person decided on, when they named it: a decision is not carried over to the next checkpoint. */
+  onItem?: number,
 ): Promise<RunSummary> {
   preflight(ws);
   const db = openDb(ws.dbPath);
@@ -31,6 +33,12 @@ export async function decide(
       throw new UserError(
         `Run ${runId} is not waiting for a person (it is ${run.status}).`,
         "See what is waiting with `softwarefactor inbox`.",
+      );
+    }
+    if (onItem !== undefined && item.id !== onItem) {
+      throw new UserError(
+        `Run ${runId} no longer waits on what you decided on: it now waits at lane "${item.lane}".`,
+        "Look at the inbox again and decide on what it shows now.",
       );
     }
     const log: string[] = [];

@@ -37,6 +37,9 @@ export function Inbox() {
   const rows = useRef(new Map<number, HTMLDivElement>());
   const head = useRef<HTMLHeadingElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
+  const decided = useRef<number>(undefined); // the item this page just decided on
+  const lost = useRef(false); // the item on show was decided elsewhere: nothing is chosen until the person chooses
+  const guard = useRef(0); // until when the deciding keys rest, after the page itself moved to another item
 
   // the list changes when a run starts or stops waiting: ask again whenever those runs change
   const waiting = (runs ?? [])
@@ -53,10 +56,32 @@ export function Inbox() {
       left = true;
     };
   }, [waiting]);
-  const current = items?.find((i) => i.id === chosen) ?? items?.[0];
+  const current = items?.find((i) => i.id === chosen);
+  // What is on show changes only in ways the person can follow. After their own decision the page
+  // moves to the next item, and the keys rest a moment so a second tap does not land on it. When
+  // the item was decided elsewhere, nothing is chosen: a key must never decide on what was not read.
   useEffect(() => {
-    if (items && !items.some((i) => i.id === chosen)) setChosen(items[0]?.id);
+    if (!items || (chosen !== undefined && items.some((i) => i.id === chosen))) return;
+    if (chosen === undefined) {
+      if (!lost.current && items[0]) setChosen(items[0].id);
+    } else if (decided.current === chosen) {
+      const next = items[0];
+      guard.current = Date.now() + 600;
+      setChosen(next?.id);
+      requestAnimationFrame(() => next && rows.current.get(next.id)?.focus());
+    } else {
+      lost.current = true;
+      setChosen(undefined);
+      setNotice({
+        text: "What you were looking at was decided elsewhere. Choose what to decide on next.",
+        bad: false,
+      });
+    }
   }, [items, chosen]);
+  const choose = (id: number) => {
+    lost.current = false;
+    setChosen(id);
+  };
   // a note belongs to the item it was begun for
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset when another item is chosen
   useEffect(() => {
@@ -71,6 +96,7 @@ export function Inbox() {
     setBusy(true);
     const { status, body } = await op<{ state?: string }>("inbox_decide", {
       run: current.run,
+      item: current.id, // the item that was on show: the decision is for it and for nothing the run waits on later
       decision,
       ...(words.trim() ? { note: words } : {}),
     });
@@ -82,6 +108,9 @@ export function Inbox() {
       });
       setNoting(undefined);
       setNote("");
+      // it leaves the list at once: the record will say the same in a moment
+      decided.current = current.id;
+      setItems((items ?? []).filter((i) => i.id !== current.id));
     } else {
       // the factory refused: its own words, and what to do
       setNotice({ text: body.error ?? "The factory did not take the decision.", fix: body.fix, bad: true });
@@ -104,6 +133,8 @@ export function Inbox() {
   /** The keys that decide. Not while typing: letters in a note are letters. */
   const onKey = (event: KeyboardEvent) => {
     if (!current || typing(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+    // a key held down, or pressed again just as the page moved on, decides nothing
+    if (event.repeat || Date.now() < guard.current) return;
     const can = (d: Decision) => current.decisions.includes(d);
     if (event.key === "a" && can("approve")) decide("approve");
     else if (event.key === "r" && can("reject")) ask("reject");
@@ -122,7 +153,7 @@ export function Inbox() {
     const to = event.key === "ArrowDown" ? at + 1 : event.key === "ArrowUp" ? at - 1 : undefined;
     const next = to === undefined ? undefined : list[to];
     if (next) {
-      setChosen(next.id);
+      choose(next.id);
       rows.current.get(next.id)?.focus();
     } else if (event.key === "Enter") {
       setInside(true);
@@ -180,9 +211,10 @@ export function Inbox() {
                 role="option"
                 className="run"
                 aria-selected={item.id === current?.id}
-                tabIndex={item.id === current?.id ? 0 : -1}
+                tabIndex={item.id === (current?.id ?? items[0]?.id) ? 0 : -1}
+                onFocus={() => choose(item.id)}
                 onClick={() => {
-                  setChosen(item.id);
+                  choose(item.id);
                   setInside(true);
                 }}
                 onKeyDown={(event) => onRowKey(event, at)}
@@ -222,6 +254,7 @@ export function Inbox() {
                       value={note}
                       onChange={(event) => setNote(event.target.value)}
                       onKeyDown={(event) => {
+                        if (event.nativeEvent.isComposing) return; // Enter that ends a composition is not "send"
                         if (event.key === "Enter" && !event.shiftKey) {
                           event.preventDefault();
                           send();
@@ -287,7 +320,11 @@ export function Inbox() {
                 />
               ) : null}
             </div>
-          ) : null}
+          ) : (
+            <div className="plain">
+              <p>Choose what to decide on.</p>
+            </div>
+          )}
         </div>
       )}
     </main>

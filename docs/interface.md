@@ -120,6 +120,9 @@ the run's map and evidence beside the one that is chosen, so you decide with the
 | Enter, on a question | Puts the keyboard in the answer. Type it, Enter sends. Letters typed there are letters. |
 
 A decision is the command line's own command, started by the server in a process of its own (docs/operations.md).
+It is made on the item that is on show and on nothing the run waits on later. After your decision the page
+moves to the next item and the keys rest for a moment. When the item you were reading is decided elsewhere,
+nothing is chosen until you choose.
 When the factory refuses, for example because every slot is busy, its message and its fix are shown.
 
 ## Accounts

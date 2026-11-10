@@ -6,3 +6,6 @@ export const oneLine = (text: string, max = 500) => {
   const flat = text.replace(UNSAFE, " ").replace(/\s+/g, " ").trim();
   return flat.length > max ? `${flat.slice(0, max)}...` : flat;
 };
+
+/** An amount in dollars as it is, to the millionth, with at least two places: never a small one as nothing. */
+export const money = (usd: number) => `$${usd.toFixed(6).replace(/(\.\d{2}\d*?)0+$/, "$1")}`;

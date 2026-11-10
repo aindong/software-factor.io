@@ -63,3 +63,7 @@ section() { # a section of the rail, by keyboard
 narrow() { # at phone width the page must not scroll sideways
   expect "$1 does not scroll sideways at 390" "$(js "() => document.documentElement.scrollWidth <= 390")" '^true$'
 }
+fits() { # at phone width nothing in the section scrolls sideways, also not inside a box of its own
+  narrow "$1"
+  expect "nothing in $1 scrolls sideways at 390" "$(js "() => [...document.querySelectorAll('main *')].filter((e) => /auto|scroll/.test(getComputedStyle(e).overflowX) && e.scrollWidth > e.clientWidth + 1).map((e) => e.className).join(' ') || 'none'")" '^none$'
+}

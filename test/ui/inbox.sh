@@ -89,6 +89,7 @@ section Inbox
 wait_for "the inbox lists what waits" "() => [...document.querySelectorAll('.run .task')].map((t) => t.textContent).join(' | ')" '^Add an export button \| Publish the release \| Pick a database$'
 expect "an approval and a question are told apart" "$(js "() => [...document.querySelectorAll('.run .mark')].map((m) => m.getAttribute('aria-label')).join(' | ')")" '^An approval \| An approval \| A question$'
 wait_for "the run's map is beside the item" "() => document.querySelectorAll('.deciding .runmap .station.lane').length" '^5$'
+wait_for "and its evidence" "() => [...document.querySelectorAll('.deciding .proof .what')].map((w) => w.textContent).join(' | ')" '^The diff of the whole run \| .*Gate verify passed \| Hand-off'
 expect "the decisions the first item takes" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve a \| Reject r \| Send back s$'
 shot inbox-light-1440
 
@@ -203,10 +204,20 @@ shot plugins-dark-1440
 section Costs && sleep 0.4 && shot costs-dark-1440
 section Accounts && sleep 0.4 && shot accounts-dark-1440
 # something to decide again, for the inbox in the dark and at phone width
-echo "- [ ] Ship the hotfix" >> .factor/ships.md
-sf run > "$work/run5.log" 2>&1; [ $? -eq 3 ] || fail "run 5 should wait: $(cat "$work/run5.log")"
+printf '%s\n' "- [ ] Ship the docs" "- [ ] Ship the hotfix" >> .factor/ships.md
+for n in 5 6; do
+  sf run > "$work/run$n.log" 2>&1; [ $? -eq 3 ] || fail "run $n should wait: $(cat "$work/run$n.log")"
+done
 section Inbox
-wait_for "the new item appears" "() => [...document.querySelectorAll('.run .task')].map((t) => t.textContent).join(' | ')" '^Ship the hotfix$'
+wait_for "the new items appear" "() => [...document.querySelectorAll('.run .task')].map((t) => t.textContent).join(' | ')" '^Ship the docs \| Ship the hotfix$'
+# r: a box for why, which may stay empty, and Enter rejects
+tab_to '^Ship the docs'
+pw press r
+expect "r puts the keyboard in a note that may stay empty" "$(js "() => document.activeElement.tagName + ' ' + document.activeElement.labels[0].textContent")" '^TEXTAREA Why \(optional\)'
+pw press Enter
+wait_for "the item is rejected and leaves the list" "() => document.querySelector('.topbar .status').textContent + ' | ' + [...document.querySelectorAll('.run .task')].map((t) => t.textContent).join(' | ')" '^Rejected\..* \| Ship the hotfix$'
+expect "the page moved to the next item, with the keyboard on it" "$(js "$focused")" '^Ship the hotfix'
+sf runs | grep -A1 "Ship the docs" | grep -q "Stopped" || fail "the rejected run did not stop: $(sf runs)"
 shot inbox-dark-1440
 pw resize 390 844
 narrow "the inbox"
@@ -221,11 +232,11 @@ shot inbox-item-light-390
 for name in Accounts Costs Plugins; do
   section "$name"
   sleep 0.4
-  narrow "$name"
+  fits "$name"
   shot "$(echo "$name" | tr '[:upper:]' '[:lower:]')-light-390"
 done
 theme Dark
-for name in Accounts Costs; do
+for name in Accounts Costs Plugins; do
   section "$name"
   sleep 0.4
   shot "$(echo "$name" | tr '[:upper:]' '[:lower:]')-dark-390"

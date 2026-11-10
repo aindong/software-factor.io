@@ -1,7 +1,7 @@
 // The list of runs, kept up to date by the server. One connection for the whole page, shared by
 // every screen that shows runs and by the rail's count, and open only while one of them is shown.
 import { useSyncExternalStore } from "react";
-import { listen, type RunRow } from "./api.ts";
+import { hasKey, listen, type RunRow } from "./api.ts";
 
 interface Live {
   runs: RunRow[] | undefined;
@@ -16,10 +16,12 @@ const set = (change: Partial<Live>) => {
 };
 function subscribe(tell: () => void): () => void {
   listeners.add(tell);
-  stop ??= listen(
-    (runs) => set({ runs }),
-    (live) => set({ live }),
-  );
+  // a page with no key is refused, and a refusal loads the page again: it would never end
+  if (hasKey)
+    stop ??= listen(
+      (runs) => set({ runs }),
+      (live) => set({ live }),
+    );
   return () => {
     listeners.delete(tell);
     if (listeners.size === 0) {

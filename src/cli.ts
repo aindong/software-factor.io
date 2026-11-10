@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 // The command line. Every command is a thin layer over a core operation, so the interface and the
 // MCP server can offer the same ones (ADR 0008).
 import { parseArgs } from "node:util";
@@ -22,7 +22,7 @@ import { serveOperator } from "./core/mcp-operator.ts";
 import { reportFiles } from "./core/schema/check-files.ts";
 import { startServer } from "./core/server.ts";
 import { openInbox, readStatus } from "./core/store.ts";
-import { loadWorkspace } from "./core/workspace.ts";
+import { factorHome, loadWorkspace } from "./core/workspace.ts";
 
 const HELP = `softwarefactor: a software factory you assemble yourself
 
@@ -48,7 +48,8 @@ Usage: softwarefactor <command>
   sessions [run]           Show each start of an agent: account, model, tokens by kind and cost,
                            with a total per run and per account
   inbox                    Show what waits for a person
-  approve <run>            Approve a waiting lane
+  approve <run>            Approve a waiting lane. With --item <n> on any decision: only if the run
+                           still waits on that inbox item
   reject <run> [--note]    Reject it: the lane's fail transition is taken
   send-back <run> --note   Run the lane again with your note
   answer <run> --note      Answer a lane's question and run it again
@@ -129,6 +130,13 @@ async function mcpCommand(args: string[]): Promise<number> {
       return 1;
     }
     const root = args[args.indexOf("--workspace") + 1];
+    // a run's worktree holds the factory's files too, but it is where an agent works, not a workspace
+    if (root && resolve(root).startsWith(`${join(factorHome(), "work")}${sep}`)) {
+      console.error(
+        "softwarefactor mcp --operator was given the worktree of a run. Give it your own repository.",
+      );
+      return 1;
+    }
     if (!args.includes("--workspace") || !root || !existsSync(join(root, ".factor", "factory.json"))) {
       console.error("softwarefactor mcp --operator needs --workspace <folder>: a repository with a factory.");
       return 1;
@@ -178,6 +186,7 @@ async function main(): Promise<number> {
       effort: { type: "string" },
       port: { type: "string" },
       diff: { type: "boolean" },
+      item: { type: "string" },
     },
   });
   const command = positionals[0];
@@ -317,7 +326,14 @@ async function main(): Promise<number> {
     if (!runId)
       throw new UserError(`"${command}" needs a run id.`, "See what is waiting with `softwarefactor inbox`.");
     // the line that says the decision is recorded is printed at once: the interface waits for it
-    const summary = await decide(loadWorkspace(cwd), runId, command, values.note ?? "", say);
+    const item = values.item === undefined ? undefined : Number(values.item);
+    if (item !== undefined && !Number.isInteger(item)) {
+      throw new UserError(
+        `--item needs the number of an inbox item, not "${values.item}".`,
+        "Leave it out to decide on whatever the run waits on.",
+      );
+    }
+    const summary = await decide(loadWorkspace(cwd), runId, command, values.note ?? "", say, item);
     for (const line of summary.log) say(line);
     return EXIT[summary.status];
   }

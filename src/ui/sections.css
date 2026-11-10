@@ -157,6 +157,47 @@
   border-radius: 3px;
 }
 
+.table th[scope="row"] {
+  overflow-wrap: anywhere;
+}
+/* on a narrow screen nothing scrolls sideways: a table fits, and the roles become one block each */
+@media (max-width: 760px) {
+  .table {
+    width: 100%;
+    min-width: 0;
+  }
+  .table th,
+  .table td {
+    padding-right: var(--sm);
+  }
+  .table.roles thead {
+    display: none;
+  }
+  .table.roles,
+  .table.roles tbody,
+  .table.roles tr,
+  .table.roles th,
+  .table.roles td {
+    display: block;
+    height: auto;
+    border-bottom: 0;
+    padding-right: 0;
+  }
+  .table.roles tr {
+    display: grid;
+    gap: var(--sm);
+    padding: var(--md) 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .table.roles td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: var(--xs);
+    font: 600 var(--text-label) / 1.2 var(--font-tight);
+    color: var(--ink-soft);
+  }
+}
+
 @media (max-width: 1000px) {
   .runs[data-inside="false"] .deciding {
     display: none;
