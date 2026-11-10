@@ -110,8 +110,9 @@ describe("changing a lane's settings", () => {
 
   it("changes the agent's settings one at a time", () => {
     const w = updateLane(start(), "build", { agent: { tier: "small" } });
-    expect((lane(w, "build")?.agent as Json).tier).toBe("small");
-    expect((lane(w, "build")?.agent as Json).role).toBe((lane(start(), "build")?.agent as Json).role);
+    const agentOf = (workflow: Json) => (lane(workflow, "build")?.agent ?? {}) as Json;
+    expect(agentOf(w).tier).toBe("small");
+    expect(agentOf(w).role).toBe(agentOf(start()).role);
   });
 });
 
