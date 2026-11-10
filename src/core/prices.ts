@@ -87,8 +87,10 @@ export interface TokenCounts {
 export function priceOf(model: string | undefined, used: TokenCounts): number | undefined {
   // its own entry only: "constructor" is a name every object answers to
   const prices = readPrices();
-  // a CLI may print a model with its context size or its date behind it: "claude-opus-5-5[1m]"
-  const named = [model, model?.replace(/\[\w+\]$/, "").replace(/-\d{8}$/, "")].find(
+  // a CLI may print a model with its context size behind it ("claude-opus-5-5[1m]"), and a Claude
+  // model with its date. The name as printed comes first, so a person's own entry is the one used.
+  const plain = model?.replace(/\[\w+\]$/, "");
+  const named = [model, plain, plain?.startsWith("claude-") ? plain.replace(/-\d{8}$/, "") : undefined].find(
     (name) => name !== undefined && Object.hasOwn(prices, name),
   );
   const price = named === undefined ? undefined : prices[named];

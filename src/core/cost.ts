@@ -10,7 +10,7 @@ import { codexUsage } from "./agents/codex.ts";
 import type { Db } from "./db.ts";
 import { readTail } from "./safe-read.ts";
 import type { Session } from "./store.ts";
-import { money } from "./text.ts";
+import { money, oneLine } from "./text.ts";
 import { type CostLine, type CostsView, costLine, costsView, millionth } from "./views.ts";
 import type { Workspace } from "./workspace.ts";
 
@@ -46,7 +46,15 @@ export interface CostReport extends CostsView {
     /** Tasks that are still open, and sessions whose task is no longer in the record. */
     other: CostLine;
   };
-  failedRuns: { run: string; task: string; why: string; tokens: number; usd: number | null }[];
+  /** `usd` is the cost that is known, and `unknown` how many of the run's sessions it leaves out. */
+  failedRuns: {
+    run: string;
+    task: string;
+    why: string;
+    tokens: number;
+    usd: number | null;
+    unknown: number;
+  }[];
 }
 
 const sum = (rows: Row[], column: (typeof KINDS)[number][1] | "tokens") =>
@@ -57,7 +65,8 @@ function cacheRate(rows: Row[]): number | null {
   const real = rows.filter((s) => s.agent !== "fake");
   const read = sum(real, "cache_read_tokens");
   const all = sum(real, "input_tokens") + read + sum(real, "cache_write_tokens");
-  return all === 0 ? null : Math.floor((read / all) * 100);
+  // whole numbers until the last step: 0.29 * 100 is a little under 29
+  return all === 0 ? null : Math.floor((read * 100) / all);
 }
 
 function groups<T>(rows: T[], key: (row: T) => string): T[][] {
@@ -93,8 +102,9 @@ export function costReport(db: Db): CostReport {
     task: list[0]?.title ?? "",
     why: list[0]?.stop_code ?? list[0]?.run_status ?? "",
     tokens: sum(list, "tokens"),
-    // a run with one session of unknown cost has no known cost: part of it is not its cost
-    usd: list.some((s) => s.usd === null) ? null : costLine(list).usd,
+    // a start that was cut off prints no cost: the run is still ranked by the cost that is known
+    usd: costLine(list).usd,
+    unknown: costLine(list).unknown,
   }));
   // by known cost, and after those the runs of unknown cost by what they used
   failed.sort(
@@ -107,7 +117,7 @@ export function costReport(db: Db): CostReport {
   return {
     ...costsView(db),
     byModel: groups(rows, (s) => s.model ?? "").map((list) => ({
-      model: list[0]?.model ?? null,
+      model: list[0]?.model || null,
       ...costLine(list),
       cacheRate: cacheRate(list),
     })),
@@ -133,7 +143,7 @@ export function costReport(db: Db): CostReport {
       other: costLine(rows.filter((s) => !["done", "stopped", "dropped"].includes(s.task_status ?? ""))),
     },
     // a run that used nothing is not an expensive one
-    failedRuns: failed.filter((r) => r.tokens > 0 || r.usd !== 0).slice(0, MOST_FAILED),
+    failedRuns: failed.filter((r) => r.tokens > 0 || (r.usd ?? 0) > 0).slice(0, MOST_FAILED),
   };
 }
 
@@ -183,7 +193,7 @@ export function costCommand(db: Db, say: Say): number {
   say("Landed");
   if (landed.tasks === 0) say("  No task has landed yet.");
   else {
-    say(`  ${landed.tasks} of ${landed.ended} ended tasks landed`);
+    say(`  ${landed.tasks} of ${landed.ended} ended task${landed.ended === 1 ? "" : "s"} landed`);
     const unknownToo =
       landed.spent.unknown > 0 ? `  (${sessions(landed.spent.unknown)} of unknown cost not counted)` : "";
     say(
@@ -197,7 +207,7 @@ export function costCommand(db: Db, say: Say): number {
     say("Most expensive runs that did not land");
     for (const r of costs.failedRuns) {
       say(
-        `  ${r.run}  ${r.task.slice(0, 28)}  ${r.why}  ${r.tokens} tokens  ${r.usd === null ? "unknown" : money(r.usd)}`,
+        `  ${r.run}  ${r.task.slice(0, 28)}  ${r.why}  ${r.tokens} tokens  ${r.usd === null ? "unknown" : `${money(r.usd)}${notCounted({ ...costs.total, unknown: r.unknown })}`}`,
       );
     }
   }
@@ -222,6 +232,16 @@ function eventsOf(data: Buffer): { events: Record<string, unknown>[]; cut: boole
 
 /** `cost --check`: 0 when the report, the session rows and the kept transcripts say the same, to the token. */
 export function costCheck(ws: Pick<Workspace, "root" | "runsDir">, db: Db, say: Say): number {
+  // one view of the record for every read: a factory that works meanwhile adds rows between two reads
+  db.exec("begin");
+  try {
+    return check(ws, db, say);
+  } finally {
+    db.exec("commit");
+  }
+}
+
+function check(ws: Pick<Workspace, "root" | "runsDir">, db: Db, say: Say): number {
   const report = costReport(db);
   if (report.total.sessions === 0) {
     say("No sessions yet. There is nothing to check.");
@@ -253,6 +273,16 @@ export function costCheck(ws: Pick<Workspace, "root" | "runsDir">, db: Db, say: 
     const kinds = s.input_tokens + s.output_tokens + s.cache_read_tokens + s.cache_write_tokens;
     if (s.tokens !== kinds)
       problems.push(`${at}: its total is ${s.tokens} and its four kinds add up to ${kinds}`);
+    // only the scripted agent, and a start that used nothing, have nothing to prove
+    const reads = s.agent === "claude" || s.agent === "codex";
+    if (kinds > 0 && s.agent !== "fake" && (!reads || s.transcript_path === null)) {
+      problems.push(
+        reads
+          ? `${at}: its row holds ${kinds} tokens and names no transcript: the row cannot be proved`
+          : `${at}: its row holds ${kinds} tokens, and the output of the agent "${oneLine(s.agent, 40)}" names none: the row cannot be proved`,
+      );
+      continue;
+    }
     if (s.transcript_path === null) {
       none += 1;
       continue;

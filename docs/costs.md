@@ -20,7 +20,7 @@ By model
 Total                             3 sessions        48210 tokens  $0.61
 Cache hit rate                  91% of what went in was read from a cache
 Landed
-  1 of 1 ended tasks landed
+  1 of 1 ended task landed
   cost per landed task         $0.61  (every run of those tasks)
 ```
 
@@ -34,8 +34,9 @@ Landed
 - **Landed.** A task has landed when it ended done. The cost per landed task is the known cost of every run of
   those tasks, the runs that stopped on the way included, divided by their number. What was spent on tasks that
   did not land, and on tasks that are still open, is shown beside it. The three amounts add up to the total.
-- **Most expensive runs that did not land.** Up to five runs that stopped or were dropped, by cost. A run with a
-  session of unknown cost comes after the others, by its tokens, and says "unknown".
+- **Most expensive runs that did not land.** Up to five runs that stopped or were dropped, by the cost that is
+  known. A run says how many of its sessions that amount leaves out (a start that was cut off prints no cost). A
+  run with no known cost at all comes after the others, by its tokens, and says "unknown".
 
 A cost that is not known is never shown as nothing spent. A line says how many of its sessions have no known
 cost, and the amount beside it leaves those out.
@@ -78,8 +79,10 @@ Checked 3 sessions on 2 lanes: 3 transcripts re-read, 0 with no transcript. The 
 - For a Claude or Codex session, the tokens the CLI printed in that transcript are the row's four kinds.
 
 Anything else is printed, with the run, the lane and both numbers, and the command exits 1. A transcript that is
-gone counts as a failure: a deleted file must not hide a changed row.
+gone counts as a failure, and so does a row that holds tokens and names no transcript, or whose agent prints no
+tokens that could be read again: a row that cannot be proved is not called proved.
 
-What it cannot prove: that the vendor counted right, and anything about a session that left no transcript (the
-scripted agent). A Codex transcript that was cut for its size is not re-read, and the check says how many were
+What it cannot prove: that the vendor counted right, anything about a session of the scripted agent (it leaves
+no transcript), and a record changed by someone who can write the database and the kept files alike. The check
+finds mistakes, in the report and in what was recorded. It is no seal. A Codex transcript that was cut for its size is not re-read, and the check says how many were
 not.
