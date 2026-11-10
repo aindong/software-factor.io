@@ -33,6 +33,6 @@ describe("the built interface, with no network", () => {
     const page = readFileSync("dist/ui/index.html", "utf8");
     expect(page).toMatch(/<script type="module"[^>]+src="\/assets\//);
     expect(page).toMatch(/<link rel="stylesheet"[^>]+href="\/assets\//);
-    expect(page).toContain('name="factor-token"');
+    expect(page).not.toContain("factor-token"); // the page is the same for everyone: it holds no key
   });
 });

@@ -430,8 +430,10 @@ export function ensureUi(): void {
 }
 
 export interface Ui {
+  /** The server's origin. */
   url: string;
-  /** The token the page carries, read from the page as a browser would. */
+  /** The address the command printed: the origin, and the token after the #. */
+  address: string;
   token: string;
   /** Call the API as the page does. */
   api: (
@@ -440,7 +442,7 @@ export interface Ui {
   ) => Promise<Response>;
   stop: () => Promise<void>;
 }
-/** Start `softwarefactor ui` on a free port and wait until it answers. */
+/** Start `softwarefactor ui` on a free port and wait until it has printed its address. */
 export async function startUi(repo: Repo): Promise<Ui> {
   ensureUi();
   const child = spawn(process.execPath, [CLI, "ui", "--port", "0"], {
@@ -455,14 +457,14 @@ export async function startUi(repo: Repo): Promise<Ui> {
   child.stderr?.on("data", (chunk) => {
     out += chunk;
   });
-  const found = () => /http:\/\/127\.0\.0\.1:\d+/.exec(out)?.[0];
+  const found = () => /http:\/\/127\.0\.0\.1:\d+\/#t=[0-9a-f]+/.exec(out)?.[0];
   for (let waited = 0; waited < 10_000 && !found(); waited += 50) await new Promise((r) => setTimeout(r, 50));
-  const url = found();
-  if (!url) throw new Error(`the interface did not start: ${out}`);
-  const page = await (await fetch(url)).text();
-  const token = /name="factor-token" content="([^"]+)"/.exec(page)?.[1] ?? "";
+  const address = found();
+  if (!address) throw new Error(`the interface did not start: ${out}`);
+  const [url = "", token = ""] = address.split("/#t=");
   return {
     url,
+    address,
     token,
     api: (path, init = {}) =>
       fetch(`${url}${path}`, {

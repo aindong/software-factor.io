@@ -26,7 +26,7 @@ const withHost = (host: string, path: string) =>
   });
 
 describe("softwarefactor ui", () => {
-  it("serves the interface on this machine only, with a token in the page", async () => {
+  it("serves the interface on this machine only, and lets no other origin read it", async () => {
     expect(new URL(ui.url).hostname).toBe("127.0.0.1");
     const page = await fetch(ui.url);
     expect(page.status).toBe(200);

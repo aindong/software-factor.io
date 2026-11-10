@@ -131,3 +131,35 @@ describe("every edit", () => {
     expect(lane(w, "review")).toBeDefined();
   });
 });
+
+describe("renaming a lane whose id is not an id", () => {
+  it("does not throw on an id with characters a pattern would read, and leaves other lanes' names alone", () => {
+    const odd = frozen({
+      lanes: [
+        { id: "(", on: { pass: "abc", fail: "@stop" } },
+        { id: "a.c", on: { pass: "@done" } },
+        { id: "abc", inputs: { x: "abc.outputs.y" }, on: { pass: "@done" } },
+      ],
+    });
+    expect(() => renameLane(odd, "(", "build")).not.toThrow();
+    const renamed = renameLane(odd, "a.c", "middle");
+    expect(lanes(renamed).map((l) => l.id)).toEqual(["(", "middle", "abc"]);
+    expect((lane(renamed, "abc") as Json).inputs).toEqual({ x: "abc.outputs.y" });
+  });
+
+  it("does not rename a lane whose id only starts the same", () => {
+    const w = frozen({
+      lanes: [
+        { id: "build", on: { pass: "build-ui" } },
+        { id: "build-ui", inputs: { x: "build-ui.outputs.y", z: "build.outputs.q" }, on: { pass: "@done" } },
+      ],
+    });
+    const renamed = renameLane(w, "build", "make");
+    expect(lanes(renamed).map((l) => l.id)).toEqual(["make", "build-ui"]);
+    expect((lane(renamed, "build-ui") as Json).inputs).toEqual({
+      x: "build-ui.outputs.y",
+      z: "make.outputs.q",
+    });
+    expect(lane(renamed, "make")?.on.pass).toBe("build-ui");
+  });
+});

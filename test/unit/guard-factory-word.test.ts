@@ -41,3 +41,13 @@ describe("the guard and the word softwarefactor", () => {
     expect(bash(command).allow).toBe(false);
   });
 });
+
+describe("the guard and the interface's server", () => {
+  it.each([
+    "softwarefactor ui",
+    "env -u FACTOR_RUN_ID softwarefactor ui --port 0",
+    "npx softwarefactor ui &",
+  ])("denies an agent starting it: %s", (command) => {
+    expect(bash(command).allow).toBe(false);
+  });
+});
