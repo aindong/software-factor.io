@@ -85,7 +85,11 @@ export async function standin(kind) {
         },
       ];
       const input = `${send.map((m) => JSON.stringify(m)).join("\n")}\n`;
-      const r = server ? spawnSync(server.command, server.args, { input, encoding: "utf8" }) : undefined;
+      // with a bare environment: a real CLI does not pass its own on to a server
+      const bare = { PATH: process.env.PATH, HOME: process.env.HOME };
+      const r = server
+        ? spawnSync(server.command, server.args, { input, encoding: "utf8", env: bare })
+        : undefined;
       const answers = (r?.stdout ?? "")
         .trim()
         .split("\n")
