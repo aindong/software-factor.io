@@ -56,10 +56,14 @@ shot() {
   mkdir -p "$shots"
   pw screenshot --filename="$shots/$1.png" || fail "screenshot $1"
 }
-theme() { # the rail's own theme button, by keyboard
-  tab_to '^(Auto|Light|Dark)$'
+theme() { # the rail's own theme button, by keyboard: it is the last stop before the section
+  back_to '^(Auto|Light|Dark)$'
   for _ in 1 2 3; do
-    [ "$(js "$focused")" = "$1" ] && return 0
+    if [ "$(js "$focused")" = "$1" ]; then
+      # the page itself took the theme: its ground is light or dark as asked
+      expect "the page is in the $1 theme" "$(js "() => { const l = Number(/oklch\\(([0-9.]+)/.exec(getComputedStyle(document.body).backgroundColor)?.[1] ?? -1); return l > 0.6 ? 'Light' : 'Dark'; }")" "^$1$"
+      return 0
+    fi
     pw press Enter
   done
   fail "the theme did not become $1"
@@ -208,6 +212,8 @@ expect "stepping back shows the run as it was" "$(js "() => document.activeEleme
 expect "the stations follow" "$(js "() => [...document.querySelectorAll('.runmap .station.lane')].map((s) => s.getAttribute('aria-label')).join(' | ')")" '^Lane Build, author, passed in this run \| Lane Review, reviewer, failed in this run, task 1 is here \| Lane Check, command \| Lane Ship it, command, waits for a person$'
 expect "the train is where the run was" "$(js "() => document.querySelector('.runmap .train')?.closest('.station').getAttribute('aria-label')")" '^Lane Review'
 shot run-replay-light-1440
+pw press ArrowRight
+expect "stepping forward goes on" "$(js "() => document.activeElement.getAttribute('aria-valuetext')")" '^Step 3 of 6: Build passed$'
 pw press Home
 expect "the first step is before any lane" "$(js "() => document.activeElement.getAttribute('aria-valuetext') + ' ' + document.querySelectorAll('.runmap [class*=ran-]').length")" '^Before the first lane 0$'
 pw press End

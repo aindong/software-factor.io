@@ -123,7 +123,7 @@ describe("the lines a run took", () => {
     leg("review", "fail", "@stop", "review.fail[1]"),
   ];
   const visits = [v("plan"), v("build"), v("review", "fail"), v("build"), v("review")];
-  const route = (n?: number, ended?: boolean) => [...routeOf(lines, visits, n, ended)].sort().join(" ");
+  const route = (n?: number, end?: string) => [...routeOf(lines, visits, n, end)].sort().join(" ");
 
   it("are those between one visit and the next, up to the step", () => {
     expect(route(0)).toBe("");
@@ -134,12 +134,16 @@ describe("the lines a run took", () => {
     expect(route()).toBe("build.pass plan.pass review.fail[0]");
   });
 
-  it("reach the end of the run only when it has ended, and only at the last step", () => {
-    expect(route(undefined, true)).toBe("build.pass plan.pass review.fail[0] review.pass");
-    expect(route(3, true)).toBe("build.pass plan.pass");
-    // two lines could have been the way out: neither is claimed
-    expect([...routeOf(lines, [v("review", "fail")], undefined, true)]).toEqual([]);
-    expect([...routeOf(lines, [v("build", "fail")], undefined, true)]).toEqual(["build.fail"]);
+  it("reach an end only when the run came to that end, and only at the last step", () => {
+    expect(route(undefined, "@done")).toBe("build.pass plan.pass review.fail[0] review.pass");
+    expect(route(3, "@done")).toBe("build.pass plan.pass");
+    // the run passed its last lane but was stopped: it did not come to Done
+    expect(route(undefined, "@stop")).toBe("build.pass plan.pass review.fail[0]");
+    // a fail that could go back or stop, in a run that stopped: it stopped
+    expect([...routeOf(lines, [v("review", "fail")], undefined, "@stop")]).toEqual(["review.fail[1]"]);
+    expect([...routeOf(lines, [v("review", "fail")], undefined, "@done")]).toEqual([]);
+    expect([...routeOf(lines, [v("build", "fail")], undefined, "@stop")]).toEqual(["build.fail"]);
+    expect([...routeOf(lines, [v("build", null)], undefined, "@stop")]).toEqual([]);
   });
 
   it("leave out a step the map has no line for", () => {

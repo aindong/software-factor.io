@@ -12,11 +12,12 @@ import { drawable } from "../floor/layout.ts";
 import { readTail } from "../safe-read.ts";
 import type { GateRecord, InboxItem, Outcome, Run, Session } from "../store.ts";
 import { factorHome, workspaceId } from "../workspace.ts";
-import { type Now, sentenceOf } from "./sentence.ts";
+import { activityOf, type Now, sentenceOf } from "./sentence.ts";
 import { kindOf } from "./track.ts";
 
 const MOST = 50;
 const TAIL = 64_000;
+const FAR_TAIL = 4_000_000;
 const MAX_FILE = 50_000_000;
 const MAX_DIFF = 1_000_000;
 const NAME = /^[a-z][a-z0-9-]*$/;
@@ -182,9 +183,11 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
         // the lane's folder is, but only a folder of this run's own is read, and never through a link.
         const out = join(factorHome(), "work", workspaceId(root), `${run.id}.out`);
         if (typeof handoff === "string" && dirname(dirname(resolve(handoff))) === out) {
-          now.tail = readTail(join(`${dirname(resolve(handoff))}.host`, "stream.jsonl"), TAIL)?.data.toString(
-            "utf8",
-          );
+          const stream = join(`${dirname(resolve(handoff))}.host`, "stream.jsonl");
+          const last = (bytes: number) => readTail(stream, bytes)?.data.toString("utf8");
+          now.tail = last(TAIL);
+          // the last line is often one long result of a tool: look further back for what was done
+          if (now.tail !== undefined && activityOf(now.tail) === undefined) now.tail = last(FAR_TAIL);
         }
       }
     }

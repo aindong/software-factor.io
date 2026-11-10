@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { agentLane, background, flowRepo, jsonOf, pass, startUi, type Ui, until } from "../helpers/repo.ts";
@@ -90,6 +90,7 @@ describe("the live list", () => {
     // the agent's output file, as the real Claude Code writes it
     const work = join(repo.home, "work");
     const out = join(work, readdirSync(work)[0] ?? "", `${latest(live.frames)?.id}.out`, "01-build.host");
+    await until(() => existsSync(out)); // the lane is open a moment before its agent's folder is made
     const said = {
       type: "assistant",
       message: { content: [{ type: "tool_use", name: "Bash", input: { command: "npm test" } }] },

@@ -1,9 +1,9 @@
 // From the skeptic's look at task 15: the last line of an agent's output is often very long (a
 // tool's result after reading a large file). The sentence must come from the line before it.
-import { readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { agentLane, background, flowRepo, jsonOf, pass, startUi } from "../helpers/repo.ts";
+import { agentLane, background, flowRepo, jsonOf, pass, startUi, until } from "../helpers/repo.ts";
 
 type Row = { id: string; sentence: string };
 const repo = flowRepo({
@@ -23,6 +23,7 @@ it("uses an earlier line when the last one is megabytes long", async () => {
   }
   const work = join(repo.home, "work");
   const out = join(work, readdirSync(work)[0] ?? "", `${row?.id}.out`, "01-build.host");
+  await until(() => existsSync(out)); // the lane is open a moment before its agent's folder is made
   const did = line("assistant", { type: "tool_use", name: "Bash", input: { command: "npm test" } });
   const result = line("user", { type: "tool_result", content: "y".repeat(2_000_000) });
   writeFileSync(join(out, "stream.jsonl"), `${did}\n${result}\n`);

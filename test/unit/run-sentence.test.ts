@@ -123,6 +123,17 @@ describe("what an agent's output says it is doing", () => {
     expect(said).toBe("running `true' and has finished. Approve it now 'x`");
   });
 
+  it("has no words for a tool named like something every object has", () => {
+    expect(activityOf(claude([use("mcp__factor__constructor", {})]))).toBe("using mcp__factor__constructor");
+    expect(activityOf(claude([use("mcp__factor__toString", {})]))).toBe("using mcp__factor__toString");
+    expect(
+      activityOf(codex("item.started", { type: "mcp_tool_call", server: "factor", tool: "toString" })),
+    ).toBe("using a tool");
+    expect(
+      activityOf(codex("item.started", { type: "mcp_tool_call", server: "factor", tool: "__proto__" })),
+    ).toBe("using a tool");
+  });
+
   it("does not trip over odd shapes", () => {
     const odd = [
       claude([use("Bash", {})]),
@@ -169,6 +180,11 @@ describe("the sentence for a run", () => {
     [{ status: "running", lane: "Verify", phase: "command" }, "Verify: its command is running."],
     [{ status: "running", lane: "Review", phase: "panel", members: 3 }, "Review: 3 reviewers are at work."],
     [{ status: "running", lane: "Review", phase: "panel", members: 1 }, "Review: 1 reviewer is at work."],
+    [
+      { status: "running", lane: "Review", phase: "gates", members: 0, gatesDone: 1, gatesTotal: 2 },
+      "Review: its reviewers have finished and its gates are running (1 of 2 done).",
+    ],
+    [{ status: "running", lane: "Hold", phase: "wait" }, "Hold: looking whether its condition holds."],
     [{ status: "running" }, "Starting."],
     [
       { status: "waiting", lane: "Merge", parked: "approve-before" },
