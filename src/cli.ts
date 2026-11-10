@@ -18,6 +18,7 @@ import { repoRoot } from "./core/git.ts";
 import { init } from "./core/init.ts";
 import { serve } from "./core/mcp.ts";
 import { reportFiles } from "./core/schema/check-files.ts";
+import { startServer } from "./core/server.ts";
 import { openInbox, readStatus } from "./core/store.ts";
 import { loadWorkspace } from "./core/workspace.ts";
 
@@ -34,6 +35,7 @@ Usage: softwarefactor <command>
                            is empty, several runs at once
   stop <run>               Stop a run that is working or waiting
   status                   Show tasks, runs, lanes, gates and where the evidence is
+  ui [--port N]            Open the interface in a browser: the factory floor, on this machine only
   memory list | keep <id> | drop <id>
                            Show what the project remembers and what agents have proposed, and keep
                            or drop a proposed note
@@ -149,6 +151,7 @@ async function main(): Promise<number> {
       medium: { type: "string" },
       large: { type: "string" },
       effort: { type: "string" },
+      port: { type: "string" },
     },
   });
   const command = positionals[0];
@@ -185,6 +188,29 @@ async function main(): Promise<number> {
       );
     console.log("Next: commit .factor/, then `softwarefactor run`.");
     return 0;
+  }
+
+  if (command === "ui") {
+    const root = repoRoot(cwd);
+    const file = join(root, ".factor", "factory.json");
+    if (!existsSync(file))
+      throw new UserError("This repository has no factory yet.", "Run `softwarefactor init`.");
+    const port = values.port === undefined ? 4390 : Number(values.port);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      throw new UserError(`--port needs a port number, not "${values.port}".`, "For example: --port 4390.");
+    }
+    const config = JSON.parse(readFileSync(file, "utf8")) as { workflow?: unknown };
+    const served = await startServer(root, { workflow: String(config.workflow ?? "") }, port);
+    say(`Software Factor.io is open at ${served.url}  (Ctrl-C closes it)`);
+    // it serves until it is stopped: the factory's other commands keep working beside it
+    return new Promise((done) => {
+      for (const signal of ["SIGINT", "SIGTERM"] as const) {
+        process.on(signal, () => {
+          served.close();
+          done(0);
+        });
+      }
+    });
   }
 
   if (command === "account") return accountCommand(positionals.slice(1), values, say);

@@ -16,13 +16,14 @@
     "workflows"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/ui/tsconfig.json",
     "lint": "biome check .",
     "format": "biome check --write .",
     "test": "vitest run",
     "schema:gen": "node scripts/gen-schema.ts",
     "schema:check": "node scripts/check-workflows.ts",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json && vite build --config src/ui/vite.config.ts",
+    "build:ui": "vite build --config src/ui/vite.config.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.6",

@@ -22,6 +22,8 @@ export interface Station {
   checkpoint?: string;
   gates: string[];
   panel: boolean;
+  /** A transition names it, but no lane has this id. */
+  missing?: boolean;
 }
 
 export interface Line {
@@ -94,7 +96,9 @@ export function layout(workflow: Workflow): Floor {
       }
     }
   }
-  const ids = [...order, ...ENDS.filter((e) => used.has(e))];
+  // a target that is no lane and no end is still drawn, as a station that is missing, so it can be fixed
+  const unknown = [...new Set(drafts.filter((d) => d.toAt < 0 && !ENDS.includes(d.to)).map((d) => d.to))];
+  const ids = [...order, ...ENDS.filter((e) => used.has(e)), ...unknown];
   for (const d of drafts) if (d.toAt < 0) d.toAt = ids.indexOf(d.to);
   // the pass route to the next station is the main line itself: one line for each pair of neighbours
   const onMain = new Set<number>();
@@ -187,7 +191,10 @@ export function layout(workflow: Workflow): Floor {
     const lane = workflow.lanes[index];
     const labelSide = !busy(index, -1) ? "above" : !busy(index, 1) ? "below" : "above";
     const at = { id, x: xOf(index), y: mainY, labelSide } as const;
-    if (!lane) return { ...at, kind: "end", label: END_LABEL[id] ?? id, gates: [], panel: false };
+    if (!lane) {
+      const missing = unknown.includes(id) ? { missing: true } : {};
+      return { ...at, kind: "end", label: END_LABEL[id] ?? id, gates: [], panel: false, ...missing };
+    }
     return {
       ...at,
       kind: "lane",
@@ -200,4 +207,43 @@ export function layout(workflow: Workflow): Floor {
     };
   });
   return { stations, lines, width: PAD * 2 + Math.max(0, ids.length - 1) * GAP, height, mainY };
+}
+
+/**
+ * A workflow as far as it can be drawn, from JSON that may not pass the checker yet: its lanes
+ * that have an id, each with whatever transitions it has. Nothing when there is no lane to draw.
+ */
+export function drawable(doc: unknown): Workflow | undefined {
+  type Loose = Record<string, unknown>;
+  const object = (v: unknown): Loose | undefined =>
+    typeof v === "object" && v !== null ? (v as Loose) : undefined;
+  const text = (v: unknown) => (typeof v === "string" ? v : undefined);
+  const lanes = object(doc)?.lanes;
+  if (!Array.isArray(lanes)) return undefined;
+  const kept = lanes.flatMap((given) => {
+    const lane = object(given);
+    if (!lane || typeof lane.id !== "string" || lane.id === "") return [];
+    const on: Record<string, unknown> = {};
+    for (const [outcome, t] of Object.entries(object(lane.on) ?? {})) {
+      if (typeof t === "string") on[outcome] = t;
+      else if (Array.isArray(t)) {
+        const steps = t.filter((s) => typeof object(s)?.to === "string");
+        if (steps.length > 0) on[outcome] = steps;
+      }
+    }
+    const agent = object(lane.agent);
+    return [
+      {
+        id: lane.id,
+        name: text(lane.name),
+        uses: text(lane.uses) ?? "",
+        checkpoint: text(lane.checkpoint),
+        gates: Array.isArray(lane.gates) ? lane.gates.filter((g) => typeof g === "string") : undefined,
+        agent: agent ? { role: text(agent.role) } : undefined,
+        panel: lane.panel,
+        on,
+      },
+    ];
+  });
+  return kept.length > 0 ? ({ lanes: kept } as unknown as Workflow) : undefined;
 }

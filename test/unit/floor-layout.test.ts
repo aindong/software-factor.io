@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { type Floor, layout } from "../../src/core/floor/layout.ts";
+import { drawable, type Floor, layout } from "../../src/core/floor/layout.ts";
 import { parseWorkflow } from "../../src/core/schema/parse.ts";
 import { stepsOf } from "../../src/core/schema/transitions.ts";
 import type { Workflow } from "../../src/core/schema/workflow.ts";
@@ -127,5 +127,28 @@ describe("the map's notation", () => {
       expect(station?.checkpoint).toBe(lane.checkpoint);
       expect(station?.gates).toEqual(lane.gates ?? []);
     }
+  });
+});
+
+describe("a workflow that does not pass the checker yet", () => {
+  it("is still drawn, with a target that no lane has as a station that is missing", () => {
+    const doc = {
+      lanes: [
+        { id: "a", on: { pass: "nowhere", fail: [{ to: "a", maxRounds: 1 }, { to: "@stop" }] } },
+        { id: "b" },
+        7,
+        { on: {} },
+      ],
+    };
+    const workflow = drawable(doc);
+    expect(workflow?.lanes.map((l) => l.id)).toEqual(["a", "b"]);
+    const floor = layout(workflow as Workflow);
+    expect(floor.stations.find((s) => s.id === "nowhere")).toMatchObject({ kind: "end", missing: true });
+    expect(floor.lines.length).toBe(3);
+  });
+
+  it("is not drawn when it has no lane", () => {
+    for (const doc of [null, 5, {}, { lanes: "x" }, { lanes: [] }, { lanes: [{}] }])
+      expect(drawable(doc)).toBeUndefined();
   });
 });
