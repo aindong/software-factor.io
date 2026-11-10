@@ -1,5 +1,5 @@
 // A result can be saved, and a later run compared with it: what passed then and is not caught now is a regression.
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { CASES } from "../helpers/eval.ts";
@@ -26,4 +26,26 @@ it("saves a result, and names the regressions against it", () => {
 
   const missing = repo.sf("eval", "--compare", join(repo.home, "nothing.json"));
   expect(missing.status).toBe(1);
+}, 300_000);
+
+it("counts a case that is no longer run as worse, reads a broken file as a mistake, and saves into a new folder", () => {
+  const repo = makeRepo();
+  const file = join(repo.home, "evals/first.json");
+  // the folder is not there yet
+  expect(repo.sf("eval", "--save", file).status).toBe(0);
+  const result = JSON.parse(readFileSync(file, "utf8")) as { cases: { id: string; passed: boolean }[] };
+  writeFileSync(
+    file,
+    JSON.stringify({ ...result, cases: [...result.cases, { id: "a-case-that-was-dropped", passed: true }] }),
+  );
+  const dropped = repo.sf("eval", "--compare", file);
+  expect(dropped.status).toBe(1);
+  expect(dropped.stdout).toMatch(/^Regression: a-case-that-was-dropped passed in .* and is not run now$/m);
+  expect(dropped.stdout).not.toMatch(/Nothing is worse/);
+
+  writeFileSync(file, "{ not json");
+  const broken = repo.sf("eval", "--compare", file);
+  expect(broken.status).toBe(1);
+  expect(broken.stderr).toMatch(/is not a saved eval result/);
+  expect(broken.stderr).not.toMatch(/SyntaxError|\.ts:\d/);
 }, 300_000);
