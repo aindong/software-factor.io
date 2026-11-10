@@ -37,11 +37,12 @@ export function readTail(
   try {
     if (lstatSync(dirname(path)).isSymbolicLink()) return undefined; // the folder was swapped for a link
     fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-    const { size } = fstatSync(fd);
-    if (!fstatSync(fd).isFile()) return undefined;
+    const { size, nlink } = fstatSync(fd);
+    // a second name for the file means it is some other file, linked into this place
+    if (!fstatSync(fd).isFile() || nlink !== 1) return undefined;
     const data = Buffer.alloc(Math.min(size, max));
-    readSync(fd, data, 0, data.length, size - data.length);
-    return { data, size, cut: size > max };
+    const read = readSync(fd, data, 0, data.length, size - data.length);
+    return { data: data.subarray(0, read), size, cut: size > max };
   } catch {
     return undefined;
   } finally {

@@ -223,7 +223,8 @@ export function sessionsCommand(db: Db, runId: string | undefined, say: (line: s
       num(sum(mine, "output_tokens")) +
       num(sum(mine, "cache_read_tokens")) +
       num(sum(mine, "cache_write_tokens"));
-    say(`  ${"total".padEnd(head.length)}${used}  ${money(usd)}  (${sum(mine, "tokens")} tokens)`);
+    const known = unknown === mine.length ? "unknown" : money(usd);
+    say(`  ${"total".padEnd(head.length)}${used}  ${known}  (${sum(mine, "tokens")} tokens)`);
     if (unknown > 0) {
       say(
         `  ${unknown} session${unknown === 1 ? "" : "s"} of unknown cost ${unknown === 1 ? "is" : "are"} not in the total`,

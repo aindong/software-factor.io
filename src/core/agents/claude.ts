@@ -3,7 +3,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Account } from "../accounts.ts";
-import { type Choice, handoffFromText, LIMIT, profileEnv, quote, runCli } from "./cli.ts";
+import { type Choice, count, handoffFromText, LIMIT, profileEnv, quote, runCli } from "./cli.ts";
 import type { AgentAdapter } from "./types.ts";
 
 /** The settings files of a profile folder, as one text. */
@@ -71,17 +71,21 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
       const result = out.events.findLast((e) => e.type === "result");
       const text = typeof result?.result === "string" ? result.result : "";
       const used = (result?.usage ?? {}) as Record<string, unknown>;
-      const count = (key: string) => Number(used[key]) || 0;
       const usage = {
-        input: count("input_tokens"),
-        output: count("output_tokens"),
-        cacheRead: count("cache_read_input_tokens"),
-        cacheWrite: count("cache_creation_input_tokens"),
+        input: count(used.input_tokens),
+        output: count(used.output_tokens),
+        cacheRead: count(used.cache_read_input_tokens),
+        cacheWrite: count(used.cache_creation_input_tokens),
       };
       const tokens = usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
       // the model that did most of the work, by the CLI's own account
-      const models = Object.entries((result?.modelUsage ?? {}) as Record<string, { costUSD?: number }>);
-      const model = models.sort((x, y) => (y[1].costUSD ?? 0) - (x[1].costUSD ?? 0))[0]?.[0] ?? choice.model;
+      const models = Object.entries(
+        (result?.modelUsage ?? {}) as Record<string, { costUSD?: unknown } | null>,
+      );
+      const costOf = (entry: (typeof models)[number]) => Number(entry[1]?.costUSD) || 0;
+      const model = models.sort((x, y) => costOf(y) - costOf(x))[0]?.[0] ?? choice.model;
+      const cost = result?.total_cost_usd;
+      const costReported = typeof cost === "number" && Number.isFinite(cost) && cost >= 0;
       let error: string | undefined;
       if (result?.is_error) {
         const listed = Array.isArray(result.errors) ? result.errors.join(" ") : "";
@@ -94,8 +98,8 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
         usage: result && {
           ...usage,
           tokens,
-          usd: Number(result?.total_cost_usd) || 0,
-          costReported: typeof result?.total_cost_usd === "number",
+          usd: costReported ? (cost as number) : 0,
+          costReported,
         },
         model,
         sessionId: typeof result?.session_id === "string" ? result.session_id : undefined,

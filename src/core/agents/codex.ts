@@ -2,7 +2,7 @@
 // sandbox as the wall. In the sandbox it cannot write outside the worktree, and a read-only lane
 // cannot write at all, so the hand-off is read from its last message (docs/research/agent-clis.md).
 import type { Account } from "../accounts.ts";
-import { type Choice, handoffFromText, LIMIT, profileEnv, runCli } from "./cli.ts";
+import { type Choice, count, handoffFromText, LIMIT, profileEnv, runCli } from "./cli.ts";
 import type { AgentAdapter } from "./types.ts";
 
 type Event = Record<string, unknown>;
@@ -46,12 +46,12 @@ export function codexAgent(account: Account, choice: Choice): AgentAdapter {
         if (used) {
           // cached input is part of the input the CLI reports, and reasoning is part of its output
           // (that the cache-write count is part of input too is assumed: no run has shown it above 0)
-          const cached = Number(used.cached_input_tokens) || 0;
-          const written = Number(used.cache_write_input_tokens) || 0;
-          usage.input += (Number(used.input_tokens) || 0) - cached - written;
+          const cached = count(used.cached_input_tokens);
+          const written = count(used.cache_write_input_tokens);
+          usage.input += Math.max(0, count(used.input_tokens) - cached - written);
           usage.cacheRead += cached;
           usage.cacheWrite += written;
-          usage.output += Number(used.output_tokens) || 0;
+          usage.output += count(used.output_tokens);
         }
         const item = e.type === "item.completed" ? (e.item as Event | undefined) : undefined;
         if (item?.type === "agent_message" && typeof item.text === "string") last = item.text;

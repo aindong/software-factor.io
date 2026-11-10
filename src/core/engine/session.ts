@@ -33,7 +33,13 @@ export function recordSession(
   // the scripted agent names its own cost, and none named is none: it runs no model
   const reported = used !== undefined && used.costReported !== false;
   // with no usage at all there is nothing to price: the cost is unknown, not zero
-  const priced = reported || used === undefined ? undefined : priceOf(exit.model, counts);
+  let priced: number | undefined;
+  try {
+    priced = reported || used === undefined ? undefined : priceOf(exit.model, counts);
+  } catch (error) {
+    // the price file broke while the agent worked: the session is still recorded, at an unknown cost
+    ctx.log.push(`  ${at.lane}: ${(error as Error).message}`);
+  }
   const usd = reported ? used.usd : (priced ?? null);
   const limit = ws.workflow.limits.usd;
   if (usd === null && limit !== undefined) {

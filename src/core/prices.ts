@@ -46,7 +46,9 @@ export interface TokenCounts {
 
 /** The cost of a usage on a model, or nothing when the model has no price: never a guess. */
 export function priceOf(model: string | undefined, used: TokenCounts): number | undefined {
-  const price = model === undefined ? undefined : readPrices()[model];
+  // its own entry only: "constructor" is a name every object answers to
+  const prices = readPrices();
+  const price = model !== undefined && Object.hasOwn(prices, model) ? prices[model] : undefined;
   if (!price) return undefined;
   const perToken =
     used.input * price.input +

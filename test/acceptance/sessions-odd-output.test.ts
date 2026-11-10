@@ -15,7 +15,7 @@ function oddAccount(repo: Repo, kind: "claude" | "codex", lines: unknown[]): voi
   writeFileSync(bin, `#!/bin/sh\ncat > /dev/null\n${print}\n`, { mode: 0o755 });
   const added = repo.sf("account", "add", "odd", "--agent", kind, "--profile", profile, "--bin", bin);
   if (added.status !== 0) throw new Error(added.stderr);
-  bind(repo, "author", "odd", "--medium", "gpt-5.3-codex");
+  bind(repo, "author", "odd", ...(kind === "codex" ? ["--medium", "gpt-5.3-codex"] : []));
 }
 const result = (extra: Record<string, unknown>) => ({
   type: "result",

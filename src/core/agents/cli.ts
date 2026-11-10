@@ -18,6 +18,10 @@ export const quote = (arg: string) => `'${arg.replaceAll("'", "'\\''")}'`;
 export const LIMIT =
   /usage limit|rate limit|limit reached|hit your limit|quota exceeded|out of credits|too many requests/i;
 
+/** A count a CLI printed: a whole number that is not negative, or 0. Its output is not trusted to be sane. */
+export const count = (value: unknown) =>
+  Number.isSafeInteger(value) && (value as number) >= 0 ? (value as number) : 0;
+
 /** The model and effort a lane gets from its role's binding. */
 export interface Choice {
   model?: string;
