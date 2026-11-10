@@ -217,9 +217,11 @@ review is sized to the change. How a panel runs and how its verdict is joined is
 | Collector `uses` | Finds tasks in | `with` |
 | --- | --- | --- |
 | `core/file@1` | A markdown file in the workspace. | `path`, inside the workspace. |
-| `core/github-issues@1` | Open issues with a label. | `label`, optional `repo` as `owner/name`. |
-| `core/schedule@1` | A clock: one task each time it fires. | `cron` (five fields), `title`, `body`. |
-| `core/mcp-query@1` | The result of one MCP tool call. | `server` (declared in `mcp`), `tool`, optional `args`. |
+| `core/github-issues@1` | Open issues with a label, read with `gh`. Their labels become the task's. | `label`, optional `repo` as `owner/name`. |
+| `core/schedule@1` | A clock: a task for the latest time the schedule was due, in local time, collected at the next `collect` or `run`. | `cron` (five fields), `title`, `body`. |
+| `core/mcp-query@1` | A task for each item in the answer of one MCP tool call. | `server` (declared in `mcp`, started by a command), `tool`, optional `args`. |
+
+Each collector is described with an example in `docs/collectors.md`.
 
 ## What stays out of the file
 

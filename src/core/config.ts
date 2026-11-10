@@ -102,5 +102,7 @@ export type RoleBinding = z.infer<typeof RoleBinding>;
 
 export const LocalConfig = z.strictObject({
   roles: z.record(id, RoleBinding),
+  // MCP servers a collector may start here, each by the print of what it runs (`softwarefactor allow`)
+  servers: z.record(id, z.string()).optional(),
 });
 export type LocalConfig = z.infer<typeof LocalConfig>;

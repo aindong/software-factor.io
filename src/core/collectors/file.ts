@@ -4,11 +4,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export interface TaskDraft {
-  key: string;
-  title: string;
-  body: string;
-}
+import type { TaskDraft } from "./index.ts";
 
 /** A readable key that is still unique per title: "C++ build" and "C# build" must not collide. */
 function keyOf(title: string): string {

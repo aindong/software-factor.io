@@ -11,6 +11,7 @@ import {
   readAccounts,
   removeAccount,
 } from "./accounts.ts";
+import { describeServer, printOf } from "./collectors/mcp.ts";
 import { LocalConfig } from "./config.ts";
 import type { Db } from "./db.ts";
 import { UserError } from "./errors.ts";
@@ -276,5 +277,32 @@ export function memoryCommand(ws: Workspace, db: Db, args: string[], say: (line:
     dropNote(db, id);
     say(`dropped note ${id}`);
   } else say(`kept as ${keepNote(ws.factorDir, db, id)}: read it over, then commit it`);
+  return 0;
+}
+
+/** `softwarefactor allow <server>`: show what an MCP server of the workflow runs, and let collectors start it here. */
+export function allowCommand(ws: Workspace, args: string[], say: (line: string) => void): number {
+  const name = args[0] ?? "";
+  const server = own(ws.workflow.mcp, name);
+  if (!server) {
+    const known = Object.keys(ws.workflow.mcp ?? {});
+    throw new UserError(
+      `The workflow has no MCP server "${name}".`,
+      known.length > 0 ? `Name one of: ${known.join(", ")}.` : 'Declare one under "mcp" in the workflow.',
+    );
+  }
+  if (server.from !== "command") {
+    throw new UserError(
+      `The server "${name}" is not started by a command, so there is nothing here to allow.`,
+      'A collector can only query a server declared with "from": "command".',
+    );
+  }
+  say(`The server "${name}" runs: ${describeServer(server)}`);
+  const local = { ...ws.local, servers: { ...ws.local.servers, [name]: printOf(server) } };
+  writeFileSync(join(ws.factorDir, "local.json"), `${JSON.stringify(local, null, 2)}\n`);
+  say(`allowed: collectors may start "${name}" on this machine, until the workflow changes what it runs`);
+  say(
+    "This allows the command as written, not the program behind it: pin a version, and read a script it names.",
+  );
   return 0;
 }
