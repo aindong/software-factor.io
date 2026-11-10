@@ -230,6 +230,10 @@ narrow "the decision"
 shot inbox-item-dark-390
 theme Light
 shot inbox-item-light-390
+tab_to '^Inbox$'
+pw press Enter
+expect "back on the list" "$(js "() => getComputedStyle(document.querySelector('.runlist')).display")" '^block$'
+shot inbox-light-390
 for name in Accounts Costs Plugins; do
   section "$name"
   sleep 0.4

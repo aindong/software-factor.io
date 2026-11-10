@@ -12,66 +12,8 @@ work=$(mktemp -d)
 session="runs-$$"
 server=""
 
-fail() {
-  echo "FAIL: $1"
-  playwright-cli -s="$session" close > /dev/null 2>&1
-  [ -n "$server" ] && kill "$server" 2> /dev/null
-  exit 1
-}
-pw() { playwright-cli -s="$session" "$@" > "$work/pw.log" 2>&1; }
-# the value a script returns in the page, as text: reading only
-js() {
-  playwright-cli -s="$session" eval "$1" 2> /dev/null | awk 'found { print; exit } /^### Result/ { found = 1 }' | sed -e 's/^"//' -e 's/"$//'
-}
-expect() { # expect <what> <got> <wanted pattern>
-  echo "$2" | grep -Eq "$3" || fail "$1: got \"$2\", wanted /$3/"
-}
-# wait until what the page shows matches, for at most 6 seconds
-wait_for() { # wait_for <what> <script> <wanted pattern>
-  local got=""
-  for _ in $(seq 1 30); do
-    got=$(js "$2")
-    echo "$got" | grep -Eq "$3" && return 0
-    sleep 0.2
-  done
-  fail "$1: got \"$got\", wanted /$3/"
-}
-focused='() => { const a = document.activeElement; return (a?.getAttribute("aria-label") || a?.labels?.[0]?.textContent || a?.textContent || a?.tagName || "").replace(/\s+/g, " ").trim(); }'
-tab_to() { # Tab until the keyboard is on what matches
-  for _ in $(seq 1 80); do
-    js "$focused" | grep -Eq "$1" && return 0
-    pw press Tab
-  done
-  fail "Tab never reached /$1/, the keyboard is on \"$(js "$focused")\""
-}
-back_to() { # Shift+Tab until the keyboard is on what matches
-  for _ in $(seq 1 80); do
-    js "$focused" | grep -Eq "$1" && return 0
-    pw press Shift+Tab
-  done
-  fail "Shift+Tab never reached /$1/, the keyboard is on \"$(js "$focused")\""
-}
-shot() {
-  [ -n "$shots" ] || return 0
-  mkdir -p "$shots"
-  pw screenshot --filename="$shots/$1.png" || fail "screenshot $1"
-}
-theme() { # the rail's own theme button, by keyboard: it is the last stop before the section
-  back_to '^(Auto|Light|Dark)$'
-  for _ in 1 2 3; do
-    if [ "$(js "$focused")" = "$1" ]; then
-      # the page itself took the theme: its ground is light or dark as asked
-      expect "the page is in the $1 theme" "$(js "() => { const l = Number(/oklch\\(([0-9.]+)/.exec(getComputedStyle(document.body).backgroundColor)?.[1] ?? -1); return l > 0.6 ? 'Light' : 'Dark'; }")" "^$1$"
-      return 0
-    fi
-    pw press Enter
-  done
-  fail "the theme did not become $1"
-}
-section() { # a section of the rail, by keyboard
-  tab_to "^$1$"
-  pw press Enter
-}
+# shellcheck source=test/ui/keys.sh
+. "$here/test/ui/keys.sh"
 
 [ -f "$here/dist/cli.js" ] && [ -f "$here/dist/ui/index.html" ] || fail "build first: pnpm run build"
 export FACTOR_HOME="$work/home" COUNT="$work/count.txt"
@@ -204,6 +146,7 @@ expect "End goes to the oldest" "$(js "$focused")" 'Add an export button'
 pw press Enter
 expect "Enter goes into the run" "$(js "$focused")" '^Add an export button$'
 expect "the run says how it stands" "$(js "() => document.querySelector('.rundetail .sentence').textContent")" '^Done\.$'
+shot run-light-1440
 
 # ---- 2. the run on its map, stepped back and forth
 expect "the map shows what the run did at each station" "$(js "() => [...document.querySelectorAll('.runmap .station.lane')].map((s) => s.getAttribute('aria-label').split(', ').pop()).join(' | ')")" '^passed in this run \| passed in this run \| passed in this run \| passed in this run$'
@@ -258,6 +201,10 @@ expect "what waits names the command" "$(js "() => document.querySelector('.wait
 # ---- 5. dark, then the floor with the run on its map
 theme Dark
 shot runs-dark-1440
+tab_to '^Before and after'
+pw press Enter
+wait_for "the pair in the dark" "() => [...document.querySelectorAll('.pair-shots img')].map((i) => i.complete && i.naturalWidth > 0).join(' ')" '^true true$'
+shot run-dark-1440
 section Floor
 wait_for "the waiting run is on the floor's map" "() => document.querySelector('.map .train')?.closest('.station').getAttribute('aria-label') ?? ''" '^Lane Ship it, command, waits for a person, task 3 is here$'
 expect "it is drawn as waiting for a person" "$(js "() => document.querySelector('.map .train').getAttribute('class')")" 'asks'
@@ -287,6 +234,7 @@ wait_for "the pair, one above the other" "() => { const s = [...document.querySe
 shot run-pair-light-390
 theme Dark
 shot run-pair-dark-390
+shot run-dark-390
 back_to '^All runs$'
 pw press Enter
 expect "back to the list, on the run that was open" "$(js "$focused")" 'Add an export button'

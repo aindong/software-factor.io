@@ -25,7 +25,7 @@ wait_for() { # wait_for <what> <script> <wanted pattern>: for at most 8 seconds
   done
   fail "$1: got \"$got\", wanted /$3/"
 }
-focused='() => { const a = document.activeElement; return (a?.getAttribute("aria-label") || a?.labels?.[0]?.textContent || a?.textContent || a?.tagName || "").replace(/\s+/g, " ").trim(); }'
+focused='() => { const a = document.activeElement; if (!a || a === document.body) return "(nothing)"; return (a?.getAttribute("aria-label") || a?.labels?.[0]?.textContent || a?.textContent || a?.tagName || "").replace(/\s+/g, " ").trim(); }'
 tab_to() { # Tab until the keyboard is on what matches
   for _ in $(seq 1 80); do
     js "$focused" | grep -Eq "$1" && return 0
@@ -40,7 +40,12 @@ back_to() { # Shift+Tab until the keyboard is on what matches
   done
   fail "Shift+Tab never reached /$1/, the keyboard is on \"$(js "$focused")\""
 }
-shot() {
+shot() { # a screenshot named <screen>-<theme>-<width> is checked to be in that theme, at that width
+  local named
+  named=$(echo "$1" | sed -nE 's/^.*-(light|dark)-(1440|390)$/\1 \2/p')
+  if [ -n "$named" ]; then
+    expect "the page is as the screenshot $1 is named" "$(js "() => { const l = Number(/oklch\\(([0-9.]+)/.exec(getComputedStyle(document.body).backgroundColor)?.[1] ?? -1); return (l > 0.6 ? 'light' : 'dark') + ' ' + innerWidth; }")" "^$named$"
+  fi
   [ -n "${shots:-}" ] || return 0
   mkdir -p "$shots"
   pw screenshot --filename="$shots/$1.png" || fail "screenshot $1"
@@ -56,8 +61,8 @@ theme() { # the rail's own theme button, by keyboard: it is the last stop before
   done
   fail "the theme did not become $1"
 }
-section() { # a section of the rail, by keyboard
-  tab_to "^$1"
+section() { # a section of the rail, by keyboard (the inbox's name may carry its count)
+  tab_to "^$1([0-9].*)?$"
   pw press Enter
 }
 narrow() { # at phone width the page must not scroll sideways
