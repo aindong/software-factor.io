@@ -20,7 +20,7 @@ softwarefactor account remove client-a
 
 | Agent | How it is started | Profile folder | What holds it back |
 | --- | --- | --- | --- |
-| `claude` | `claude -p --output-format stream-json --verbose`, the prompt on stdin | `CLAUDE_CONFIG_DIR` | The guard, as a hook before every tool call. Only the tools the lane's access allows. |
+| `claude` | `claude -p --output-format stream-json --verbose`, the prompt on stdin | `CLAUDE_CONFIG_DIR` | The guard, as a hook before every tool call. Only the tools the lane's access allows. The worktree's own settings, hooks and MCP servers are not loaded. |
 | `codex` | `codex exec --json -C <worktree> -`, the prompt on stdin | `CODEX_HOME` | The CLI's own sandbox: `read-only` or `workspace-write`, no approval prompts. |
 | `kimi` | `kimi -p "<prompt>" --output-format stream-json` | `KIMI_CODE_HOME` | Nothing but the gates. The run says so. Not yet tried with the real CLI. |
 | `command` | The account's shell command, in the worktree | none | Nothing but the gates. The run says so. |
@@ -64,17 +64,32 @@ limit" and similar, and only in an error the CLI reported, never in ordinary out
   and the change is dropped. A scratch file is removed and the run says so. Claude Code gets no file-writing
   tool on such a lane, and Codex a read-only sandbox.
 - An agent that cannot write its hand-off file gives the hand-off in its last message, as a JSON block.
+- After every lane the host puts the worktree in order itself. The worktree is the agent's to write, so the host
+  trusts nothing in it: it tells git which git folder to use, and it resets, cleans or commits only when the
+  worktree is still on the run's own branch. A worktree whose `.git` file was changed stops the run.
+- Claude Code is started without the repository's `CLAUDE.md` and settings, because an earlier lane could have
+  changed them. The prompt tells the agent to read `CLAUDE.md` or `AGENTS.md` as a file.
 
 ## The guard
 
-`softwarefactor guard` is the hook Claude Code calls before each tool call. It denies:
+`softwarefactor guard` is the hook Claude Code calls before each tool call. The lane it guards is on its command
+line, not in the environment, and a guard that cannot start counts as a denial. It denies:
 
-- a write outside the worktree and the lane's own folder, into `.git`, or into `.factor`
-- reading files that hold secrets: env files, SSH and cloud keys, the CLIs' login files, the keychain
-- `sudo`, a push to the default branch, a forced push, a recursive delete outside the worktree
-- a download piped into a shell, and a change to git's configuration or hooks
+- any tool it has no rule for (it knows Read, Grep, Glob, Bash, Write, Edit and NotebookEdit)
+- a write outside the worktree and the lane's own folder, into `.git`, into `.factor`, or into an agent CLI's
+  own settings (`.claude`, `.codex`, `.kimi-code`, `.agents`, `.mcp.json`)
+- reading files that hold secrets: env files, SSH and cloud keys, the CLIs' login files, stored git and GitHub
+  logins, the keychain
+- `sudo`, a push to the default branch, a forced push, moving or checking out the default branch, pointing git
+  at another folder or configuration
+- a recursive delete outside the worktree, also through a link or with `find`
+- a download piped into a shell, a change to git's configuration or hooks, and any shell command that names
+  `.git`, `.factor` or the factory's own records
 
-Anything it cannot read is denied. It is a list of patterns over one tool call, so it stops accidents and plain
-attempts, not a determined shell: a command can always be spelled in a way a list misses. The second wall is the
-gates, which run on the host on a clean checkout of what was committed (see `docs/workflow-schema.md`). A
-sandbox is the third, and it is not built yet.
+Anything it cannot read is denied. It reads a shell command as words, without parsing quotes, so now and then
+it denies something harmless, such as a commit message that names `.git`. It is a list of patterns over one
+tool call, so it stops accidents and plain attempts, not a determined shell: a command can always be spelled in
+a way a list misses. The second wall is the gates, which run on the host on a clean checkout of what was
+committed (see `docs/workflow-schema.md`). A sandbox is the third, and it is not built yet.
+
+Kimi Code and command accounts cannot run the guard. Codex is held by its own sandbox instead.
