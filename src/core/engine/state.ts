@@ -69,6 +69,7 @@ export type StopCode =
   | "gate_stop"
   | "git_config_changed"
   | "interrupted"
+  | "stopped_by_person"
   | "crashed"
   | "awaiting_approval"
   | "needs_person"

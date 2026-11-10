@@ -33,7 +33,12 @@ export function resolveCommand(
 export function runIn(g: GateJob, cwd: string, command: string): Promise<ExecResult> {
   const minutes =
     typeof g.settings.timeoutMinutes === "number" ? g.settings.timeoutMinutes : DEFAULT_TIMEOUT_MINUTES;
-  return sh(command, { cwd, env: hostEnv(g.ws.config.gateEnv, g.env), timeoutMs: minutes * MINUTE_MS });
+  return sh(command, {
+    cwd,
+    env: hostEnv(g.ws.config.gateEnv, g.env),
+    timeoutMs: minutes * MINUTE_MS,
+    ...g.control,
+  });
 }
 
 export async function commandGate(g: GateJob): Promise<GateRecord> {

@@ -1,6 +1,7 @@
 // Runs a shell command for a gate or a command lane: bounded in time and output, with a small
 // environment. Leaked environment variables were a main cause of false results in the first factory.
 import { spawn } from "node:child_process";
+import { appendFileSync } from "node:fs";
 import { StringDecoder } from "node:string_decoder";
 
 export interface ExecResult {
@@ -48,9 +49,17 @@ export function interrupt(): void {
 }
 export const wasInterrupted = () => interrupted;
 
+/** How a run reaches the commands it started: to cancel them, and so a later process can find them. */
+export interface Control {
+  /** Aborted when a person stops the run. The command and everything it started are killed. */
+  signal?: AbortSignal;
+  /** A file that gets the process group of each command, so recovery after a crash can stop leftovers. */
+  pidFile?: string;
+}
+
 export function sh(
   command: string,
-  options: { cwd: string; env: Record<string, string>; timeoutMs: number },
+  options: { cwd: string; env: Record<string, string>; timeoutMs: number } & Control,
 ): Promise<ExecResult> {
   const started = Date.now();
   return new Promise((resolve) => {
@@ -61,7 +70,12 @@ export function sh(
       detached: true,
     });
     const pid = child.pid;
-    if (pid) running.add(pid);
+    if (pid) {
+      running.add(pid);
+      if (options.pidFile) appendFileSync(options.pidFile, `${pid}\n`);
+      options.signal?.addEventListener("abort", () => killGroup(pid), { once: true });
+      if (options.signal?.aborted) killGroup(pid);
+    }
     let output = "";
     let cut = false;
     let timedOut = false;

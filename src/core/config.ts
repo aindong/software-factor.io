@@ -15,6 +15,17 @@ export const FactoryConfig = z.strictObject({
   protectedPaths: z.array(z.string().min(1)).optional().meta({
     description: "Paths no agent may change in this project, added to the built-in list. Globs are allowed.",
   }),
+  slots: z
+    .strictObject({
+      max: z.number().int().min(1).max(16).optional(),
+      portBase: z.number().int().min(1024).max(60000).optional(),
+      portsPerSlot: z.number().int().min(1).max(100).optional(),
+    })
+    .optional()
+    .meta({
+      description:
+        "How many runs may work at once (default 2), and the block of ports each slot gets (default 10 ports from 4100).",
+    }),
   gateEnv: z.array(envName).optional().meta({
     description:
       "Names of environment variables that gates and command lanes may see, beyond the basic ones.",

@@ -6,7 +6,7 @@ import { fakeAgent } from "../agents/fake.ts";
 import { MINUTE_MS } from "../clock.ts";
 import type { Db } from "../db.ts";
 import { saveEvidence, saveRunFile } from "../evidence.ts";
-import { hostEnv, sh, wasInterrupted } from "../exec.ts";
+import { type Control, hostEnv, sh, wasInterrupted } from "../exec.ts";
 import { Checkouts, SetupFailed } from "../gates/checkout.ts";
 import { resolveCommand } from "../gates/command.ts";
 import { runGate } from "../gates/index.ts";
@@ -28,6 +28,17 @@ export interface Ctx {
   outDir: string;
   log: string[];
   facts: () => Facts;
+  /** The run's own ports, database name and browser session name, for everything it starts. */
+  slotEnv: Record<string, string>;
+  /** Cancels what the run is running when a person stops it, and records its commands for recovery. */
+  control: Control & { signal: AbortSignal };
+}
+
+/** Why the run must stop now, if it must: the whole command was interrupted, or a person stopped this run. */
+export function halted(ctx: Ctx): { code: "interrupted" | "stopped_by_person"; reason: string } | undefined {
+  if (wasInterrupted()) return { code: "interrupted", reason: "interrupted" };
+  if (ctx.control.signal.aborted) return { code: "stopped_by_person", reason: "stopped by a person" };
+  return undefined;
 }
 
 const MAX_FILE_BYTES = 1_000_000;
@@ -81,7 +92,12 @@ export async function runLane(
   const started = Date.now();
   const tag = `${String(seq).padStart(2, "0")}-${lane.id}`;
   const nth = (n: number) => (n > 1 ? `.${n}` : "");
-  const baseEnv = { FACTOR_RUN_ID: run.id, FACTOR_LANE: lane.id, FACTOR_TASK_TITLE: ctx.task.title };
+  const baseEnv = {
+    ...ctx.slotEnv,
+    FACTOR_RUN_ID: run.id,
+    FACTOR_LANE: lane.id,
+    FACTOR_TASK_TITLE: ctx.task.title,
+  };
   const inputEnv = Object.fromEntries(
     Object.entries(inputsOf(ctx, lane)).map(([k, v]) => [`FACTOR_INPUT_${k.toUpperCase()}`, v]),
   );
@@ -130,6 +146,7 @@ export async function runLane(
         cwd: run.worktree,
         env: hostEnv(ws.config.gateEnv, { ...baseEnv, ...inputEnv, FACTOR_OUTPUTS: outputsFile }),
         timeoutMs: Math.min(minutes * MINUTE_MS, laneMs),
+        ...ctx.control,
       });
       saveEvidence(ws, run.id, `${tag}.log`, `$ ${command}\n# exit ${result.exitCode}\n\n${result.output}`);
       if (result.exitCode !== 0)
@@ -155,6 +172,9 @@ export async function runLane(
       const limit = new AbortController();
       const remaining = laneMs - (Date.now() - started);
       const timer = setTimeout(() => limit.abort(), Math.max(1, remaining));
+      const stopNow = () => limit.abort();
+      ctx.control.signal.addEventListener("abort", stopNow, { once: true });
+      if (ctx.control.signal.aborted) limit.abort();
       const exit = await fakeAgent(binding)
         .run({
           runId: run.id,
@@ -165,7 +185,10 @@ export async function runLane(
           entry,
           signal: limit.signal,
         })
-        .finally(() => clearTimeout(timer));
+        .finally(() => {
+          clearTimeout(timer);
+          ctx.control.signal.removeEventListener("abort", stopNow);
+        });
       usage.tokens += exit.usage?.tokens ?? 0;
       usage.usd += exit.usage?.usd ?? 0;
       if (gitConfigFingerprint(ws.root) !== gitBefore) {
@@ -174,6 +197,12 @@ export async function runLane(
           reason: `git's configuration or hooks changed while lane "${lane.id}" worked`,
         };
         failWith(stop.reason);
+        return done();
+      }
+      const halt = halted(ctx);
+      if (halt) {
+        stop = halt;
+        failWith(halt.reason);
         return done();
       }
       if (limit.signal.aborted) {
@@ -203,10 +232,13 @@ export async function runLane(
       else if (said.outcome !== "pass") failWith(String(said.summary ?? "the agent reported failure"));
       else note = String(said.summary ?? "");
     }
-    if (wasInterrupted()) {
-      stop = { code: "interrupted", reason: "interrupted" };
-      failWith("interrupted"); // no gate ran, so the lane did not pass
-      return done();
+    {
+      const halt = halted(ctx);
+      if (halt) {
+        stop = halt;
+        failWith(halt.reason); // no gate decided, so the lane did not pass
+        return done();
+      }
     }
     state.outputs[lane.id] = outputs;
     // an agent that asks for a person has not finished: there is nothing for the gates to judge yet
@@ -230,7 +262,14 @@ export async function runLane(
     const results: Record<string, "pass" | "fail"> = {};
     let again = false;
     state.memo ??= {};
-    const checkouts = new Checkouts(ws, run.id, tag, repairs + 1, { ...baseEnv, ...inputEnv, ...outputEnv });
+    const checkouts = new Checkouts(
+      ws,
+      run.id,
+      tag,
+      repairs + 1,
+      { ...baseEnv, ...inputEnv, ...outputEnv },
+      ctx.control,
+    );
     try {
       for (const gateId of lane.gates ?? []) {
         const gate = ws.workflow.gates?.[gateId];
@@ -247,12 +286,16 @@ export async function runLane(
           head,
           env: { ...baseEnv, ...inputEnv, ...outputEnv },
           checkouts,
+          control: ctx.control,
           memo: state.memo,
         });
-        if (wasInterrupted()) {
-          stop = { code: "interrupted", reason: "interrupted" };
-          failWith("interrupted");
-          return done();
+        {
+          const halt = halted(ctx);
+          if (halt) {
+            stop = halt;
+            failWith(halt.reason); // no gate decided, so the lane did not pass
+            return done();
+          }
         }
         store.addGateResult(db, run.id, laneRun, record);
         results[gateId] = record.status;
@@ -287,10 +330,13 @@ export async function runLane(
       }
     } catch (error) {
       if (!(error instanceof SetupFailed)) throw error;
-      if (wasInterrupted()) {
-        stop = { code: "interrupted", reason: "interrupted" };
-        failWith("interrupted");
-        return done();
+      {
+        const halt = halted(ctx);
+        if (halt) {
+          stop = halt;
+          failWith(halt.reason); // no gate decided, so the lane did not pass
+          return done();
+        }
       }
       // the project could not be set up in a clean checkout, so nothing could be checked
       store.addGateResult(db, run.id, laneRun, error.record);

@@ -7,6 +7,7 @@ import { parseArgs } from "node:util";
 import { openDb } from "./core/db.ts";
 import { decide } from "./core/engine/inbox.ts";
 import { collect, runNext } from "./core/engine/run.ts";
+import { stopRun } from "./core/engine/stop.ts";
 import { UserError } from "./core/errors.ts";
 import { interrupt } from "./core/exec.ts";
 import { repoRoot } from "./core/git.ts";
@@ -22,7 +23,11 @@ Usage: softwarefactor <command>
   init                     Set up a factory in this repository (.factor/)
   check [files]            Check workflow files: each problem with its place and fix
   collect                  Ask the workflow's collectors for new tasks
-  run                      Wake waits that are due, then take the next queued task through the workflow
+  run [--all] [--parallel N]
+                           Pick up runs a crash left, wake waits that are due, then take the next
+                           queued task through the workflow. With --all, keep going until the queue
+                           is empty, several runs at once
+  stop <run>               Stop a run that is working or waiting
   status                   Show tasks, runs, lanes, gates and where the evidence is
   inbox                    Show what waits for a person
   approve <run>            Approve a waiting lane
@@ -44,7 +49,12 @@ const EXIT = { none: 0, done: 0, dropped: 0, running: 0, stopped: 1, waiting: 3 
 async function main(): Promise<number> {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
-    options: { help: { type: "boolean", short: "h" }, note: { type: "string" } },
+    options: {
+      help: { type: "boolean", short: "h" },
+      note: { type: "string" },
+      all: { type: "boolean" },
+      parallel: { type: "string" },
+    },
   });
   const command = positionals[0];
   const cwd = process.cwd();
@@ -118,8 +128,23 @@ async function main(): Promise<number> {
     return EXIT[summary.status];
   }
 
+  if (command === "stop") {
+    const runId = positionals[1];
+    if (!runId)
+      throw new UserError('"stop" needs a run id.', "See the run ids with `softwarefactor status`.");
+    say(await stopRun(loadWorkspace(cwd), runId));
+    return 0;
+  }
+
   if (command === "run") {
-    const summary = await runNext(loadWorkspace(cwd));
+    const parallel = values.parallel === undefined ? undefined : Number(values.parallel);
+    if (parallel !== undefined && !(Number.isInteger(parallel) && parallel >= 1)) {
+      throw new UserError(
+        `--parallel needs a whole number of 1 or more, not "${values.parallel}".`,
+        "For example: --parallel 2.",
+      );
+    }
+    const summary = await runNext(loadWorkspace(cwd), { all: values.all, parallel });
     for (const line of summary.log) say(line);
     return EXIT[summary.status];
   }

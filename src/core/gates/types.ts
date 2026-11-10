@@ -1,7 +1,7 @@
 // What every gate is given, and the small helpers they share.
 import { execFileSync } from "node:child_process";
 import { saveEvidence } from "../evidence.ts";
-import { hostEnv } from "../exec.ts";
+import { type Control, hostEnv } from "../exec.ts";
 import { git, treeOf } from "../git.ts";
 import type { GateRecord } from "../store.ts";
 import type { Workspace } from "../workspace.ts";
@@ -22,6 +22,8 @@ export interface GateJob {
   head: string;
   env: Record<string, string>;
   checkouts: Checkouts;
+  /** Lets the run cancel the gate's command, and records it for recovery after a crash. */
+  control: Control;
   /** Things measured once per run and kept in its state, such as the base commit's test count. */
   memo: Record<string, number | null>;
 }

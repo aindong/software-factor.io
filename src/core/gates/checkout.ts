@@ -5,7 +5,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { MINUTE_MS } from "../clock.ts";
 import { saveEvidence } from "../evidence.ts";
-import { hostEnv, sh } from "../exec.ts";
+import { type Control, hostEnv, sh } from "../exec.ts";
 import { addCheckout, removeWorktree, treeOf } from "../git.ts";
 import type { GateRecord } from "../store.ts";
 import type { Workspace } from "../workspace.ts";
@@ -28,13 +28,22 @@ export class Checkouts {
   private tag: string;
   private attempt: number;
   private env: Record<string, string>;
+  private control: Control;
 
-  constructor(ws: Workspace, runId: string, tag: string, attempt: number, env: Record<string, string>) {
+  constructor(
+    ws: Workspace,
+    runId: string,
+    tag: string,
+    attempt: number,
+    env: Record<string, string>,
+    control: Control = {},
+  ) {
     this.ws = ws;
     this.runId = runId;
     this.tag = tag;
     this.attempt = attempt;
     this.env = env;
+    this.control = control;
   }
 
   /** A checkout of `commit`, set up and ready. `label` keeps apart checkouts that gates change. */
@@ -52,6 +61,7 @@ export class Checkouts {
         cwd: path,
         env: hostEnv(this.ws.config.gateEnv, this.env),
         timeoutMs: SETUP_MINUTES * MINUTE_MS,
+        ...this.control,
       });
       if (result.exitCode !== 0) {
         const tree = treeOf(this.ws.root, commit);

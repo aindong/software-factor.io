@@ -88,6 +88,12 @@ const MIGRATIONS = [
   alter table lane_runs add column duration_ms integer not null default 0;
   alter table gate_results add column attempt integer not null default 1;
   `,
+  // a moving run holds one slot, and can be asked to stop from another process
+  `
+  create table slots (slot integer primary key, run_id text not null unique);
+  alter table runs add column slot integer;
+  alter table runs add column stop_requested integer not null default 0;
+  `,
 ];
 
 export type Db = DatabaseSync;
