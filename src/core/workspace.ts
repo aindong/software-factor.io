@@ -1,6 +1,6 @@
 // A workspace is one repository with a `.factor/` folder. This finds it and reads its files.
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import type { z } from "zod";
@@ -60,14 +60,19 @@ function readJson<T>(path: string, schema: z.ZodType<T>, what: string): T {
   return parsed.data;
 }
 
-export function loadWorkspace(cwd: string): Workspace {
+/** Where the factory is and how it is set up, without reading its workflow: for commands that must work when the workflow is broken or missing. */
+export function locateWorkspace(cwd: string): Pick<Workspace, "root" | "factorDir" | "config"> {
   const root = repoRoot(cwd);
   const factorDir = join(root, ".factor");
   const configPath = join(factorDir, "factory.json");
   if (!existsSync(configPath)) {
     throw new UserError("This repository has no factory yet.", "Run `softwarefactor init`.");
   }
-  const config = readJson(configPath, FactoryConfig, "factory.json");
+  return { root, factorDir, config: readJson(configPath, FactoryConfig, "factory.json") };
+}
+
+export function loadWorkspace(cwd: string): Workspace {
+  const { root, factorDir, config } = locateWorkspace(cwd);
   const localPath = join(factorDir, "local.json");
   const local = existsSync(localPath) ? readJson(localPath, LocalConfig, "local.json") : { roles: {} };
 
@@ -104,6 +109,14 @@ export function loadWorkspace(cwd: string): Workspace {
         throw new UserError(
           `Lane "${lane.id}" names the prompt file ${p.file}, which does not exist.`,
           `Create ${file}, or write the prompt inline.`,
+        );
+      }
+      // a plain file of the workflows folder: a link there could put any file of the person's before an agent
+      const real = lstatSync(file).isFile() ? realpathSync(file) : "";
+      if (!real.startsWith(`${realpathSync(join(factorDir, "workflows"))}/`)) {
+        throw new UserError(
+          `Lane "${lane.id}" names the prompt file ${p.file}, which is not a plain file in .factor/workflows/.`,
+          `Write ${file} as a file of its own (not a link, not a folder), or write the prompt inline.`,
         );
       }
       prompts[promptId] = readFileSync(file, "utf8");

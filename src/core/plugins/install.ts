@@ -30,7 +30,7 @@ type Say = (line: string) => void;
 const DIRECTORY = "https://raw.githubusercontent.com/aindong/software-factor.io/main/directory/index.json";
 // one part of a git source: no part may begin with a dash (an option to git) or be a step upwards
 const PART = "(?!-)(?!\\.\\.?(?:/|#|$))[A-Za-z0-9_.-]+";
-const GIT_SOURCE = new RegExp(`^(${PART})/(${PART})((?:/${PART})*)(?:#((?!-)[A-Za-z0-9_./-]+))?$`);
+export const GIT_SOURCE = new RegExp(`^(${PART})/(${PART})((?:/${PART})*)(?:#((?!-)[A-Za-z0-9_./-]+))?$`);
 const NAME = /^[a-z][a-z0-9-]*$/;
 
 const Index = z.object({
@@ -321,9 +321,9 @@ export async function addCommand(
       "softwarefactor add <source> --yes --hash <sha256>",
     );
   }
-  const wanted: { source: string; pinned?: LockEntry }[] = typed
+  const wanted: { source: string; pinned?: LockEntry; as?: string }[] = typed
     ? [{ source: typed }]
-    : Object.values(lock).map((pinned) => ({ source: pinned.source, pinned }));
+    : Object.entries(lock).map(([as, pinned]) => ({ source: pinned.source, pinned, as }));
   if (wanted.length === 0) {
     throw new UserError(
       "Nothing to add: name a plugin, and the lock is empty.",
@@ -332,9 +332,16 @@ export async function addCommand(
   }
   const fetched: Fetched[] = [];
   try {
-    for (const { source, pinned } of wanted) {
+    for (const { source, pinned, as } of wanted) {
       const f = await fetchPlugin(source, pinned ? ws.root : process.cwd(), ws, pinned?.commit);
       fetched.push(f);
+      // a pin is for the plugin of its own name: another one behind it would take that plugin's place here
+      if (as !== undefined && f.plugin.manifest.name !== as) {
+        throw new UserError(
+          `The lock pins "${as}" at ${source}, and the plugin there is named "${f.plugin.manifest.name}".`,
+          "Take that entry out of .factor/plugins.lock.json, or add the plugin by its own source.",
+        );
+      }
       if (pinned && f.plugin.hash !== pinned.sha256) {
         throw new UserError(
           `The source of "${f.plugin.manifest.name}" (${source}) no longer gives the files the lock pins.`,

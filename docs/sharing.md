@@ -52,7 +52,9 @@ An export is refused, with the place named, when:
 - a plugin it lists is not installed here, or was added from a folder on this machine: the other machine could
   not fetch it.
 
-Read an export before you send it. No scan finds a person or a company named in the words of a prompt.
+Read an export before you send it. No scan finds a person or a company named in the words of a prompt, and
+some names do travel because the workflow needs them: the repository a collector reads, the source of a skill
+or a plugin, the address or the command of an MCP server.
 
 ## Import
 
@@ -88,7 +90,8 @@ An import allows nothing. On your machine you still:
 
 - bind each role: `softwarefactor role bind <role> --account <name>`,
 - define each workspace command under `"commands"` in `.factor/factory.json` (the export says what each must do,
-  not how your project does it),
+  not how your project does it). If your workspace already defines a command of that name, the listing shows what
+  it runs here: the imported workflow's gates will run it,
 - see and install each plugin: `softwarefactor add`,
 - see and allow each MCP server a collector starts and each skill from a repository: `softwarefactor allow`.
 

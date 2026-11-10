@@ -109,7 +109,9 @@ it("imports into a workspace whose active workflow is broken: that is how it is 
   repo.write(".factor/workflows/starter.json", "{ not json");
   const r = repo.sf("import", file, "--yes", "--use");
   expect(r.status, r.stderr).toBe(0);
-  expect(repo.sf("check").status).toBe(0);
+  // the workspace works again: its active workflow is the imported one
+  expect(repo.sf("check", ".factor/workflows/shared.json").status).toBe(0);
+  expect(repo.sf("collect").status).toBe(0);
 });
 
 it("does not write an export over a file that is there, and does not take a path inside other words for this machine's", () => {

@@ -4,22 +4,36 @@
 // shows what the workflow would run, writes it only on a yes, and puts a person back in front of
 // every lane: the record that let a lane run unwatched belongs to the other machine.
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { readAccounts } from "./accounts.ts";
 import { UserError } from "./errors.ts";
+import { GIT_SOURCE } from "./plugins/install.ts";
 import { commandsOf, isPlainCommand } from "./plugins/manifest.ts";
 import { type Lock, LockFile, lockPath, readLock } from "./plugins/use.ts";
 import { own } from "./schema/builtins.ts";
 import { parseWorkflow } from "./schema/parse.ts";
 import type { Workflow } from "./schema/workflow.ts";
+import { oneLine } from "./text.ts";
 import { factorHome, type Workspace } from "./workspace.ts";
 
 type Say = (line: string) => void;
 type Json = Record<string, unknown>;
+/** What both commands need of a workspace. Its workflow is not read: an import is how a broken one is replaced. */
+type Place = Pick<Workspace, "root" | "factorDir" | "config">;
 const NAME = /^[a-z][a-z0-9-]*$/;
+const MOST_BYTES = 2_000_000;
+
+/** Whether a path is a plain file that really is inside a folder: no link at it, none on the way to it. */
+function plainFileIn(folder: string, path: string): boolean {
+  try {
+    return lstatSync(path).isFile() && `${realpathSync(path)}`.startsWith(`${realpathSync(folder)}/`);
+  } catch {
+    return false; // not there
+  }
+}
 
 const Export = z.strictObject({
   softwarefactorExport: z.literal(1),
@@ -38,21 +52,35 @@ const problemsOf = (workflow: unknown, what: string): Workflow => {
   );
 };
 
-/** Every string in a value, with where it is. */
+/** Every string in a value, keys included, with where it is. */
 function strings(value: unknown, path = ""): { path: string; text: string }[] {
   if (typeof value === "string") return [{ path, text: value }];
   if (Array.isArray(value)) return value.flatMap((v, i) => strings(v, `${path}[${i}]`));
   if (typeof value === "object" && value !== null) {
-    return Object.entries(value).flatMap(([k, v]) => strings(v, path ? `${path}.${k}` : k));
+    return Object.entries(value).flatMap(([k, v]) => {
+      const at = path ? `${path}.${k}` : k;
+      return [{ path: at, text: k }, ...strings(v, at)];
+    });
   }
   return [];
 }
 
+/** Whether a text holds a path as a path: not as part of a longer name or a longer path. */
+const holdsPath = (text: string, path: string) => {
+  for (let at = text.indexOf(path); at >= 0; at = text.indexOf(path, at + 1)) {
+    const before = text[at - 1] ?? "";
+    const after = text[at + path.length] ?? "";
+    if (!/[A-Za-z0-9_.-]/.test(before) && !/[A-Za-z0-9_.-]/.test(after)) return true;
+  }
+  return false;
+};
+
 /** `softwarefactor export [workflow] [--out <file>]`. */
-export function exportCommand(ws: Workspace, args: string[], flags: { out?: string }, say: Say): number {
+export function exportCommand(ws: Place, args: string[], flags: { out?: string }, say: Say): number {
   const name = args[0] ?? ws.config.workflow;
-  const file = join(ws.factorDir, "workflows", `${name}.json`);
-  if (!NAME.test(name) || !existsSync(file)) {
+  const folder = join(ws.factorDir, "workflows");
+  const file = join(folder, `${name}.json`);
+  if (!NAME.test(name) || !plainFileIn(folder, file)) {
     throw new UserError(
       `This workspace has no workflow "${name}".`,
       "Name one of the files in .factor/workflows/, without .json.",
@@ -69,9 +97,14 @@ export function exportCommand(ws: Workspace, args: string[], flags: { out?: stri
   const inline = (holder: { prompt?: unknown } | undefined, where: string) => {
     const prompt = holder?.prompt;
     if (typeof prompt !== "object" || prompt === null) return;
-    const from = join(ws.factorDir, "workflows", String((prompt as { file?: unknown }).file));
-    if (!existsSync(from))
-      throw new UserError(`${where} names a prompt file that is not there.`, `Write ${from}.`);
+    const from = join(folder, String((prompt as { file?: unknown }).file));
+    // through no link: a link beside the workflow could carry any file of the person's into the export
+    if (!plainFileIn(folder, from)) {
+      throw new UserError(
+        `${where} names a prompt file that is not a plain file in .factor/workflows/.`,
+        `Write ${from} as a file of its own (not a link, not a folder).`,
+      );
+    }
     (holder as { prompt: unknown }).prompt = readFileSync(from, "utf8");
   };
   for (const [i, lane] of ((workflow.lanes as Json[]) ?? []).entries()) {
@@ -93,8 +126,18 @@ export function exportCommand(ws: Workspace, args: string[], flags: { out?: stri
       );
     }
   }
-  const here = [homedir(), ws.root, factorHome()].filter((p) => p.length > 1);
-  const leak = strings(workflow).find((s) => here.some((p) => s.text.includes(p)));
+  // this machine's folders, each also by its real path (a link's two names are both this machine's)
+  const real = (p: string) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return p;
+    }
+  };
+  const here = [...new Set([homedir(), ws.root, factorHome()].flatMap((p) => [p, real(p)]))].filter(
+    (p) => p.length > 1,
+  );
+  const leak = strings(workflow).find((s) => here.some((p) => holdsPath(s.text, p)));
   if (leak) {
     throw new UserError(
       `${leak.path} holds the path of a folder on this machine.`,
@@ -111,10 +154,16 @@ export function exportCommand(ws: Workspace, args: string[], flags: { out?: stri
         `Add it first: softwarefactor add ${plugin}`,
       );
     }
-    if (/^([./~]|[A-Za-z]:)/.test(pinned.source)) {
+    if (!GIT_SOURCE.test(pinned.source)) {
       throw new UserError(
         `The plugin "${plugin}" was added from a folder on this machine (${pinned.source}).`,
         "Add it from a repository (owner/repo), so that the other machine can fetch the same.",
+      );
+    }
+    if (!pinned.commit) {
+      throw new UserError(
+        `The pin of the plugin "${plugin}" names no commit.`,
+        `Add it again: softwarefactor add ${pinned.source}`,
       );
     }
     plugins[plugin] = pinned;
@@ -123,7 +172,17 @@ export function exportCommand(ws: Workspace, args: string[], flags: { out?: stri
   const text = `${JSON.stringify(doc, null, 2)}\n`;
   if (flags.out === undefined) process.stdout.write(text);
   else {
-    writeFileSync(flags.out, text);
+    try {
+      writeFileSync(flags.out, text, { flag: "wx" }); // never over a file that is there
+    } catch (error) {
+      const there = (error as NodeJS.ErrnoException).code === "EEXIST";
+      throw new UserError(
+        there
+          ? `${flags.out} is already there.`
+          : `${flags.out} could not be written: ${(error as Error).message}`,
+        "Name a file that does not exist yet.",
+      );
+    }
     say(`exported ${name} to ${flags.out}`);
   }
   return 0;
@@ -155,8 +214,7 @@ export function readExport(text: string, from: string): { workflow: Workflow; ra
   for (const [name, pin] of Object.entries(parsed.data.plugins ?? {})) {
     const why = !own(workflow.plugins, name)
       ? "the workflow does not list that plugin"
-      : !/^(?![-.~])[A-Za-z0-9_.-]+\/(?![-.])[A-Za-z0-9_.-]+[A-Za-z0-9_./#-]*$/.test(pin.source) ||
-          pin.source.includes("..")
+      : !GIT_SOURCE.test(pin.source)
         ? "its source is not a repository"
         : pin.commit === undefined
           ? "it names no commit"
@@ -168,7 +226,13 @@ export function readExport(text: string, from: string): { workflow: Workflow; ra
       );
     }
   }
-  const inFile = workflow.lanes.find((lane) => typeof lane.agent?.prompt === "object");
+  const inFile = workflow.lanes.find(
+    (lane) =>
+      typeof lane.agent?.prompt === "object" ||
+      (lane.panel?.members ?? []).some(
+        (member) => typeof (member as { prompt?: unknown }).prompt === "object",
+      ),
+  );
   if (inFile) {
     throw new UserError(
       `The workflow in ${from} keeps the prompt of lane "${inFile.id}" in a file it did not bring.`,
@@ -180,15 +244,19 @@ export function readExport(text: string, from: string): { workflow: Workflow; ra
 
 /** `softwarefactor import <file> [--yes] [--use] [--keep-checkpoints]`. */
 export function importCommand(
-  ws: Workspace,
+  ws: Place,
   args: string[],
   flags: { yes?: boolean; use?: boolean; "keep-checkpoints"?: boolean; hash?: string },
   say: Say,
 ): number {
   const file = args[0];
   if (!file) throw new UserError("Name the export to import.", "softwarefactor import <file>");
-  if (!existsSync(file))
+  if (!existsSync(file) || !statSync(file).isFile()) {
     throw new UserError(`There is no file ${file}.`, "Name the file `softwarefactor export` wrote.");
+  }
+  if (statSync(file).size > MOST_BYTES) {
+    throw new UserError(`${file} is over 2 MB.`, "An export is a workflow, not data.");
+  }
   const text = readFileSync(file, "utf8");
   const hash = createHash("sha256").update(text).digest("hex");
   const { workflow, raw, plugins } = readExport(text, file);
@@ -212,7 +280,8 @@ export function importCommand(
   const unwatched = workflow.lanes.filter((l) => l.checkpoint !== "in").map((l) => l.id);
   const waits = flags["keep-checkpoints"] ? [] : unwatched;
 
-  say(`${workflow.name}: ${workflow.description}`);
+  // every text of the document is shown on one line: none can add a line of its own to this listing
+  say(`${workflow.name}: ${oneLine(workflow.description, 300)}`);
   say("Lanes:");
   for (const lane of workflow.lanes) {
     const what = lane.agent
@@ -225,7 +294,12 @@ export function importCommand(
   say("Tasks come from:");
   for (const c of workflow.collectors)
     say(`  ${c.id}: ${c.uses}${c.with ? ` ${JSON.stringify(c.with)}` : ""}`);
-  const prompts = strings(raw.lanes).filter((s) => s.path.endsWith(".prompt")).length;
+  const prompts = workflow.lanes
+    .flatMap((lane) => [
+      lane.agent?.prompt,
+      ...(lane.panel?.members ?? []).map((m) => (m as { prompt?: unknown }).prompt),
+    ])
+    .filter((p) => typeof p === "string").length;
   say(
     `It holds ${prompts} prompt${prompts === 1 ? "" : "s"} for agents: read ${prompts === 1 ? "it" : "them"} in ${file} before you run it.`,
   );
@@ -236,17 +310,23 @@ export function importCommand(
   }
   say("Before it can run here:");
   for (const [role, r] of Object.entries(workflow.roles)) {
-    say(`  role ${role}: ${r.description}`);
+    say(`  role ${role}: ${oneLine(r.description, 300)}`);
     say(`      bind it: softwarefactor role bind ${role} --account <name>`);
   }
   for (const [name, c] of Object.entries(workflow.commands ?? {})) {
-    say(`  command ${name}: ${c.description}`);
-    say(`      define it under "commands" in .factor/factory.json`);
+    say(`  command ${name}: ${oneLine(c.description, 300)}`);
+    // the workflow only names it: what it runs is this workspace's own, and a gate runs it unasked
+    const here = own(ws.config.commands, name);
+    say(
+      here
+        ? `      already defined here, and runs: ${oneLine(here, 300)}`
+        : `      define it under "commands" in .factor/factory.json`,
+    );
   }
   for (const [name, range] of Object.entries(workflow.plugins ?? {})) {
     const pin = own(plugins, name);
     say(
-      `  plugin ${name} ${pin ? `${pin.version} from ${pin.source}, commit ${pin.commit?.slice(0, 12)}, sha256 ${pin.sha256}` : `${range} (the export does not pin it)`}`,
+      `  plugin ${name} ${pin ? `${pin.version} from ${pin.source}, commit ${pin.commit?.slice(0, 12)}, sha256 ${pin.sha256}` : `${oneLine(range, 60)} (the export does not pin it)`}`,
     );
     say(`      see and install it: softwarefactor add${pin ? "" : ` <source of ${name}>`}`);
   }
@@ -256,7 +336,9 @@ export function importCommand(
   }
   for (const [name, skill] of Object.entries(workflow.skills ?? {})) {
     if (skill.from !== "repo") continue;
-    say(`  skill ${name}: ${skill.source}${skill.skill ? `, ${skill.skill}` : ""}`);
+    say(
+      `  skill ${name}: ${oneLine(skill.source, 200)}${skill.skill ? `, ${oneLine(skill.skill, 100)}` : ""}`,
+    );
     say(`      see and allow it: softwarefactor allow --skill ${name}`);
   }
   if (waits.length > 0) {
@@ -286,11 +368,7 @@ export function importCommand(
     return 0;
   }
 
-  const lanes = (raw.lanes as Json[]).map((lane) =>
-    waits.includes(String(lane.id)) ? { ...lane, checkpoint: "in" } : lane,
-  );
-  // into a name nothing has: never over a file, and never through a link that is waiting there
-  writeFileSync(to, `${JSON.stringify({ ...raw, lanes }, null, 2)}\n`, { flag: "wx" });
+  // the pins first, then the workflow: a failure half way leaves no workflow without its pins
   let pinned = false;
   for (const [name, pin] of Object.entries(plugins)) {
     if (own(lock, name)) continue; // the same pin is already here
@@ -300,6 +378,18 @@ export function importCommand(
   if (pinned) {
     const sorted = Object.fromEntries(Object.entries(lock).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
     writeFileSync(lockPath(ws), `${JSON.stringify(sorted, null, 2)}\n`);
+  }
+  const lanes = (raw.lanes as Json[]).map((lane) =>
+    waits.includes(String(lane.id)) ? { ...lane, checkpoint: "in" } : lane,
+  );
+  // into a name nothing has: never over a file, and never through a link that is waiting there
+  try {
+    writeFileSync(to, `${JSON.stringify({ ...raw, lanes }, null, 2)}\n`, { flag: "wx" });
+  } catch {
+    throw new UserError(
+      `Something is already at .factor/workflows/${workflow.name}.json.`,
+      "Move it out of the way first.",
+    );
   }
   say(`imported ${workflow.name} to .factor/workflows/${workflow.name}.json`);
   if (flags.use) {
