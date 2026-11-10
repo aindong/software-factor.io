@@ -9,7 +9,7 @@ import { factorHome } from "./workspace.ts";
 
 export const AGENTS = ["claude", "codex", "kimi", "command"] as const;
 const HOUR_MS = 3_600_000;
-const DEFAULT_HEADROOM = 0.9;
+export const DEFAULT_HEADROOM = 0.9;
 /** How long an account is held when its CLI says the limit is reached. shortcut: a fixed hour. Read the CLI's reset time when one is seen. */
 export const LIMIT_HOLD_MS = 60 * 60_000;
 
@@ -112,6 +112,12 @@ function usageOf(account: string): UsageLine[] {
   }
   return lines.slice(lines.findLastIndex((l) => l.reset) + 1);
 }
+
+/** The tokens an account has used in the last `hours` hours, since it was last added. */
+export const usedIn = (name: string, hours: number): number =>
+  usageOf(name)
+    .filter((l) => l.tokens && l.at > nowMs() - hours * HOUR_MS)
+    .reduce((sum, l) => sum + (l.tokens ?? 0), 0);
 
 /** Until when an account must not start a lane, in milliseconds on the factory clock, or nothing. */
 export function heldUntil(name: string, account: Account): number | undefined {

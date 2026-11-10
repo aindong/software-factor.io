@@ -107,10 +107,45 @@ A file of a run is served only when it is a plain file inside that run's own fol
 no link on the way, and only as an image, a video, plain text or a download. An `.html` or `.svg` file an agent
 attached is shown as its text. It is never run as a page.
 
+## Inbox
+
+The rail shows in yellow how many runs wait for you. The inbox lists them, an approval or a question each, with
+the run's map and evidence beside the one that is chosen, so you decide with the proof in view.
+
+| Key | Does |
+| --- | --- |
+| `a` | Approves. The run goes on at once. |
+| `r` | Rejects: a box for why (optional), Enter sends. The lane's fail transition is taken. |
+| `s` | Sends the work back: a box for what should change, Enter sends. Nothing is sent while it is empty. Not offered for a lane that has not run yet. |
+| Enter, on a question | Puts the keyboard in the answer. Type it, Enter sends. Letters typed there are letters. |
+
+A decision is the command line's own command, started by the server in a process of its own (docs/operations.md).
+It is made on the item that is on show and on nothing the run waits on later. After your decision the page
+moves to the next item and the keys rest for a moment. When the item you were reading is decided elsewhere,
+nothing is chosen until you choose.
+When the factory refuses, for example because every slot is busy, its message and its fix are shown.
+
+## Accounts
+
+The logins on this machine: the agent, what each has used in its limits' windows, and whether it is held. Never
+where a login is kept. Below, who works each role: choose an account, a model for small, medium and large
+lanes and an effort, and Bind. That writes what `softwarefactor role bind` writes. A role that should be on
+another vendor than a role it shares one with is flagged. Adding a login stays in the terminal.
+
+## Costs
+
+Tokens and cost by lane, by task and by account, from the session records, with the whole in the top bar. A
+session with no known cost is counted as not known, never as nothing. `softwarefactor cost` prints the same.
+
+## Plugins
+
+What is built in: lane types, gate types, collectors, agents, and the workflows that come with this version.
+Installing more from a directory is not built yet.
+
 ## Not built yet
 
-The inbox, accounts, plugins and costs. Each section says so and names the command that gives the same today.
-There is no undo on the floor beyond Revert, which reloads the file. A diff is the whole run's, not one lane's.
+Starting and stopping runs from the interface, adding an account, and installing plugins. There is no undo on
+the floor beyond Revert, which reloads the file. A diff is the whole run's, not one lane's.
 
 ## How it is checked
 
@@ -121,3 +156,5 @@ Give it a folder as its argument and it leaves screenshots there in both themes.
 `bash test/ui/runs.sh` does the same for Runs: it makes three runs with the scripted agent (one done, one
 stopped, one waiting), and by key presses alone moves through the list, steps a run back and forth on its map,
 and opens the diff, a screenshot pair, a recording, a gate's output and a hand-off.
+`bash test/ui/inbox.sh` does the inbox, accounts, costs and plugins: it approves, sends work back with a note,
+answers a question, has a decision refused, and binds a role, all by key presses.

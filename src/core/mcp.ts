@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { FACTOR_TOOLS, type FactorTool } from "./agents/factor-tools.ts";
 import { type Db, openDb } from "./db.ts";
+import { serveTools } from "./mcp-loop.ts";
 import { type Asker, addNote, lines, proposedNotes, quoted, readMemory, recordRead } from "./memory.ts";
 import { serve as keep } from "./served.ts";
 
@@ -18,7 +19,6 @@ export interface Served extends Asker {
 }
 
 const MAX_ATTACHMENT = 1_000_000;
-const MAX_LINE = 20_000_000;
 const text = (max: number) => z.string().min(1).max(max);
 const slotOf = (at: Served) => ({ run: at.run, lane: at.lane, slot: at.laneDir });
 
@@ -86,98 +86,18 @@ const TOOLS: Record<
   },
 };
 
-type Answer = { result: unknown } | { error: { code: number; message: string } };
-
-function answer(method: string, given: unknown, at: Served, db: Db): Answer {
-  const params = typeof given === "object" && given !== null ? (given as Record<string, unknown>) : undefined;
-  if (method === "initialize") {
-    return {
-      result: {
-        // the version the client asked for: the few methods served here are the same in all of them
-        protocolVersion: typeof params?.protocolVersion === "string" ? params.protocolVersion : "2025-06-18",
-        capabilities: { tools: {} },
-        serverInfo: { name: "factor", version: "1" },
-      },
-    };
-  }
-  if (method === "ping") return { result: {} };
-  if (method === "tools/list") {
-    const tools = FACTOR_TOOLS.map((name) => ({
-      name,
-      description: TOOLS[name].description,
-      inputSchema: z.toJSONSchema(TOOLS[name].input),
-    }));
-    return { result: { tools } };
-  }
-  if (method === "tools/call") {
-    const name = FACTOR_TOOLS.find((t) => t === params?.name);
-    if (!name) return { error: { code: -32602, message: "There is no tool of that name." } };
-    const said = (words: string, isError = false) => ({
-      result: { content: [{ type: "text", text: words }], ...(isError ? { isError: true } : {}) },
-    });
-    const args = TOOLS[name].input.safeParse(params?.arguments ?? {});
-    if (!args.success) {
-      const first = args.error.issues[0];
-      return said(
-        `The arguments are wrong at "${first?.path.join(".") || "(top)"}": ${first?.message}`,
-        true,
-      );
-    }
-    try {
-      return said(TOOLS[name].run(args.data as never, at, db));
-    } catch (error) {
-      return said((error as Error).message, true);
-    }
-  }
-  return { error: { code: -32601, message: "This server has no such method." } };
-}
-
 /** Serve one lane until the client closes the stream. */
 export async function serve(at: Served): Promise<void> {
   const db = openDb(join(at.root, ".factor", "state.db"));
-  const say = (message: unknown) => process.stdout.write(`${JSON.stringify(message)}\n`);
-  const handle = (line: string) => {
-    if (line.trim() === "") return;
-    let message: { id?: unknown; method?: unknown; params?: unknown };
-    try {
-      message = JSON.parse(line);
-      if (typeof message !== "object" || message === null) throw new Error("not an object");
-    } catch {
-      say({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "That line is not a JSON object." } });
-      return;
-    }
-    const { id, method } = message;
-    if (id === undefined || id === null) return; // a notification: no answer
-    const idOk = typeof id === "string" || typeof id === "number";
-    if (!idOk || typeof method !== "string") {
-      const error = {
-        code: -32600,
-        message: "A request needs a method that is text and an id that is text or a number.",
-      };
-      say({ jsonrpc: "2.0", id: idOk ? id : null, error });
-      return;
-    }
-    try {
-      say({ jsonrpc: "2.0", id, ...answer(method, message.params, at, db) });
-    } catch (error) {
-      // whatever a message does, the server stays up for the next one
-      say({ jsonrpc: "2.0", id, error: { code: -32603, message: (error as Error).message } });
-    }
-  };
   try {
-    // Messages end at a line feed and nowhere else. Node's line reader also splits at U+2028 and
-    // U+2029, which are legal inside a JSON string, so the stream is split here by hand.
-    let pending = "";
-    process.stdin.setEncoding("utf8");
-    for await (const chunk of process.stdin) {
-      pending += chunk;
-      for (let end = pending.indexOf("\n"); end >= 0; end = pending.indexOf("\n")) {
-        handle(pending.slice(0, end));
-        pending = pending.slice(end + 1);
-      }
-      if (pending.length > MAX_LINE) pending = ""; // a line with no end is not a message
-    }
-    handle(pending);
+    await serveTools(
+      FACTOR_TOOLS.map((name) => ({
+        name,
+        description: TOOLS[name].description,
+        input: TOOLS[name].input,
+        run: (args: never) => TOOLS[name].run(args, at, db),
+      })),
+    );
   } finally {
     db.close();
   }

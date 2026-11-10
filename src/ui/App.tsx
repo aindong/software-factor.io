@@ -1,9 +1,16 @@
 // The shell: the navy rail with the six sections, and the section that is open.
 import { useEffect, useState } from "react";
+import { Accounts } from "./Accounts.tsx";
 import { hasKey } from "./api.ts";
+import { Costs } from "./Costs.tsx";
 import { Floor } from "./Floor.tsx";
+import { Inbox } from "./Inbox.tsx";
 import { icons } from "./icons.tsx";
+import { useRuns } from "./live.ts";
+import { Plugins } from "./Plugins.tsx";
 import { Runs } from "./Runs.tsx";
+import { standing } from "./words.ts";
+import "./sections.css";
 
 const SECTIONS = [
   { path: "/", name: "Floor", icon: "floor" },
@@ -13,23 +20,6 @@ const SECTIONS = [
   { path: "/plugins", name: "Plugins", icon: "plugins" },
   { path: "/costs", name: "Costs", icon: "costs" },
 ] as const;
-
-// What each section that is not built yet will hold, and how to get the same today.
-const LATER: Record<string, { what: string; today: string }> = {
-  "/inbox": {
-    what: "Approvals and questions that wait for you, each answerable with one key.",
-    today: "softwarefactor inbox",
-  },
-  "/accounts": {
-    what: "The agent logins on this machine, and which one works each role.",
-    today: "softwarefactor account list",
-  },
-  "/plugins": {
-    what: "Lanes, gates and collectors that others have shared, to add to this factory.",
-    today: "",
-  },
-  "/costs": { what: "Tokens and cost by lane, by task and by account.", today: "softwarefactor sessions" },
-};
 
 const THEMES = ["auto", "light", "dark"] as const;
 type Theme = (typeof THEMES)[number];
@@ -66,7 +56,9 @@ export function App() {
     setPath(to);
   };
   const section = SECTIONS.find((s) => s.path === path) ?? SECTIONS[0];
-  const later = LATER[section.path];
+  // how many runs wait for a person: shown on the rail, in the colour of what a person can act on
+  const { runs } = useRuns();
+  const waits = hasKey ? (runs ?? []).filter((r) => standing(r).mark === "asked").length : 0;
   const nextTheme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? "auto";
 
   return (
@@ -84,6 +76,12 @@ export function App() {
           >
             {icons[s.icon]}
             {s.name}
+            {s.path === "/inbox" && waits > 0 ? (
+              <span className="count">
+                {waits}
+                <span className="sr"> {waits === 1 ? "waits" : "wait"} for you</span>
+              </span>
+            ) : null}
           </a>
         ))}
         <span className="spacer" />
@@ -110,26 +108,16 @@ export function App() {
             <p>Open that address as it is, in this tab.</p>
           </div>
         </main>
-      ) : later ? (
-        <main className="work">
-          <div className="topbar">
-            <h1>{section.name}</h1>
-          </div>
-          <div className="plain">
-            <p>{later.what}</p>
-            <p>
-              This part of the interface is not built yet.
-              {later.today ? (
-                <>
-                  {" "}
-                  Until it is, the same is on the command line: <code>{later.today}</code>
-                </>
-              ) : null}
-            </p>
-          </div>
-        </main>
       ) : section.path === "/runs" ? (
         <Runs />
+      ) : section.path === "/inbox" ? (
+        <Inbox />
+      ) : section.path === "/accounts" ? (
+        <Accounts />
+      ) : section.path === "/plugins" ? (
+        <Plugins />
+      ) : section.path === "/costs" ? (
+        <Costs />
       ) : (
         <Floor />
       )}

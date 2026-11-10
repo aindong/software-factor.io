@@ -14,7 +14,7 @@ import { ago, cost, standing, tokens } from "./words.ts";
 import "./runs.css";
 
 /** Each workflow the runs name, as far as it can be drawn. Read once for each name. */
-function useWorkflows(runs: RunRow[] | undefined): Record<string, Workflow | undefined> {
+export function useWorkflows(runs: RunRow[] | undefined): Record<string, Workflow | undefined> {
   const [known, setKnown] = useState<Record<string, Workflow | undefined>>({});
   const asked = useRef(new Set<string>());
   useEffect(() => {

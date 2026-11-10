@@ -6,29 +6,44 @@
 // terminal, after the "#", where a browser never sends it. The page itself holds no token:
 // asking the server for the page gives nothing that opens the API.
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import {
-  existsSync,
-  lstatSync,
-  readdirSync,
-  readFileSync,
-  realpathSync,
-  renameSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
-import { basename, dirname, extname, join, normalize, sep } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { dirname, extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { openDb } from "./db.ts";
 import { UserError } from "./errors.ts";
+import {
+  inputProblem,
+  OPERATIONS,
+  readWorkflow,
+  saveWorkflow,
+  workflowFile,
+  workspaceInfo,
+} from "./operations.ts";
 import { parseWorkflow } from "./schema/parse.ts";
 import { runRoutes } from "./server-runs.ts";
 
+/**
+ * Which operation each route of the API belongs to (ADR 0008). A route with a place of its own
+ * is a convenience for the page, such as a file sent as bytes: it does nothing an operation does
+ * not. A test fails when the server has a route that is not here.
+ */
+export const ROUTE_OPS: Record<string, string> = {
+  "GET /api/workspace": "workspace",
+  "GET /api/workflows/:name": "workflow_get",
+  "PUT /api/workflows/:name": "workflow_save",
+  "POST /api/check": "workflow_check",
+  "GET /api/runs": "runs_list",
+  "GET /api/runs/:id": "runs_get",
+  "GET /api/runs/:id/file": "runs_file",
+  "GET /api/runs/:id/diff": "runs_diff",
+  "GET /api/live": "runs_list",
+  "POST /api/op/:name": "*",
+};
+
 const MAX_BODY = 2_000_000;
-const NAME = /^[a-z][a-z0-9-]*$/;
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -60,28 +75,14 @@ export interface Served {
   url: string;
   /** The address to open: the url, and the token after the "#". */
   address: string;
+  /** Every route the server answers, as "METHOD /path". */
+  routes: string[];
   close: () => void;
 }
 
 export function startServer(root: string, config: { workflow: string }, port: number): Promise<Served> {
   const ui = uiDir();
   const token = randomBytes(24).toString("hex");
-  const workflows = join(root, ".factor", "workflows");
-  /**
-   * A workflow's file, when the name is a name and the file is a plain file in this repository's
-   * own workflows folder. A link there, or a folder that is a link, leads somewhere else: it is
-   * neither read nor written through.
-   */
-  const fileOf = (name: string): string | undefined => {
-    if (!NAME.test(name)) return undefined;
-    const file = join(workflows, `${name}.json`);
-    try {
-      if (realpathSync(workflows) !== join(realpathSync(root), ".factor", "workflows")) return undefined;
-      return lstatSync(file).isFile() ? file : undefined;
-    } catch {
-      return undefined; // not there
-    }
-  };
   let host = "";
   const app = new Hono();
 
@@ -106,31 +107,11 @@ export function startServer(root: string, config: { workflow: string }, port: nu
   });
   app.use("/api/*", bodyLimit({ maxSize: MAX_BODY, onError: (c) => c.json({ error: "Too large." }, 413) }));
 
-  app.get("/api/workspace", (c) => {
-    const names = existsSync(workflows)
-      ? readdirSync(workflows)
-          .filter((f) => f.endsWith(".json") && fileOf(f.slice(0, -5)))
-          .map((f) => f.slice(0, -5))
-          .sort()
-      : [];
-    return c.json({ name: basename(root), root, workflow: config.workflow, workflows: names });
-  });
+  app.get("/api/workspace", (c) => c.json({ ...workspaceInfo(root), workflow: config.workflow }));
 
   app.get("/api/workflows/:name", (c) => {
-    const file = fileOf(c.req.param("name"));
-    if (!file) return c.json({ error: "There is no such workflow." }, 404);
-    let workflow: unknown;
-    try {
-      workflow = JSON.parse(readFileSync(file, "utf8"));
-    } catch (error) {
-      const problem = {
-        path: "(file)",
-        message: `The file is not JSON: ${(error as Error).message}`,
-        fix: "Fix it in an editor.",
-      };
-      return c.json({ workflow: null, problems: [problem] });
-    }
-    return c.json({ workflow, problems: parseWorkflow(workflow).problems });
+    if (!workflowFile(root, c.req.param("name"))) return c.json({ error: "There is no such workflow." }, 404);
+    return c.json(readWorkflow(root, c.req.param("name")));
   });
 
   /** The workflow in a request's body, or nothing when the body is not an object that holds one. */
@@ -159,34 +140,37 @@ export function startServer(root: string, config: { workflow: string }, port: nu
 
   app.put("/api/workflows/:name", async (c) => {
     const name = c.req.param("name");
-    const file = fileOf(name);
-    if (!file) return c.json({ error: "There is no such workflow." }, 404);
+    if (!workflowFile(root, name)) return c.json({ error: "There is no such workflow." }, 404);
     const workflow = await sent(c.req);
     if (!workflow) return c.json({ problems: notOne }, 422);
-    // nothing is written unless the same checker the command line uses finds nothing wrong
-    const problems = parseWorkflow(workflow).problems;
-    if (workflow.name !== name) {
-      problems.push({
-        path: "name",
-        message: `The workflow's name is "${String(workflow.name)}", but its file is ${name}.json.`,
-        fix: `Set "name" to "${name}".`,
-      });
-    }
-    if (problems.length > 0) return c.json({ problems }, 422);
-    // written beside and moved into place: never through a link, and never left half written
-    const beside = `${file}.${process.pid}.tmp`;
     try {
-      writeFileSync(beside, `${JSON.stringify(workflow, null, 2)}\n`, { flag: "wx" });
-      renameSync(beside, file);
+      // nothing is written unless the same checker the command line uses finds nothing wrong
+      const { saved, problems } = saveWorkflow(root, name, workflow);
+      return saved ? c.json({ workflow, problems: [] }) : c.json({ problems }, 422);
     } catch (error) {
-      rmSync(beside, { force: true }); // or the next save would find it in its way
-      return c.json({ error: `The workflow could not be written: ${(error as Error).message}` }, 500);
+      return c.json({ error: (error as Error).message }, 500);
     }
-    return c.json({ workflow, problems: [] });
   });
+
   const db = openDb(join(root, ".factor", "state.db"));
   let closed = false;
   runRoutes(app, db, root, () => closed);
+
+  // Every operation of the factory, by its name: the same table the operator MCP server serves.
+  // An input the operation's own schema refuses is 422, and what the factory refuses is 409, in
+  // the words the command line would use.
+  app.post("/api/op/:name", async (c) => {
+    const operation = OPERATIONS.find((o) => o.name === c.req.param("name"));
+    if (!operation) return c.json({ error: "There is no such operation." }, 404);
+    const input = operation.input.safeParse(await c.req.json().catch(() => undefined));
+    if (!input.success) return c.json(inputProblem(input.error.issues), 422);
+    try {
+      return c.json((await operation.run({ root, db }, input.data as never)) ?? {});
+    } catch (error) {
+      if (error instanceof UserError) return c.json({ error: error.message, fix: error.fix }, 409);
+      return c.json({ error: (error as Error).message }, 500);
+    }
+  });
   app.all("/api/*", (c) => c.json({ error: "There is no such operation." }, 404));
 
   // the interface: its files as they were built, and its one page for every other path
@@ -221,7 +205,15 @@ export function startServer(root: string, config: { workflow: string }, port: nu
         (server as { closeAllConnections?: () => void }).closeAllConnections?.();
         db.close();
       };
-      resolve({ url, address: `${url}/#t=${token}`, close });
+      const routes = [
+        ...new Set(
+          app.routes
+            // what is left out is asked of every route, or catches what no route took
+            .filter((r) => !r.path.includes("*"))
+            .map((r) => `${r.method} ${r.path}`),
+        ),
+      ];
+      resolve({ url, address: `${url}/#t=${token}`, routes, close });
     });
     server.on("error", (error: NodeJS.ErrnoException) =>
       reject(
