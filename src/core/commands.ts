@@ -181,7 +181,7 @@ export function roleCommand(
 }
 
 const money = (usd: number) => `$${usd.toFixed(4)}`;
-const num = (n: number) => String(n).padStart(11);
+const num = (n: number) => String(n).padStart(13);
 
 /** `sessions [run]`: every start of an agent with what it used and cost, a total per run and per account. */
 export function sessionsCommand(db: Db, runId: string | undefined, say: (line: string) => void): number {
@@ -207,7 +207,7 @@ export function sessionsCommand(db: Db, runId: string | undefined, say: (line: s
     const mine = sessions.filter((s) => s.run_id === id);
     say(`Run ${id}  ${mine[0]?.title ?? ""}`);
     say(
-      `  ${head}${["input", "output", "cache read", "cache write"].map((h) => h.padStart(11)).join("")}  cost`,
+      `  ${head}${["input", "output", "cache read", "cache write"].map((h) => h.padStart(13)).join("")}  cost`,
     );
     for (const s of mine) {
       const who = `${s.lane.padEnd(14)} ${String(s.try).padEnd(4)} ${(s.account ?? "-").padEnd(14)} ${(s.model ?? "-").padEnd(22)}`;
