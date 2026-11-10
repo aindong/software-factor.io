@@ -80,3 +80,10 @@ themselves. Only a sandbox for the agents stops that.
 
 Runs on the map, the inbox, accounts, plugins and costs. Each section says so and names the command that gives
 the same today. There is no undo beyond Revert, which reloads the file.
+
+## How it is checked
+
+`pnpm test` covers the server, the layout and the edits. The screen itself is checked in a real browser by
+`bash test/ui/floor.sh` (it needs `playwright-cli` and `pnpm run build`): by keyboard it opens a station, adds a
+lane, connects it, follows the change into the JSON view and back, has a save refused, saves, and reads the file.
+Give it a folder as its argument and it leaves screenshots there in both themes.
