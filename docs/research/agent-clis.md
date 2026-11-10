@@ -170,6 +170,31 @@ Also not verified: whether `usage` in `turn.completed` is that turn's or the thr
 adds the turns up, which is right for the one turn a `codex exec` makes, and would count twice if a stream ever
 held two finished turns with running totals.
 
+## Checked by real runs on 2026-11-10
+
+Claude Code 2.1.311, started by the factory as
+`claude -p --output-format stream-json --verbose --model sonnet --add-dir <lane folder> --settings <hooks as JSON> --setting-sources user --strict-mcp-config --mcp-config <one server as JSON> --tools Read,Glob,Grep,Bash,Write,Edit,NotebookEdit --allowedTools <the same, and mcp__factor__*>`,
+with the prompt on stdin:
+
+- Every flag was accepted. The `init` event listed exactly the tools named, and the five `mcp__factor__*` tools.
+- The hand-written MCP server connected (`"status":"connected"`), and `memory_note` and `handoff_write` worked.
+- A `PreToolUse` hook given with `--settings` runs under `--setting-sources user`: it denied `cat .env` with
+  the factory's reason. The owner's own hooks from the profile run too (one refused a commit with an AI
+  co-author trailer).
+- The result's `modelUsage` named the full model (`claude-sonnet-5-5`), and `total_cost_usd` was a number.
+
+Codex 0.167.0, started as
+`codex exec --json -C <worktree> -s read-only --ignore-user-config -c approval_policy="never" -m gpt-6.1-sol -c mcp_servers.factor.command=... -c mcp_servers.factor.args=[...] -c mcp_servers.factor.default_tools_approval_mode="approve" -`:
+
+- Accepted, with the prompt on stdin. The login still works with `--ignore-user-config`. Skills in the owner's
+  home are still loaded.
+- Without `default_tools_approval_mode="approve"` every tool of the server is refused: `MCP tool call requires
+  approval, but approval policy is never`. With it, `memory_read` and `handoff_write` worked, from a read-only
+  sandbox. A tool call shows in the stream as an `item.completed` of type `mcp_tool_call`.
+- `gpt-5.3-codex` is refused for a ChatGPT login. `codex debug models` lists the models the CLI knows. The
+  stream does not name the model that ran.
+- One turn gave one `turn.completed`, with `cached_input_tokens` inside `input_tokens` (149,340 and 122,752).
+
 ## What we take
 
 Source: https://code.claude.com/docs/en/headless and the sections above.
