@@ -55,5 +55,5 @@ it("refuses a prompt in a file that holds a secret", () => {
   expect(r.status).toBe(1);
   expect(r.text).toBe("");
   expect(r.stderr).toMatch(/secret|credential/i);
-  expect(r.stderr).not.toContain("ghp_");
+  expect(r.stderr).not.toContain("a1B2".repeat(9)); // it is named by its start only
 });

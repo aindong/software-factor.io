@@ -88,7 +88,7 @@ function filesIn(dir: string, skip: boolean, under = "", found: string[] = []): 
 }
 
 /** Every command line a workflow would run on the host: its lanes', its gates', its waits', its MCP servers'. */
-function commandsOf(workflow: Record<string, unknown>): string[] {
+export function commandsOf(workflow: Record<string, unknown>): string[] {
   const found: string[] = [];
   const walk = (value: unknown) => {
     if (typeof value !== "object" || value === null) return;

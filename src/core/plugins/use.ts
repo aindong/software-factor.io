@@ -23,7 +23,7 @@ const LockEntry = z.strictObject({
     .optional(),
 });
 export type LockEntry = z.infer<typeof LockEntry>;
-const LockFile = z.record(z.string().regex(/^[a-z][a-z0-9-]*$/), LockEntry);
+export const LockFile = z.record(z.string().regex(/^[a-z][a-z0-9-]*$/), LockEntry);
 export type Lock = z.infer<typeof LockFile>;
 export const lockPath = (ws: { factorDir: string }) => join(ws.factorDir, "plugins.lock.json");
 

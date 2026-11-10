@@ -20,7 +20,7 @@ it("prints the workflow with its prompt inside it, and the pins of the plugins i
   expect(Object.keys(doc).sort()).toEqual(["plugins", "softwarefactorExport", "workflow"]);
   expect(doc.workflow.name).toBe("starter");
   // the prompt that was in a file is in the document, and no file is named
-  const build = doc.workflow.lanes.find((l) => l.id === "build") as { agent: { prompt: unknown } };
+  const build = doc.workflow.lanes.find((l) => l.id === "build") as unknown as { agent: { prompt: unknown } };
   expect(build.agent.prompt).toBe("Build what the task asks for.\nKeep it small.\n");
   expect(text).not.toContain("prompts/build.md");
   // what the workspace must define is named with what it must do, and its own command line is not there
@@ -42,7 +42,7 @@ it("prints the workflow with its prompt inside it, and the pins of the plugins i
   expect(JSON.parse(readFileSync(out, "utf8"))).toEqual(doc);
 
   // and the import accepts it
-  const { repo: other, file } = clean(text);
+  const { repo: other, file } = clean(text.replace('"name": "starter"', '"name": "shared"'));
   const shown = other.sf("import", file);
   expect(shown.status, shown.stderr).toBe(0);
 });

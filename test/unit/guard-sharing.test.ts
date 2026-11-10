@@ -18,6 +18,7 @@ it.each([
   "npx softwarefactor import shared.json --yes",
   "npx softwarefactor export --out /tmp/x.json",
   "timeout 5 softwarefactor export",
+  "find . -name x.json -exec softwarefactor import {} ;",
 ])("denies an agent: %s", (command) => {
   expect(judge({ tool: "Bash", input: { command } }, where).allow).toBe(false);
 });

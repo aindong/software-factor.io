@@ -29,6 +29,7 @@ import { serveOperator } from "./core/mcp-operator.ts";
 import { addCommand, availableCommand } from "./core/plugins/install.ts";
 import { reportFiles } from "./core/schema/check-files.ts";
 import { startServer } from "./core/server.ts";
+import { exportCommand, importCommand } from "./core/sharing.ts";
 import { openInbox, readStatus } from "./core/store.ts";
 import { factorHome, loadWorkspace } from "./core/workspace.ts";
 
@@ -42,6 +43,8 @@ Usage: softwarefactor <command>
   allow <server>           Show what an MCP server of the workflow runs, and let collectors start it
   allow --skill <name>     Show where a skill of the workflow comes from, and let runs install it
   add <source> [--yes]     Show what a plugin holds and would run, and install it on a yes
+  export [workflow]        Print a workflow as one file to share: no secret, no account, no path
+  import <file> [--yes]    Show what a shared workflow would run, and write it on a yes
                            (a folder, owner/repo, or a name from \`plugins --available\`)
   run [--all] [--parallel N]
                            Pick up runs a crash left, wake waits that are due, then take the next
@@ -189,6 +192,9 @@ async function main(): Promise<number> {
       hash: { type: "string" },
       skill: { type: "string" },
       available: { type: "boolean" },
+      out: { type: "string" },
+      use: { type: "boolean" },
+      "keep-checkpoints": { type: "boolean" },
       note: { type: "string" },
       all: { type: "boolean" },
       parallel: { type: "string" },
@@ -327,6 +333,8 @@ async function main(): Promise<number> {
   }
   if (command === "plugins") return values.available ? availableCommand(say) : pluginsCommand(cwd, say);
   if (command === "add") return addCommand(loadWorkspace(cwd), positionals.slice(1), values, say);
+  if (command === "export") return exportCommand(loadWorkspace(cwd), positionals.slice(1), values, say);
+  if (command === "import") return importCommand(loadWorkspace(cwd), positionals.slice(1), values, say);
 
   if (command === "inbox") {
     const ws = loadWorkspace(cwd);

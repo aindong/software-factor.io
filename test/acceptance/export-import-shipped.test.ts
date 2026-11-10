@@ -17,4 +17,8 @@ it.each(shipped)("exports and imports %s", (file) => {
   const r = repo.sf("import", shared, "--yes");
   expect(r.status, r.stderr).toBe(0);
   expect(repo.sf("check", `.factor/workflows/${workflow.name}.json`).status).toBe(0);
+  // nothing was dropped on the way: it is the shipped workflow, with a person in front of every lane
+  const imported = repo.json<{ lanes: Record<string, unknown>[] }>(`.factor/workflows/${workflow.name}.json`);
+  const shippedLanes = (workflow as unknown as { lanes: Record<string, unknown>[] }).lanes;
+  expect(imported).toEqual({ ...workflow, lanes: shippedLanes.map((l) => ({ ...l, checkpoint: "in" })) });
 });

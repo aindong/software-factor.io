@@ -32,6 +32,7 @@ it("writes the workflow with every lane waiting for a person, keeps a pin, and l
   expect(repo.json<{ workflow: string }>(".factor/factory.json").workflow).toBe("starter");
   // nothing of the machine's approvals is written by an import
   expect(repo.read(".factor/local.json")).not.toContain("plugins");
+  expect(repo.read(".factor/local.json")).not.toContain("servers");
 });
 
 it("keeps the checkpoints when asked, and makes the workflow the active one when asked", () => {
