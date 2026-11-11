@@ -84,4 +84,18 @@ describe("the plan check", () => {
     expect(planProblems(root, "docs/none.md").join("\n")).toMatch(/not a file in the commit/);
     rmSync(join(dirname(root), "outside.md"));
   });
+  // the plan is an agent's file, and the gate runs in the host: a line built to make a pattern
+  // retry must not hold it, and a plan is never large
+  it("reads a heading with a very long run of spaces without stalling", () => {
+    const long = `## a${" ".repeat(60_000)}b`;
+    const started = Date.now();
+    expect(check(`${long}\n${plan(TWO, "- 1: cmd:true\n- 2: cmd:true")}`)).toEqual([]);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  it("refuses a plan of more than a megabyte", () => {
+    const problems = check(plan(TWO, "- 1: cmd:true\n- 2: cmd:true") + "x".repeat(1_100_000));
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toMatch(/larger than 1 MB/);
+  });
 });
