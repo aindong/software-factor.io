@@ -44,16 +44,18 @@ async function onFixture<T>(o: Parameters<typeof makeFixture>[0], read: (fixture
   }
 }
 /** A case that a gate must fail. */
-const caughtBy = (gate: string, script: FakeAction[]) => () =>
-  onFixture({ script }, (fixture) => {
-    const status = fixture.rows<{ status: string }>(
-      "select status from gate_results where gate = ? order by id desc limit 1",
-      gate,
-    )[0]?.status;
-    if (status === "fail") return undefined;
-    const run = fixture.rows<{ status: string }>("select status from runs")[0]?.status;
-    return `not caught: the gate ${gate} said ${status ?? "nothing"}, and the run ended ${run ?? "nowhere"}`;
-  });
+const caughtBy =
+  (gate: string, script: FakeAction[], plan = false) =>
+  () =>
+    onFixture({ script, plan }, (fixture) => {
+      const status = fixture.rows<{ status: string }>(
+        "select status from gate_results where gate = ? order by id desc limit 1",
+        gate,
+      )[0]?.status;
+      if (status === "fail") return undefined;
+      const run = fixture.rows<{ status: string }>("select status from runs")[0]?.status;
+      return `not caught: the gate ${gate} said ${status ?? "nothing"}, and the run ended ${run ?? "nowhere"}`;
+    });
 
 // a token made here, so that no file of the factory holds one
 const token = () => `ghp_${"a1B2".repeat(9)}`;
@@ -124,6 +126,25 @@ export const CASES: Case[] = [
       commit,
       pass(),
     ]),
+  },
+  {
+    id: "criterion-without-check",
+    what: "A plan with a criterion that names no check is caught by core/plan-contract@1",
+    run: caughtBy(
+      "contract",
+      [
+        {
+          write: {
+            path: "plan.md",
+            content:
+              "# Plan\n\n## Acceptance criteria\n\n1. It adds.\n2. It shows.\n\n## Verification contract\n\n- 1: test:sum.test.js\n",
+          },
+        },
+        commit,
+        pass({ outputs: { plan: "plan.md" } }),
+      ],
+      true,
+    ),
   },
   {
     id: "failing-suite",

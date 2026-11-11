@@ -81,8 +81,8 @@ checkpoint, inbox, run, round, slot.
 - The idea comes from factory-building games: belts, machines, items moving through. The product must not use any
   game's name, art or assets.
 - Recorded in the plan and accepted by the owner: no purple gradients, no stock grid of cards.
-- (inferred) Voice: plain, short sentences, no hype words. The owner runs an "unslop" pass on everything written
-  for them.
+- (inferred) Voice: plain, short sentences, no hype words. The owner wants plain, short sentences with no hype
+  words in everything written for them.
 
 ## Evidence on Hand
 

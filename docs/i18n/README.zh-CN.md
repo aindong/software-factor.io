@@ -109,11 +109,11 @@ softwarefactor role bind author --account work --large opus --medium sonnet
 
 | 工作流 | 说明 |
 | --- | --- |
-| `alleo-loop` | 先写带验证约定的计划，先写测试再构建，说明影响范围，由来自另一家厂商的评审小组评审，在浏览器中检查界面，然后交付。计划和交付都由人批准。 |
+| `full-loop` | 先写带验证约定的计划，先写测试再构建，说明影响范围，由来自另一家厂商的评审小组评审，在浏览器中检查界面，然后交付。计划和交付都由人批准。 |
 | `bugfix-fast` | 收集带标签的缺陷报告，每个都用一个没有修复就会失败的测试来修复，然后开一个拉取请求。 |
 | `research-only` | 用一份引用来源的报告回答一个问题。由第二个智能体设法推翻它。不改动任何代码。 |
 
-要使用其中一个，把它从 `workflows/` 复制到 `.factor/workflows/`，在 `.factor/factory.json` 中指明它（`"workflow": "bugfix-fast"`），在那里定义它要求的命令，然后运行 `softwarefactor check`。`alleo-loop` 是作者自己的流程：它的第一道关卡调用 `alleo-plan-check`，那是作者自己环境里的工具。请把这道关卡的命令换成你自己的计划检查，或者删掉这道关卡。
+要使用其中一个，把它从 `workflows/` 复制到 `.factor/workflows/`，在 `.factor/factory.json` 中指明它（`"workflow": "bugfix-fast"`），在那里定义它要求的命令，然后运行 `softwarefactor check`。`full-loop` 不需要作者环境里的任何东西：它的第一道关卡 `core/plan-contract@1` 是内置的，检查计划是否为每条验收标准写明了对应的检查；它的 `verify-ui` 泳道用的是公开的技能 `playwright-cli`。
 
 ## 指南
 
@@ -137,15 +137,15 @@ softwarefactor role bind author --account work --large opus --medium sonnet
 已用真实智能体跑过，使用的是作者自己订阅的登录：
 
 - 在一个临时项目里做了一项任务，用 Claude Code 构建、用 Codex 评审，其中 Codex 泳道读取了 Claude 泳道写下的一条记忆笔记（2026-11-10）。
-- 在工厂自己的仓库上用 `alleo-loop` 跑：共七次运行，其中五项任务落地（有一项是在评审把工作退回 Build 泳道之后），两次因工厂自身的故障而停止，故障随后已修复。每项任务、它的轮次和费用，见[工厂在自身上做过什么](../dogfood.md)。这些运行中的检查点，是由作者安排来构建本项目的 AI 智能体以操作员身份批准的。批准之前，没有人读过这些计划。
+- 在工厂自己的仓库上用现在叫 `full-loop` 的工作流跑（那几次运行里它名字不同，用的是作者自己的技能和自己的计划检查）：共七次运行，其中五项任务落地（有一项是在评审把工作退回 Build 泳道之后），两次因工厂自身的故障而停止，故障随后已修复。每项任务、它的轮次和费用，见[工厂在自身上做过什么](../dogfood.md)。这些运行中的检查点，是由作者安排来构建本项目的 AI 智能体以操作员身份批准的。批准之前，没有人读过这些计划。
 - GitHub issue 收集器对真实的 `gh`（只读）的使用，以及 `softwarefactor add` 从一个 GitHub 仓库添加。
 
 只在脚本化的智能体或替身上跑过：
 
 - 评测套件，这是有意为之：它不启动任何真实智能体。
 - 在各自独立的槽位（slot）上同时进行两次运行。
-- `bugfix-fast` 和 `research-only` 的端到端运行，用的是 `gh` 和开启拉取请求那条命令的替身。`alleo-loop` 也在脚本化的智能体上端到端跑过，用的是 `alleo-plan-check` 的替身。
-- `alleo-loop` 中真实运行没有触及的一部分：它的 `verify-ui` 泳道，即在浏览器中检查界面变更。没有哪项真实任务涉及界面。
+- `bugfix-fast` 和 `research-only` 的端到端运行，用的是 `gh` 和开启拉取请求那条命令的替身。`full-loop` 也在脚本化的智能体上端到端跑过，用的是它自己的关卡 `core/plan-contract@1`；还没有真实的智能体为这道关卡写过计划。
+- `full-loop` 中真实运行没有触及的一部分：它的 `verify-ui` 泳道，即在浏览器中检查界面变更。没有哪项真实任务涉及界面。
 - 关卡 `core/no-secrets@1` 不在任何随附的工作流里，也不在 `init` 写入的工作流里：它只在测试和评测套件中跑过。
 - Kimi 适配器：依据其文档编写，对照替身程序测试过，从未用真实的 CLI 试过。
 - `command` 适配器（把你的任意命令当作智能体）：只在测试中用过脚本化的命令。

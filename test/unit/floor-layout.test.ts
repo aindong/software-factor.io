@@ -103,7 +103,7 @@ describe.each(files)("the map of %s", (file) => {
 });
 
 describe("the map's notation", () => {
-  const floor = layout(load("workflows/alleo-loop.json"));
+  const floor = layout(load("workflows/full-loop.json"));
   const line = (from: string, outcome: string) =>
     floor.lines.filter((l) => l.from === from && l.outcome === outcome);
 
@@ -123,7 +123,7 @@ describe("the map's notation", () => {
   });
 
   it("gives a lane that waits for a person a different station from one that does not", () => {
-    const workflow = load("workflows/alleo-loop.json");
+    const workflow = load("workflows/full-loop.json");
     for (const lane of workflow.lanes) {
       const station = floor.stations.find((s) => s.id === lane.id);
       expect(station?.checkpoint).toBe(lane.checkpoint);

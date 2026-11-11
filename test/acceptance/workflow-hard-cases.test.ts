@@ -34,7 +34,7 @@ describe("processes a skeptic said the schema could not hold", () => {
     expect(new Set(fixtures).size).toBe(supported.length);
     const shapes = [
       ...fixtures.map((f) => lanesOf(`${dir}/${f}`)),
-      ...["alleo-loop", "bugfix-fast", "research-only"].map((n) => lanesOf(`workflows/${n}.json`)),
+      ...["full-loop", "bugfix-fast", "research-only"].map((n) => lanesOf(`workflows/${n}.json`)),
     ];
     expect(new Set(shapes).size).toBe(shapes.length);
   });

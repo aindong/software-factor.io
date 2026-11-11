@@ -1,8 +1,8 @@
 {
   "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
   "version": 1,
-  "name": "alleo-loop",
-  "description": "The owner's daily loop as lanes: plan with a verification contract, build with tests first, state the impact, review with a panel from another vendor, check the interface in a browser, ship. A person approves the plan and the ship.",
+  "name": "full-loop",
+  "description": "A full loop for one change: plan with a verification contract, build with tests first, state the impact, review with a panel from another vendor, check the interface in a browser, ship. A person approves the plan and the ship.",
   "roles": {
     "author": {
       "description": "Plans and writes the change."
@@ -12,15 +12,6 @@
     }
   },
   "skills": {
-    "alleo-loop:loop-plan": {
-      "from": "profile"
-    },
-    "alleo-loop:loop-build": {
-      "from": "profile"
-    },
-    "alleo-loop:loop-impact": {
-      "from": "profile"
-    },
     "playwright-cli": {
       "from": "profile"
     }
@@ -48,10 +39,7 @@
   ],
   "gates": {
     "contract": {
-      "uses": "core/command@1",
-      "with": {
-        "run": "alleo-plan-check \"$FACTOR_OUTPUT_PLAN\""
-      },
+      "uses": "core/plan-contract@1",
       "onFail": "repair",
       "description": "Every acceptance criterion in the plan names the check that proves it."
     },
@@ -89,10 +77,7 @@
         "access": "write",
         "tier": "large",
         "effort": "high",
-        "skills": [
-          "alleo-loop:loop-plan"
-        ],
-        "prompt": "Plan the task with the loop-plan skill. Write the plan with numbered acceptance criteria and a verification contract, and write the acceptance tests so they fail for the right reason. Do not ask the person: where the task is unclear, choose, and write the choice in the plan. In this repository the folder .agent is not committed: write the plan file under docs/plans/ instead, and commit it together with the acceptance tests, because the plan is checked on a clean checkout of your commit."
+        "prompt": "Plan the task. Write a plan file with numbered acceptance criteria under the heading Acceptance criteria, and under the heading Verification contract one line for each criterion, - <n>: <kind>:<what>, where kind is test, cmd, ui or human and what names the check that proves it. Write the acceptance tests so they fail for the right reason. Do not ask the person: where the task is unclear, choose, and write the choice in the plan."
       },
       "outputs": {
         "plan": {
@@ -101,9 +86,7 @@
           "description": "Path of the plan file."
         }
       },
-      "gates": [
-        "contract"
-      ],
+      "gates": ["contract"],
       "checkpoint": "in",
       "limits": {
         "minutes": 30,
@@ -123,24 +106,15 @@
         "access": "write",
         "tier": "large",
         "effort": "high",
-        "skills": [
-          "alleo-loop:loop-build"
-        ],
         "session": {
           "continue": "plan"
         },
-        "prompt": "Build the approved plan with the loop-build skill: commit the acceptance tests first, then make them pass in small commits. If you are here because a later lane failed, fix what its hand-off lists and nothing else."
+        "prompt": "Build the approved plan: commit the acceptance tests first, then make them pass in small commits. If you are here because a later lane failed, fix what its hand-off lists and nothing else."
       },
       "inputs": {
         "plan": "plan.outputs.plan"
       },
-      "gates": [
-        "protected",
-        "tests-kept",
-        "verify",
-        "floor",
-        "proves-change"
-      ],
+      "gates": ["protected", "tests-kept", "verify", "floor", "proves-change"],
       "checkpoint": "near",
       "limits": {
         "minutes": 90,
@@ -163,9 +137,6 @@
         "access": "read",
         "tier": "medium",
         "effort": "high",
-        "skills": [
-          "alleo-loop:loop-impact"
-        ],
         "prompt": "Find what this change could break outside its own diff. Name the one fact its safety rests on and prove that fact by running real code. Fail the lane if the fact does not hold."
       },
       "outputs": {
@@ -176,13 +147,7 @@
         },
         "proof": {
           "type": "string",
-          "enum": [
-            "claimed",
-            "cited",
-            "argued",
-            "run",
-            "reproduced"
-          ],
+          "enum": ["claimed", "cited", "argued", "run", "reproduced"],
           "required": true
         }
       },
@@ -235,11 +200,7 @@
             "prompt": "Look only for security issues a real attacker could use.",
             "when": {
               "ref": "change.tier",
-              "in": [
-                "sensitive",
-                "api",
-                "ui"
-              ]
+              "in": ["sensitive", "api", "ui"]
             }
           },
           {
@@ -270,9 +231,7 @@
             "to": "verify-ui",
             "when": {
               "ref": "change.tier",
-              "in": [
-                "ui"
-              ]
+              "in": ["ui"]
             }
           },
           {
@@ -299,9 +258,7 @@
         "access": "read",
         "tier": "medium",
         "effort": "medium",
-        "skills": [
-          "playwright-cli"
-        ],
+        "skills": ["playwright-cli"],
         "prompt": "Run the app and check each interface criterion of the plan in a real browser with playwright-cli. Attach a screenshot for each criterion as evidence. Fail the lane if any criterion does not hold on screen."
       },
       "inputs": {

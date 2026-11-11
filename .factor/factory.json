@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "workflow": "alleo-loop",
+  "workflow": "full-loop",
   "commands": {
     "setup": "pnpm install --frozen-lockfile --prefer-offline --silent",
     "verify": "pnpm run typecheck && pnpm run lint && pnpm run build && pnpm test",

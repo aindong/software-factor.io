@@ -13,7 +13,7 @@ it("fails when the gate that keeps tests from being weakened is broken, and name
     expect(r.stdout, id).toMatch(new RegExp(`^ok\\s+${id}\\s`, "m"));
   }
   expect(r.stdout).toMatch(
-    new RegExp(`^${CASES.length - 2} of ${CASES.length} cases passed \\(81%\\)$`, "m"),
+    new RegExp(`^${CASES.length - 2} of ${CASES.length} cases passed \\(83%\\)$`, "m"),
   );
   expect(r.stdout).toContain("core/tests-not-weakened@1 was broken on purpose");
 }, 180_000);

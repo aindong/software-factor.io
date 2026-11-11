@@ -102,6 +102,7 @@ export const BUILTINS: Record<Kind, Record<string, z.ZodType | null>> = {
       })
       .optional(),
     "core/no-secrets@1": null,
+    "core/plan-contract@1": z.strictObject({ output: z.string().min(1).optional() }).optional(),
     "core/new-tests-fail-on-base@1": z
       .strictObject({
         command: commandName.optional(),
