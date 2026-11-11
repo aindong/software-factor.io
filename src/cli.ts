@@ -175,9 +175,16 @@ async function main(): Promise<number> {
       check: { type: "boolean" },
       json: { type: "boolean" },
       item: { type: "string" },
+      version: { type: "boolean" },
     },
   });
   const command = positionals[0];
+  if (values.version || command === "version") {
+    // from dist/ or src/ alike, ../package.json is the package root's
+    const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    console.log(version);
+    return 0;
+  }
   const cwd = process.cwd();
   if (values.help || !command) {
     console.log(HELP);

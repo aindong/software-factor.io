@@ -40,6 +40,7 @@ Usage: softwarefactor <command>
   sessions [run]           Show each start of an agent: account, model, tokens by kind and cost,
                            with a total per run and per account
   inbox                    Show what waits for a person
+  version                  Print the version (also --version)
   approve <run>            Approve a waiting lane. With --item <n> on any decision: only if the run
                            still waits on that inbox item
   reject <run> [--note]    Reject it: the lane's fail transition is taken
