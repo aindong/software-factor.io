@@ -1,4 +1,5 @@
 // The markup of a run that the keyboard, a screen reader and the browser check rely on.
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { drawable, layout } from "../core/floor/layout.ts";
@@ -8,6 +9,8 @@ import type { Workflow } from "../core/schema/workflow.ts";
 import { Diagram } from "./Diagram.tsx";
 import { Elapsed } from "./Elapsed.tsx";
 import { Strip } from "./Strip.tsx";
+import { titleOf } from "./tab.ts";
+import { Breakable, Coded } from "./Words.tsx";
 import { ago, cost, dollars, span, standing, tokens } from "./words.ts";
 
 const workflow = drawable({
@@ -145,5 +148,28 @@ describe("how long a lane has worked", () => {
   it("is never negative when the clocks differ", () => {
     vi.useFakeTimers({ now: Date.parse("2026-11-10T12:00:00Z") });
     expect(renderToStaticMarkup(<Elapsed since="2026-11-10T12:00:05Z" />)).toBe("0s");
+  });
+});
+
+describe("small things from the final critique", () => {
+  it("breaks a dotted name after its dots", () => {
+    expect(renderToStaticMarkup(<Breakable name="review.maintainability" />)).toBe(
+      "<span>review</span><span>.<wbr/>maintainability</span>",
+    );
+  });
+  it("sets a backticked word as code", () => {
+    expect(renderToStaticMarkup(<Coded sentence="Show `softwarefactor cost --json` too" />)).toBe(
+      "Show <code>softwarefactor cost --json</code> too",
+    );
+  });
+  it("puts the working count in the tab's title, after the waiting count", () => {
+    expect(titleOf("Runs", 0, 0)).toBe("Runs · Software Factor.io");
+    expect(titleOf("Runs", 1, 0)).toBe("(1) Runs · Software Factor.io");
+    expect(titleOf("Runs", 0, 2)).toBe("(2 working) Runs · Software Factor.io");
+    expect(titleOf("Inbox", 3, 1)).toBe("(3) (1 working) Inbox · Software Factor.io");
+  });
+  it("gives the 'more lines' buttons a target of 24 px", () => {
+    const css = readFileSync("src/ui/runs.css", "utf8");
+    expect(css).toMatch(/button\.more\s*\{[^}]*min-height:\s*24px/);
   });
 });

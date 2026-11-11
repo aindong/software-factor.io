@@ -105,7 +105,7 @@ pw press Control+s
 wait_for "the refused save brings the notice at once" "$notice" 'address'
 pw goto "$address"
 sleep 1
-expect "the address in the tab is taken in place" "$(js "$loaded") $(js "$notice")" "^$before \$"
+expect "the address in the tab is taken in place, and the notice only says so" "$(js "$loaded") $(js "$notice")" "^$before (Key taken\\. Save to keep your changes\\.)?\$"
 pw press Control+s
 wait_for "and the third change is saved" "() => document.querySelector('.topbar .status').textContent" '^Saved'
 

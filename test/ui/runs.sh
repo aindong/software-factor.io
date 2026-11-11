@@ -210,6 +210,7 @@ back_to '^Done.*[0-9]+ Add an export button'
 pw press Home
 expect "back on the newest run" "$(js "$focused")" 'Show the cost of each lane'
 expect "what waits names the command too" "$(js "() => document.querySelector('.waits')?.textContent.replace(/\\s+/g, ' ') ?? ''")" 'Ship it waits for your approval\..*Decide in the inbox.*softwarefactor approve [0-9a-f]+'
+expect "the head does not say twice what the block that waits says" "$(js "() => document.querySelectorAll('.rundetail header .sentence').length")" '^0$'
 expect "the waiting run's train is yellow on its own map too" "$(js "() => document.querySelector('.runmap .train')?.getAttribute('class') ?? ''")" 'asks'
 expect "the tab says that one waits" "$(js "() => document.title")" '^\(1\) Runs · Software Factor\.io$'
 # from the run to its decision, and back with the keys for a section: g, then r

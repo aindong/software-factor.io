@@ -215,6 +215,8 @@ wait_for "what is built in" "() => document.querySelector('.page')?.innerText ??
 for name in core/command@1 core/wait@1 core/test-floor@1 core/file@1 claude codex kimi fake alleo-loop bugfix-fast research-only; do
   expect "$name is listed" "$(js "() => document.querySelector('.page').innerText.includes('$name')")" '^true$'
 done
+expect "the first lead line says what a person can do" "$(js "() => document.querySelector('.page .quiet').innerText")" '^The kinds of lane you can add'
+expect "the names are plain text, not capsules that look like buttons" "$(js "() => getComputedStyle(document.querySelector('.names li')).borderTopWidth")" '^0px$'
 expect "the page says how a plugin is installed" "$(js "() => document.querySelector('.page').innerText")" 'softwarefactor add'
 shot plugins-light-1440
 
