@@ -48,15 +48,15 @@ export function modelChoices(
   };
   const list: ModelChoice[] = [...mine].sort(newer).map((name) => ({ value: name, label: modelLabel(name) }));
   const has = (name: string) => list.some((c) => c.value === name);
-  // the latest session of an asked name comes first, so its model is the version it last ran as
+  // the latest session that says another name for an asked one says the version it last ran as
+  const ranAs = new Map<string, string>();
   for (const { asked, model } of ran) {
-    if (asked && !has(asked)) {
-      list.push({
-        value: asked,
-        label: model && model !== asked ? `${asked} (last ran as ${model})` : asked,
-      });
-    }
-    if (model && !has(model)) list.push({ value: model, label: model });
+    if (asked && model && model !== asked && !ranAs.has(asked)) ranAs.set(asked, model);
+  }
+  for (const name of ran.flatMap(({ asked, model }) => [asked, model])) {
+    if (!name || has(name)) continue;
+    const as = ranAs.get(name);
+    list.push({ value: name, label: as ? `${name} (last ran as ${as})` : name });
   }
   return list;
 }

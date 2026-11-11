@@ -83,7 +83,7 @@ export function accountsView(ws: Workspace, db: Db): AccountsView {
   const accounts = readAccounts();
   const known = Object.keys(readPrices());
   const ran = db.prepare(
-    "select asked_model as asked, model from sessions where account = ? order by id desc",
+    "select asked_model as asked, model from sessions where account = ? order by started_at desc, id desc",
   );
   const vendorOf = (role: string) => {
     const binding = own(ws.local.roles, role);
