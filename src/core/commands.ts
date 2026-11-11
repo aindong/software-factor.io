@@ -131,10 +131,15 @@ export function roleCommand(
   if (action === "list") {
     for (const [name, declared] of Object.entries(roles)) {
       const binding = own(ws.local.roles, name);
+      // the model of each tier and the effort, as the page shows them
+      const models = (b: { models?: Partial<Record<string, string>>; effort?: string }) =>
+        (["small", "medium", "large"] as const)
+          .map((tier) => `${tier} ${b.models?.[tier] || "the CLI's own"}`)
+          .join(", ") + (b.effort ? `, effort ${b.effort}` : "");
       const bound = !binding
         ? "not bound"
         : "account" in binding
-          ? `${binding.account} (${vendorOf(name) ?? "an account that is not on this machine"})`
+          ? `${binding.account} (${vendorOf(name) ?? "an account that is not on this machine"})  ${models(binding)}`
           : "the scripted agent (fake)";
       const vendor = vendorOf(name);
       const clash = (declared.differentVendorFrom ?? []).filter((o) => vendor && vendorOf(o) === vendor);

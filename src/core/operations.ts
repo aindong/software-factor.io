@@ -414,7 +414,7 @@ export const OPERATIONS: Operation[] = [
       ["account", "list"],
       ["role", "list"],
     ],
-    run: (at) => accountsView(loadWorkspace(at.root)),
+    run: (at) => accountsView(loadWorkspace(at.root), at.db),
   }),
   op({
     name: "roles_bind",

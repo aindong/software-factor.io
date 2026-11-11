@@ -402,6 +402,8 @@ export interface Session {
   try: number;
   account: string | null;
   agent: string;
+  /** The model the binding named for the lane's tier, or null for the CLI's own. */
+  asked_model: string | null;
   model: string | null;
   session_id: string | null;
   input_tokens: number;

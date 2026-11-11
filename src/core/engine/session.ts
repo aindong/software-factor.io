@@ -17,7 +17,7 @@ const MAX_TRANSCRIPT = Number(process.env.FACTOR_TRANSCRIPT_MAX_BYTES) || 50_000
 export function recordSession(
   ctx: Ctx,
   at: { lane: string; laneRun: number; stem: string; try: number; startedMs: number },
-  bound: Pick<Bound, "agent" | "account">,
+  bound: Pick<Bound, "agent" | "account" | "model">,
   exit: AgentExit,
 ): number {
   const { ws, db, run } = ctx;
@@ -82,6 +82,7 @@ export function recordSession(
     try: at.try,
     account: bound.account ?? null,
     agent: bound.agent,
+    asked_model: bound.model ?? null,
     // both are the CLI's words: kept on one line, so they cannot forge a line of a report
     model: exit.model === undefined ? null : oneLine(exit.model, 100),
     session_id: exit.sessionId === undefined ? null : oneLine(exit.sessionId, 100),
