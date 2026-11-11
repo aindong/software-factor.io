@@ -65,7 +65,7 @@ export async function startAgent(
 
   const binding = ws.local.roles[lane.agent?.role ?? ""];
   if (!binding) throw new Error(`no binding for lane ${lane.id}`);
-  const { adapter, agent, account } = adapterFor(binding, lane);
+  const { adapter, agent, account, model } = adapterFor(binding, lane);
   const served = adapter.server === true;
   const prompt =
     at.prompt +
@@ -119,7 +119,7 @@ export async function startAgent(
   const usd = recordSession(
     ctx,
     { lane: lane.id, laneRun: at.laneRun, stem: at.stem, try: at.try, startedMs },
-    { agent, account },
+    { agent, account, model },
     exit,
   );
   const cutOff = limit.signal.aborted;

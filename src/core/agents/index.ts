@@ -17,6 +17,8 @@ export interface Bound {
   agent: string;
   /** The account's name, when the role is bound to one. */
   account?: string;
+  /** The model the binding names for the lane's tier: none for the CLI's own. */
+  model?: string;
 }
 
 /** The account a binding names, or nothing for the scripted agent. Refused when it is not on this machine. */
@@ -52,7 +54,7 @@ export function adapterFor(binding: RoleBinding, lane: Lane): Bound {
         : account.agent === "kimi"
           ? kimiAgent(account, choice)
           : commandAgent(account);
-  return { adapter, agent: account.agent, account: name };
+  return { adapter, agent: account.agent, account: name, model: choice.model };
 }
 
 /** The command line of the factor server for one start of a lane. Which lane it serves is fixed here. */

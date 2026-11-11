@@ -118,7 +118,21 @@ textarea {
   padding: 2px var(--sm);
   border: 1px solid var(--edge);
   border-radius: var(--control);
-  background: var(--ground);
+  background-color: var(--ground);
+}
+/* a select is drawn by the page: no native look, one chevron of its own in the soft ink of both themes */
+.field select,
+.table select {
+  appearance: none;
+  padding-right: 28px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-soft) 50%),
+    linear-gradient(135deg, var(--ink-soft) 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) 50%,
+    calc(100% - 10px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
 }
 .field textarea {
   min-height: 96px;

@@ -50,7 +50,7 @@ const CLAUDE: Record<string, Price> = {
  * dollars per million tokens, for the models the Codex CLI lists.
  * shortcut: these are the prices up to 272,000 input tokens. Past that the page lists about double. Add the long rows when a session is that large.
  */
-const LIST: Record<string, Price> = {
+export const LIST: Record<string, Price> = {
   "gpt-6.1-sol": { input: 2, cacheRead: 0.1, output: 10 },
   "gpt-6.1-terra": { input: 1, cacheRead: 0.05, output: 5 },
   "gpt-6-sol": { input: 2, cacheRead: 0.2, output: 10 },

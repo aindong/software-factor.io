@@ -195,6 +195,8 @@ export const MIGRATIONS = [
     closed_at text
   );
   `,
+  // the model a lane asked for (an alias such as sonnet) beside the one the CLI says worked
+  "alter table sessions add column asked_model text;",
 ];
 
 export type Db = DatabaseSync;

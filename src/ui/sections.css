@@ -173,7 +173,65 @@
   padding: 2px var(--sm);
   border: 1px solid var(--edge);
   border-radius: var(--control);
-  background: var(--ground);
+  background-color: var(--ground);
+}
+.table select {
+  padding-right: 28px; /* room for the chevron */
+}
+/* a role's choices are as wide as their longest option, and a typed model sits under its list */
+.table.roles select {
+  width: auto;
+  max-width: 100%;
+}
+/* a role is one block: its name and what it does across the top, its choices in a row beneath, each named */
+.table.roles thead {
+  display: none;
+}
+.table.roles,
+.table.roles tbody {
+  display: block;
+}
+.table.roles tr {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sm) var(--lg);
+  padding: var(--md) 0;
+  border-bottom: 1px solid var(--rule);
+}
+.table.roles th,
+.table.roles td {
+  height: auto;
+  padding: 0;
+  border-bottom: 0;
+}
+.table.roles th {
+  flex: 0 0 100%;
+}
+.table.roles th .sub {
+  max-width: 72ch;
+}
+/* what the page did to a role's choices is said on a line of its own, and takes no room while there is nothing to say */
+.table.roles td.cleared {
+  flex: 0 0 100%;
+}
+.table.roles td.cleared:empty {
+  margin-top: calc(-1 * var(--sm));
+}
+.table.roles td[data-label]::before {
+  content: attr(data-label);
+  display: block;
+  margin-bottom: var(--xs);
+  font: 600 var(--text-label) / 1.2 var(--font-tight);
+  color: var(--ink-soft);
+}
+.table.roles input,
+.table.roles select {
+  height: var(--row);
+}
+.table.roles input {
+  display: block;
+  margin-top: var(--xs);
 }
 .table input:hover,
 .table select:hover {
@@ -249,31 +307,12 @@
     padding: 0;
     border-bottom: 0;
   }
-  .table.roles thead {
-    display: none;
-  }
-  .table.roles,
-  .table.roles tbody,
-  .table.roles tr,
-  .table.roles th,
-  .table.roles td {
+  .table.roles td,
+  .table.roles th {
     display: block;
-    height: auto;
-    border-bottom: 0;
-    padding-right: 0;
   }
   .table.roles tr {
     display: grid;
-    gap: var(--sm);
-    padding: var(--md) 0;
-    border-bottom: 1px solid var(--rule);
-  }
-  .table.roles td[data-label]::before {
-    content: attr(data-label);
-    display: block;
-    margin-bottom: var(--xs);
-    font: 600 var(--text-label) / 1.2 var(--font-tight);
-    color: var(--ink-soft);
   }
 }
 
