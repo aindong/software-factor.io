@@ -1,6 +1,6 @@
 // Where a run has been, as the strip map, the big map and the scrubber all draw it.
 import { describe, expect, it } from "vitest";
-import { routeOf, trackOf, type Visit } from "../../src/core/runs/track.ts";
+import { routeOf, travelledOf, trackOf, type Visit } from "../../src/core/runs/track.ts";
 
 const order = ["plan", "build", "review", "merge"];
 const v = (lane: string, outcome: Visit["outcome"] = "pass"): Visit => ({ lane, outcome });
@@ -149,5 +149,26 @@ describe("the lines a run took", () => {
   it("leave out a step the map has no line for", () => {
     expect([...routeOf(lines, [v("plan"), v("review"), v("lint")])]).toEqual([]);
     expect([...routeOf([], visits)]).toEqual([]);
+  });
+});
+
+describe("the line a working run is travelling", () => {
+  const leg = (from: string, outcome: "pass" | "fail", to: string, key: string) => ({
+    key,
+    from,
+    to,
+    outcome,
+  });
+  const lines = [leg("plan", "pass", "build", "plan.pass"), leg("build", "fail", "plan", "build.fail")];
+
+  it("is the one from the last lane that had an outcome to the lane now open", () => {
+    expect(travelledOf(lines, [v("plan"), v("build", null)])).toBe("plan.pass");
+    expect(travelledOf(lines, [v("plan"), v("build", "fail"), v("plan", null)])).toBe("build.fail");
+  });
+
+  it("is nothing at the first lane, with no visit, or when the map has no such line", () => {
+    expect(travelledOf(lines, [v("plan", null)])).toBeUndefined();
+    expect(travelledOf(lines, [])).toBeUndefined();
+    expect(travelledOf(lines, [v("build"), v("plan", null)])).toBeUndefined();
   });
 });

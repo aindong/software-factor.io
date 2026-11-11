@@ -73,8 +73,39 @@ describe("the styles keep the rules DESIGN.md states", () => {
     }
   });
 
-  it("state steps: nothing fades or slides", () => {
-    for (const { file, css } of sheets) expect(css, file).not.toMatch(/\b(transition|animation)\b/);
+  it("state steps: nothing fades or slides, and only work in progress moves, and not under reduced motion", () => {
+    // a block of a style sheet, from its opening line to the brace that closes it
+    const blocks = (css: string, opening: RegExp) => {
+      const found: string[] = [];
+      for (const m of css.matchAll(new RegExp(opening, "g"))) {
+        let depth = 0;
+        for (let i = (m.index ?? 0) + m[0].length - 1; i < css.length; i++) {
+          depth += css[i] === "{" ? 1 : css[i] === "}" ? -1 : 0;
+          if (depth === 0) {
+            found.push(css.slice(m.index, i + 1));
+            break;
+          }
+        }
+      }
+      return found;
+    };
+    const moving = /@media \(prefers-reduced-motion: no-preference\)\s*\{/;
+    for (const { file, css } of sheets) {
+      expect(css, file).not.toMatch(/\btransition\b/);
+      // every animation is inside the no-preference block, so reduced motion leaves the still marks
+      let rest = css;
+      for (const b of blocks(css, moving)) rest = rest.replace(b, "");
+      expect(rest, file).not.toMatch(/\banimation\b|@keyframes/);
+    }
+    // and each one is named for the one meaning: work is going on
+    const named = sheets.flatMap(({ css }) =>
+      blocks(css, moving).flatMap((b) =>
+        [...b.matchAll(/animation(?:-name)?:\s*([a-z-]+)/g)].map((m) => m[1]),
+      ),
+    );
+    expect(named.length).toBeGreaterThan(0);
+    for (const name of named) expect(name, "an animation").toMatch(/^at-work-/);
+    expect(design).toMatch(/work is going on right now/);
   });
 
   it("signal yellow is only where a person can act", () => {
