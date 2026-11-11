@@ -34,14 +34,14 @@ export function Proof(props: {
   );
 }
 
-type Loaded =
+export type Loaded =
   | { state: "reading" }
   | { state: "gone" }
   | { state: "large" }
   | { state: "here"; url: string; text: string };
 
 /** A file of the run, read once: as text for text, as an address in memory for the rest. */
-function useFile(runId: string, path: string, asText: boolean): Loaded {
+export function useFile(runId: string, path: string, asText: boolean): Loaded {
   const [loaded, setLoaded] = useState<Loaded>({ state: "reading" });
   useEffect(() => {
     let url = "";
@@ -62,7 +62,7 @@ function useFile(runId: string, path: string, asText: boolean): Loaded {
   }, [runId, path, asText]);
   return loaded;
 }
-const Waiting = ({ loaded }: { loaded: Loaded }) => (
+export const Waiting = ({ loaded }: { loaded: Loaded }) => (
   <p className="quiet">
     {loaded.state === "reading"
       ? "Reading."
@@ -71,7 +71,7 @@ const Waiting = ({ loaded }: { loaded: Loaded }) => (
         : "This file is no longer in the run's folder."}
   </p>
 );
-const Text = ({ text }: { text: string }) => (
+export const Text = ({ text }: { text: string }) => (
   <>
     <pre className="output">{text.slice(0, MOST_TEXT) || "(empty)"}</pre>
     {text.length > MOST_TEXT ? <p className="quiet">Only the first part is shown.</p> : null}
