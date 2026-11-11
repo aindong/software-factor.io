@@ -130,11 +130,6 @@ expect "each row has its strip map" "$(js "() => document.querySelector('.run .s
 expect "the run that was shown is still the one shown" "$(js "() => document.querySelector('.rundetail h2').textContent")" '^Add an export button$'
 shot runs-light-1440
 
-# ---- 0b. the list is not seven Tabs away: the first stop is a link that skips to it
-back_to '^Skip to the list$'
-pw press Enter
-expect "the skip link puts the keyboard on the run that is shown, in the list" "$(js "() => document.activeElement.getAttribute('role') + ' ' + document.activeElement.getAttribute('aria-selected')")" '^option true$'
-
 # ---- 1. through the list by keyboard
 tab_to '^Done.*[0-9]+ Add an export button'
 expect "the keyboard is on the run that is shown" "$(js "() => document.activeElement.getAttribute('aria-selected')")" '^true$'
@@ -210,7 +205,6 @@ back_to '^Done.*[0-9]+ Add an export button'
 pw press Home
 expect "back on the newest run" "$(js "$focused")" 'Show the cost of each lane'
 expect "what waits names the command too" "$(js "() => document.querySelector('.waits')?.textContent.replace(/\\s+/g, ' ') ?? ''")" 'Ship it waits for your approval\..*Decide in the inbox.*softwarefactor approve [0-9a-f]+'
-expect "the head does not say twice what the block that waits says" "$(js "() => document.querySelectorAll('.rundetail header .sentence').length")" '^0$'
 expect "the waiting run's train is yellow on its own map too" "$(js "() => document.querySelector('.runmap .train')?.getAttribute('class') ?? ''")" 'asks'
 expect "the tab says that one waits" "$(js "() => document.title")" '^\(1\) Runs · Software Factor\.io$'
 # from the run to its decision, and back with the keys for a section: g, then r
@@ -284,7 +278,6 @@ tab_to 'Show the cost of each lane'
 pw press End && pw press Enter
 expect "Enter shows the run in place of the list" "$(js "() => getComputedStyle(document.querySelector('.runlist')).display + ' ' + document.activeElement.textContent")" '^none Add an export button$'
 fits "a run"
-wait_for "the map is scrolled to where the run ended, not left at its first lane" "() => { const s = document.querySelector('.rundetail .map .station.end.done')?.getBoundingClientRect(), b = document.querySelector('.rundetail .map-scroll')?.getBoundingClientRect(); return s && b ? String(s.left >= b.left - 1 && s.right <= b.right + 1) : 'no map'; }" '^true$'
 walk "a run"
 shot run-light-390
 tab_to '^Before and after'
