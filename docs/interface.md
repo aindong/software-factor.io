@@ -125,6 +125,11 @@ The arrow keys move through the list and Enter goes into a run. A run shows:
   exit code and output, the hand-off, and what the agent printed. Each reference of a claim says whether the
   host checked it, and one that names a file opens that file. Several pieces of evidence can be open at once.
   A station on the run's map leads to that lane's part.
+  What the agent printed opens as an account: what it said, each tool it used as one line with its main
+  argument, the first lines of what came back (the rest one click away), a failed call marked, and the end with
+  what the session used. Hook and bookkeeping events are left out, with a count. This reads the output of
+  Claude Code and of Codex; a line in any other shape is shown as it is. "The lines as printed" shows the raw
+  output. A gate that also ran on the base commit shows that output beside its own.
 
 On the floor, "Runs on map" puts a numbered train on the lane of each run that is moving or waiting. The
 number is the task's, the same as in the rows of Runs and Inbox. A train is a link to its run. One that waits
