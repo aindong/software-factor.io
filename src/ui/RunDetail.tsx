@@ -14,6 +14,7 @@ import { go } from "./route.ts";
 import { State } from "./State.tsx";
 import { STATE_WORD } from "./Strip.tsx";
 import { TranscriptView } from "./Transcript.tsx";
+import { Coded } from "./Words.tsx";
 import { ago, cost, dollars, span, standing, tokens } from "./words.ts";
 
 const OUTCOME = { pass: "pass", fail: "fail", needsPerson: "asked" } as const;
@@ -148,7 +149,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
           {back}
         </button>
         <h2 ref={headRef} tabIndex={-1}>
-          {row.task || row.id}
+          <Coded sentence={row.task || row.id} />
         </h2>
         {/* in the inbox the decision bar above says this already */}
         {deciding ? null : (

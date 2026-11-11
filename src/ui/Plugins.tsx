@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { PluginsView } from "../core/views.ts";
 import { op } from "./api.ts";
-import { coded } from "./words.ts";
+import { Coded } from "./Words.tsx";
 import "./runs.css";
 import "./sections.css";
 
@@ -13,9 +13,6 @@ const KINDS: [keyof Pick<PluginsView, "lanes" | "gates" | "collectors" | "agents
   ["collectors", "Collectors", "Where tasks come from: `uses` in a collector."],
   ["agents", "Agents", "The CLIs an account can be a login of. `fake` is the scripted agent."],
 ];
-
-const Coded = ({ sentence }: { sentence: string }) =>
-  coded(sentence).map((part) => (part.code ? <code key={part.text}>{part.text}</code> : part.text));
 
 export function Plugins() {
   const [built, setBuilt] = useState<PluginsView>();

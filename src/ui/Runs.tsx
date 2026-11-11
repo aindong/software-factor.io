@@ -17,6 +17,7 @@ import { RunFilter } from "./RunFilter.tsx";
 import { go, openIn, usePath, useSearch } from "./route.ts";
 import { State } from "./State.tsx";
 import { Strip } from "./Strip.tsx";
+import { Coded } from "./Words.tsx";
 import { ago, cost, detail, standing, tokens } from "./words.ts";
 import "./runs.css";
 
@@ -176,7 +177,8 @@ export function Runs() {
                       <State run={run} />
                       <span className="when data">{ago(run.startedAt)}</span>
                       <span className="task" title={run.task}>
-                        <span className="number data">{run.taskId}</span> {run.task || run.id}
+                        <span className="number data">{run.taskId}</span>{" "}
+                        <Coded sentence={run.task || run.id} />
                       </span>
                       <Strip
                         track={track}

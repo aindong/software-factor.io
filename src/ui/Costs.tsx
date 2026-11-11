@@ -1,10 +1,11 @@
 // Costs: where the tokens and the money went, by lane, by task and by account, from the session
 // records. A cost that is not known is said to be not known: it is never shown as nothing spent.
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { money } from "../core/text.ts";
 import type { CostLine, CostsView } from "../core/views.ts";
 import { op } from "./api.ts";
 import { useRuns } from "./live.ts";
+import { Breakable, Coded } from "./Words.tsx";
 import { dollars } from "./words.ts";
 import "./runs.css";
 import "./sections.css";
@@ -19,7 +20,7 @@ function Table({
 }: {
   title: string;
   head: string;
-  rows: (CostLine & { name: string })[];
+  rows: (CostLine & { name: string; shown: ReactNode })[];
 }) {
   // the column for what is not counted is there only when something is not
   const rest = rows.some((row) => row.unknown > 0 && row.usd !== null);
@@ -50,7 +51,7 @@ function Table({
           <tbody>
             {rows.map((row) => (
               <tr key={row.name}>
-                <th scope="row">{row.name}</th>
+                <th scope="row">{row.shown}</th>
                 <td className="num data">{whole.format(row.sessions)}</td>
                 <td className="num data">{whole.format(row.tokens)}</td>
                 <td className="num data" title={row.usd === null ? undefined : money(row.usd)}>
@@ -109,19 +110,31 @@ export function Costs() {
           <p className="quiet">No sessions yet. A session is recorded each time an agent starts on a lane.</p>
         ) : (
           <>
-            <Table title="By lane" head="Lane" rows={costs.byLane.map((l) => ({ ...l, name: l.lane }))} />
+            <Table
+              title="By lane"
+              head="Lane"
+              rows={costs.byLane.map((l) => ({ ...l, name: l.lane, shown: <Breakable name={l.lane} /> }))}
+            />
             <Table
               title="By task"
               head="Task"
-              rows={costs.byTask.map((t) => ({ ...t, name: `${t.task} (${t.runs.join(", ")})` }))}
+              rows={costs.byTask.map((t) => ({
+                ...t,
+                name: `${t.task} (${t.runs.join(", ")})`,
+                shown: (
+                  <>
+                    <Coded sentence={t.task} /> ({t.runs.join(", ")})
+                  </>
+                ),
+              }))}
             />
             <Table
               title="By account"
               head="Account"
-              rows={costs.byAccount.map((a) => ({
-                ...a,
-                name: a.account ?? `the scripted agent (${a.agent})`,
-              }))}
+              rows={costs.byAccount.map((a) => {
+                const name = a.account ?? `the scripted agent (${a.agent})`;
+                return { ...a, name, shown: name };
+              })}
             />
             <p className="quiet">
               A cost is what the agent's CLI reported, or its tokens priced from the table of list prices.
