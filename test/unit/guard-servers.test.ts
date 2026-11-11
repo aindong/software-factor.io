@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { judge } from "../../src/core/agents/guard.ts";
+import { judgeReach } from "../../src/core/agents/reach.ts";
 import { hookFor } from "../helpers/hook.ts";
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), "sf-guard-server-")));
@@ -109,5 +110,39 @@ describe("the guard as the hook of a lane's arguments", () => {
     expect(build(["a.b", "a b"], [])).toThrow(/both become/);
     expect(build(["factor"], ["factor"])).toThrow(/factor/);
     expect(build(["a.b"], ["a.b", "other"])).not.toThrow();
+  });
+});
+
+describe("a server whose name ends in an odd character", () => {
+  it("is not read as another server with a tool that starts with _", () => {
+    expect(judgeReach("mcp__docs___search", {}, [], ["docs"])?.allow).toBe(false);
+    expect(judgeReach("mcp__docs___search", {}, [], ["docs."])?.allow).toBe(false);
+    expect(judgeReach("mcp__docs_search", {}, [], ["docs"])?.allow).toBe(false);
+  });
+
+  it("is refused when named or listed, with a plain message", () => {
+    const build = (servers: string[], others: string[]) => () => hookFor({ servers }, others);
+    expect(build(["docs."], ["docs."])).toThrow(/ends in _|"__"/);
+    expect(build(["docs"], ["docs", "docs_"])).toThrow(/docs_/);
+    expect(build(["docs"], ["docs", "x (dev)"])).toThrow(/x \(dev\)/);
+  });
+});
+
+describe("a profile that cannot be listed", () => {
+  const build = (servers: string[]) => () => hookFor({ servers }, undefined);
+  it("starts a lane only when every server it names maps to itself", () => {
+    expect(build(["docs", "my-db_2"])).not.toThrow();
+    expect(build(["my db"])).toThrow(/could not be listed/);
+    expect(build(["my.db"])).toThrow(/could not be listed/);
+  });
+  it("does not start a lane that names *", () => {
+    expect(build(["*"])).toThrow(/could not be listed/);
+  });
+});
+
+describe("a profile that lists a server called factor", () => {
+  it("does not start a lane that names servers, and says to rename or remove it there", () => {
+    expect(() => hookFor({ servers: ["docs"] }, ["docs", "factor"])).toThrow(/rename or remove/);
+    expect(() => hookFor({ servers: ["docs"] }, ["docs", "fac.tor"])).not.toThrow();
   });
 });

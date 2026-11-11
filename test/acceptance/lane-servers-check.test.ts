@@ -105,4 +105,31 @@ describe("profile servers in a workflow", () => {
     expect(r.ok).toBe(false);
     expect(r.text).toContain("does not come from the agent's profile");
   });
+
+  it("refuses a declared name that would be the wildcard, or whose tool names cannot be read", () => {
+    const star = check((w) => {
+      w.mcp = { docs: { from: "profile", name: "*" } };
+      agentOf(w).servers = ["docs"];
+    });
+    expect(star.ok).toBe(false);
+    expect(star.text).toContain("mcp.docs");
+    const skill = check((w) => {
+      w.mcp = undefined;
+      w.skills = { review: { from: "repo", source: "acme/skills", skill: "*" } };
+      agentOf(w).servers = undefined;
+      agentOf(w).skills = ["review"];
+    });
+    expect(skill.ok).toBe(false);
+    expect(skill.text).toContain("skills.review");
+    for (const name of ["docs.", "docs_", "x (dev)"]) {
+      const odd = check((w) => {
+        w.skills = undefined;
+        w.mcp = { docs: { from: "profile", name } };
+        agentOf(w).skills = undefined;
+        agentOf(w).servers = ["docs"];
+      });
+      expect(odd.ok, name).toBe(false);
+      expect(odd.text, name).toContain("mcp.docs");
+    }
+  });
 });

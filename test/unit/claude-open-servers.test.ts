@@ -59,11 +59,6 @@ describe("the arguments for a lane that names profile servers", () => {
     expect(list(all, "--allowedTools")).toEqual(expect.arrayContaining(["mcp__docs", "mcp__tracker"]));
   });
 
-  it("never shut out the factory's own server", () => {
-    const named = claudeArgs(job({ servers: ["docs"] }), {}, SELF, ["docs", "factor"]);
-    expect(named).not.toContain("--disallowedTools");
-  });
-
   it("shut out nothing when the profile's servers are not known, but still allow the named ones", () => {
     const blind = claudeArgs(job({ servers: ["docs"] }), {}, SELF, undefined);
     expect(blind).not.toContain("--disallowedTools");

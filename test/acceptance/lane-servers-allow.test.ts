@@ -1,6 +1,8 @@
 // A run whose lane names a profile server that this machine has not allowed stops before the lane
 // starts and says how to allow it; after `allow` the lane starts, held to what it names.
 import { createHash } from "node:crypto";
+import { writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { expect, it } from "vitest";
 import { edit } from "../helpers/collect.ts";
 import { runsOf } from "../helpers/plugin.ts";
@@ -103,7 +105,7 @@ it("records exactly the print of the profile's name in local.json, and keeps wha
   const before = repo.json<Record<string, unknown>>(".factor/local.json");
   expect(repo.sf("allow", "docs").status).toBe(0);
   const print = createHash("sha256")
-    .update(JSON.stringify(["profile", "docs"]))
+    .update(JSON.stringify(["profile", "docs", ["claude-a"]]))
     .digest("hex");
   expect(repo.json(".factor/local.json")).toEqual({ ...before, servers: { docs: print } });
 });
@@ -139,3 +141,37 @@ it("refuses a server whose name in tool names would be the factory's own", () =>
   expect(r.status).toBe(1);
   expect(r.stderr + r.stdout).toMatch(/factor/);
 });
+
+it("ties the approval to the account: rebinding the role to another account asks again", () => {
+  const { repo } = setup();
+  standinAccount(repo, "claude-b", "claude", { actions: [pass()], mcpList: { out: LIST } });
+  const allowed = repo.sf("allow", "docs");
+  expect(allowed.status, allowed.stderr).toBe(0);
+  expect(allowed.stdout).toContain("claude-a");
+  expect(repo.sf("run").status).toBe(0);
+  bind(repo, "author", "claude-b");
+  const r = repo.sf("run");
+  expect(r.status).toBe(1);
+  expect(r.stderr).toContain("softwarefactor allow docs");
+  expect(r.stderr).toContain("claude-b");
+  const again = repo.sf("allow", "docs");
+  expect(again.stdout).toContain("claude-b");
+  expect(repo.sf("run").status).toBe(0);
+});
+
+it.each(["in", "beside"])(
+  "stops the run when the config file %s the profile changed while the lane worked",
+  (where) => {
+    const { repo } = setup();
+    expect(repo.sf("allow", "docs").status).toBe(0);
+    const dir = join(repo.home, "profiles", "claude-a");
+    const file = join(where === "in" ? dir : dirname(dir), ".claude.json");
+    writeFileSync(
+      join(dir, "standin.json"),
+      JSON.stringify({ actions: [{ sh: `echo '{}' > '${file}'` }, pass()], mcpList: { out: LIST } }),
+    );
+    const r = repo.sf("run");
+    expect(r.status).toBe(1);
+    expect(r.stdout + r.stderr).toMatch(/profile folder of this account changed/);
+  },
+);

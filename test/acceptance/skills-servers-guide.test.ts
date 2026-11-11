@@ -38,3 +38,12 @@ it("is linked, and its place in the honest list is among the stand-ins", () => {
   );
   expect(list).toContain("docs/skills-and-servers.md");
 });
+
+it("says what else is not held, and what a list that cannot be read costs", () => {
+  expect(guide).toMatch(/starts every server of the profile/i);
+  expect(guide).toMatch(/may read files in that folder/i);
+  expect(guide).toMatch(/2\.1\.311/);
+  expect(guide).toMatch(/loading every project server/i);
+  expect(guide).toMatch(/project's own skills/i);
+  expect(guide).toMatch(/cannot be listed.*(does not start|only starts)/is);
+});
