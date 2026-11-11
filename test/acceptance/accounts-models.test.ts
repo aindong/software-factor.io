@@ -1,5 +1,6 @@
 // The models a role can be bound to: the accounts view lists each account's, the session record
 // says which model a lane asked for, and `role list` prints the model of each tier.
+import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -65,6 +66,17 @@ describe("the models of each account", () => {
 
   it("lists no model for an account whose agent the product knows none of", () => {
     expect(accountOf(view(), "script")?.models).toEqual([]);
+  });
+
+  it("still lists the accounts and the built-in models when prices.json cannot be read", () => {
+    const path = join(repo.home, "prices.json");
+    writeFileSync(path, '{"m": {"input": "cheap"}}');
+    try {
+      const models = accountOf(view(), "claude-main")?.models ?? [];
+      expect(models[0]).toEqual({ value: "claude-opus-5-5", label: "Opus 5.5 (claude-opus-5-5)" });
+    } finally {
+      rmSync(path);
+    }
   });
 });
 
