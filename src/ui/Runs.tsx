@@ -8,13 +8,16 @@ import { drawable } from "../core/floor/layout.ts";
 import { trackOf } from "../core/runs/track.ts";
 import type { Workflow } from "../core/schema/workflow.ts";
 import { getWorkflow, type RunRow } from "./api.ts";
+import { Elapsed } from "./Elapsed.tsx";
 import { emptyWords, kept, readShow, shownRuns, withShow } from "./filter.ts";
 import { useRuns } from "./live.ts";
+import { Offline } from "./Offline.tsx";
 import { RunView } from "./RunDetail.tsx";
 import { RunFilter } from "./RunFilter.tsx";
 import { go, openIn, usePath, useSearch } from "./route.ts";
 import { State } from "./State.tsx";
 import { Strip } from "./Strip.tsx";
+import { Coded } from "./Words.tsx";
 import { ago, cost, detail, standing, tokens } from "./words.ts";
 import "./runs.css";
 
@@ -107,13 +110,7 @@ export function Runs() {
             onShow={(to) => go(withShow(opened ? `/runs/${encodeURIComponent(opened)}` : "/runs", to), true)}
           />
         ) : null}
-        <div className="group push">
-          {live ? null : (
-            <span className="status bad" role="status">
-              Not connected to the factory. Trying again.
-            </span>
-          )}
-        </div>
+        <div className="group push">{live ? null : <Offline />}</div>
       </div>
       {!runs ? (
         <div className="plain">
@@ -180,7 +177,8 @@ export function Runs() {
                       <State run={run} />
                       <span className="when data">{ago(run.startedAt)}</span>
                       <span className="task" title={run.task}>
-                        <span className="number data">{run.taskId}</span> {run.task || run.id}
+                        <span className="number data">{run.taskId}</span>{" "}
+                        <Coded sentence={run.task || run.id} />
                       </span>
                       <Strip
                         track={track}
@@ -189,6 +187,12 @@ export function Runs() {
                       />
                       <span className="spent data">
                         {run.tokens > 0 ? `${tokens(run.tokens)}, ${cost(run.usd, run.usdUnknown)}` : ""}
+                        {run.tokens > 0 && run.workingSince ? ", " : ""}
+                        {run.workingSince ? (
+                          <>
+                            <Elapsed since={run.workingSince} /> at work
+                          </>
+                        ) : null}
                       </span>
                       {detail(run) ? <span className="sentence">{detail(run)}</span> : null}
                     </div>

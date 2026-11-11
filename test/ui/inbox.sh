@@ -204,7 +204,8 @@ shot accounts-light-1440
 section Costs
 wait_for "the three tables" "() => [...document.querySelectorAll('.page h2')].map((h) => h.textContent).join(' | ')" '^By lane \| By task \| By account$'
 total=$(sf cost | grep '^Total' | sed -E 's/.* ([0-9]+) tokens +\$([0-9.]+).*/\1 \2/')
-expect "the whole is the command line's" "$(js "() => document.querySelector('.topbar .where span').textContent.replace(/,/g, '')")" "^${total% *} tokens \\\$${total#* }"
+expect "the whole is the command line's, in cents" "$(js "() => document.querySelector('.topbar .where span').textContent.replace(/,/g, '')")" "^${total% *} tokens \\\$$(printf '%.2f' "${total#* }")\$"
+expect "no amount on the page has more than two decimals" "$(js "() => /[$][0-9,]+[.][0-9][0-9][0-9]/.test(document.body.innerText)")" '^false$' 
 expect "each lane has its row" "$(js "() => [...document.querySelectorAll('.costs')][0].querySelectorAll('tbody tr').length")" '^2$'
 shot costs-light-1440
 
@@ -214,6 +215,8 @@ wait_for "what is built in" "() => document.querySelector('.page')?.innerText ??
 for name in core/command@1 core/wait@1 core/test-floor@1 core/file@1 claude codex kimi fake alleo-loop bugfix-fast research-only; do
   expect "$name is listed" "$(js "() => document.querySelector('.page').innerText.includes('$name')")" '^true$'
 done
+expect "the first lead line says what a person can do" "$(js "() => document.querySelector('.page .quiet').innerText")" '^The kinds of lane you can add'
+expect "the names are plain text, not capsules that look like buttons" "$(js "() => getComputedStyle(document.querySelector('.names li')).borderTopWidth")" '^0px$'
 expect "the page says how a plugin is installed" "$(js "() => document.querySelector('.page').innerText")" 'softwarefactor add'
 shot plugins-light-1440
 

@@ -190,10 +190,14 @@
   padding: 0;
   list-style: none;
 }
+/* names, not controls: no frame that looks like a button */
 .names li {
-  padding: 0 var(--sm);
-  border: 1px solid var(--rule);
-  border-radius: 3px;
+  padding: 0;
+}
+.names li + li::before {
+  content: "\00b7";
+  margin-right: var(--sm);
+  color: var(--ink-soft);
 }
 
 .table th[scope="row"] {

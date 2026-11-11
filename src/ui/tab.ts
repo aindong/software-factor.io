@@ -9,8 +9,12 @@ const mark = (waits: boolean) =>
       : ""
   }</svg>`;
 
-/** The tab's title and icon for a section, with how many runs wait for a person. */
-export function showInTab(section: string, waits: number): void {
-  document.title = `${waits > 0 ? `(${waits}) ` : ""}${section} · Software Factor.io`;
+/** The tab's title: how many runs wait for a person, how many work, then the section. */
+export const titleOf = (section: string, waits: number, working = 0) =>
+  `${waits > 0 ? `(${waits}) ` : ""}${working > 0 ? `(${working} working) ` : ""}${section} · Software Factor.io`;
+
+/** The tab's title and icon for a section, with how many runs wait for a person and how many work. */
+export function showInTab(section: string, waits: number, working = 0): void {
+  document.title = titleOf(section, waits, working);
   document.querySelector<HTMLLinkElement>("link[rel=icon]")?.setAttribute("href", mark(waits > 0));
 }

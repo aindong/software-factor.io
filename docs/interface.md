@@ -90,8 +90,10 @@ other process on the machine, a coding agent included.
 - When the server is started again it has a new key. A tab from before loads itself again and says it has no
   key, unless the floor in it holds a change that is not saved. That tab is kept as it is, and a notice at its
   foot, on whatever section it shows, says so and takes the new address: paste it there, and the tab has the new
-  key without loading again, so the change can be saved. On the floor itself, opening the new address in the
-  tab does the same.
+  key without loading again, so the change can be saved. The notice then says "Key taken. Save to keep your
+  changes." for a few seconds. While the key is refused, the top bar of Runs and Inbox says so instead of
+  "Trying again", since waiting does not help. On the floor itself, opening the new address in the tab does
+  the same.
 - No other site can read the server's answers or put the page in a frame.
 - A save writes only a plain file in this repository's own workflows folder, never through a link, and only
   what the checker accepts.
@@ -115,7 +117,10 @@ has a mark that is a ring with a
 dot, unlike the disc of a done run, the diamond of a stopped one and the yellow square of one that waits for
 you. On its map the lane where the work is going on has a ring that breathes, and the line the task came along
 carries dashes that run the way it goes; the strip map's train breathes too, and the rail shows the same mark
-by Runs while any run works. A run that waits, is stopped or is done is still. With reduced motion in your
+by Runs while any run works. A run that is working also says how long its lane has worked ("3m 10s at work" on its
+row, "Working for" on its page, and "Last output" when the agent has printed something), and what it has used is
+"Used so far". That time is a number that ticks every second (every 15 seconds with reduced motion), not an
+animation. A run that waits, is stopped or is done is still. With reduced motion in your
 system's settings nothing moves: the ring, the dashes and the mark stay as still marks of the same meaning.
 
 The sentence comes from the record. For an agent at work it is read from the last lines of its CLI's output:
@@ -135,7 +140,9 @@ The arrow keys move through the list and Enter goes into a run. A run shows:
   workflow the run ran on, kept with the run when it started (`workflow.json` in the run's folder), and drawn
   small enough to fit its box down to seven tenths of its size. Changing the workflow later does not redraw
   what past runs did. A run from before that record was kept is drawn on today's workflow, and says so.
-- **What waits for you**, with a yellow "Decide in the inbox" link and the command that does the same.
+- **What waits for you**, with a yellow "Decide in the inbox" link and the command that does the same. The
+  page head does not repeat its sentence. On a narrow screen the map is scrolled to the lane the run is at, or to
+  where it ended, and a soft edge shows where it goes on.
 - **The diff** of the whole run, from its base commit to its head, with every changed file named above it. A
   line put in stands on a band and a line taken out is outlined: blue and vermilion mean passed and failed, so
   they are not used here.
@@ -179,7 +186,8 @@ the run's map and evidence beside the one that is chosen, so you decide with the
 The keys work while the keyboard is in the inbox: on an item, or in its decision and proof. On arrival the
 keyboard is on the section's name, one Tab before the list, and nothing is chosen for you. A deciding key
 pressed there says "Choose an item first" above the list and decides nothing: no key decides on an item you
-did not choose. The line goes once you are on an item.
+did not choose. The line goes once you are on an item. An item you entered, from a run's "Decide in the
+inbox", a reload or a link, is on show, so the keyboard goes onto it and the keys work at once.
 
 A decision is the command line's own command, started by the server in a process of its own (docs/operations.md).
 It is made on the item that is on show and on nothing the run waits on later. After your decision the page
@@ -197,7 +205,9 @@ another vendor than a role it shares one with is flagged. Adding a login stays i
 ## Costs
 
 Tokens and cost by lane, by task and by account, from the session records, with the whole in the top bar. A
-session with no known cost is counted as not known, never as nothing. `softwarefactor cost` prints the same.
+session with no known cost is counted as not known, never as nothing. Money is shown in cents (more digits only
+under one cent, and the exact figure in a tooltip); `softwarefactor cost` prints the same figures to the
+millionth, and `softwarefactor cost --json` the exact ones.
 
 ## Plugins
 
@@ -210,7 +220,9 @@ terminal with `softwarefactor add` (`docs/plugins.md`), not from the page.
 `g` and then a section's letter goes there from anywhere but a text field: `f` floor, `r` runs, `i` inbox, `a`
 accounts, `p` plugins, `c` costs. On the floor, Ctrl or Cmd with Z takes back the last change and with Shift
 brings it again, and Revert asks first when more than one change would go. The tab's title is the section with
-the number of runs that wait for you in front, and its icon carries a yellow mark while one does.
+the number of runs that wait for you in front, then how many work, and its icon carries a yellow mark while
+one waits. On Runs and Inbox the first stop of the Tab order is a link, "Skip to the list", that puts the
+keyboard on the list instead of after the seven controls of the rail.
 
 ## Not built yet
 

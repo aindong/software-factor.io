@@ -82,6 +82,10 @@ rows='() => [...document.querySelectorAll(".run .state")].map((m) => m.textConte
 wait_for "the list shows the run that works beside the one that waits and the one that is done" "$rows" '^Working \| Waits for you \| Done$'
 
 # ---- 1. the list and the head of the page
+# the list is not seven Tabs away: the first stop is a link that skips to it
+back_to '^Skip to the list$'
+pw press Enter
+expect "the skip link puts the keyboard on the run that is shown, in the list" "$(js "() => document.activeElement.getAttribute('role') + ' ' + document.activeElement.getAttribute('aria-selected')")" '^option true$'
 expect "the row says Working in words, on its first line" "$(js "() => document.querySelector('.run .state')?.textContent ?? 'no word'")" '^Working$'
 expect "only that row has the word and the mark of work" "$(js "() => [...document.querySelectorAll('.run .state')].filter((s) => s.textContent === 'Working').length + ' ' + document.querySelectorAll('.run .mark.working').length")" '^1 1$'
 expect "the top bar counts it" "$(js "() => document.querySelector('.topbar .where span').textContent")" 'working'
@@ -89,6 +93,16 @@ expect "its mark pulses" "$(js "() => getComputedStyle(document.querySelector('.
 expect "the strip's train is the one that works" "$(js "() => document.querySelectorAll('.run .strip .train.working').length + ' ' + getComputedStyle(document.querySelector('.run .strip .train.working')).animationName")" '^1 at-work-train$'
 expect "the head of the page says Working" "$(js "() => document.querySelector('.rundetail .state')?.textContent ?? 'none'")" '^Working$'
 expect "the rail tells from here that one works" "$(js "() => document.querySelector('.rail .mark.live')?.getAttribute('aria-label') ?? 'none'")" '^1 working$'
+
+expect "the tab's title says one waits and one works" "$(js "() => document.title")" '^\(1\) \(1 working\) Runs · Software Factor\.io$'
+# ---- 1b. how long the lane has worked: said on the row and on the page, and it ticks (it is not animated)
+expect "the row says how long it has been at work" "$(js "() => document.querySelector('.run .spent')?.textContent ?? ''")" '[0-9]+(m [0-9]+)?s at work$'
+expect "the page says how long, and that what it used is so far" "$(js "() => [...document.querySelectorAll('.rundetail .facts dt')].map((d) => d.textContent).join(' | ')")" 'Working for.*Used so far'
+ticks='() => document.querySelector(".rundetail .facts .elapsed")?.textContent ?? ""'
+t0=$(js "$ticks")
+sleep 2
+t1=$(js "$ticks")
+[ -n "$t0" ] && [ "$t0" != "$t1" ] || fail "the time at work does not tick: read \"$t0\" then \"$t1\""
 
 # ---- 2. the map: the lane that works is ringed and breathes, the line it came along runs
 pulse='() => document.querySelector(".rundetail .map .station.working .pulse") ? getComputedStyle(document.querySelector(".rundetail .map .station.working .pulse")).animationName : "no ring"'
@@ -108,6 +122,7 @@ tab_to '^Working.*[0-9]+ Show the cost of each lane'
 pw press ArrowDown
 wait_for "the run beside the list follows" "() => document.querySelector('.rundetail h2').textContent" '^Fix the date format$'
 expect "its head says it waits" "$(js "() => document.querySelector('.rundetail .state').textContent")" '^Waits for you$'
+expect "its head does not say twice what the block that waits says" "$(js "() => document.querySelectorAll('.rundetail header .sentence').length")" '^0$'
 expect "its train is yellow" "$(js "() => document.querySelectorAll('.rundetail .map .train.asks').length")" '^1$'
 expect "nothing on its map moves" "$(js "() => document.querySelector('.rundetail .map').getAnimations({ subtree: true }).length + ' ' + document.querySelectorAll('.rundetail .map .flow, .rundetail .map .pulse').length")" '^0 0$'
 [ -n "$shots" ] && pw screenshot --filename="$shots/running-waits-light-1440.png"
@@ -127,6 +142,12 @@ section Runs
 wait_for "the run that worked now waits for you" "$rows" '^Waits for you \| Waits for you \| Done$'
 wait_for "nothing on the page is animated" "() => document.getAnimations().length + ' ' + document.querySelectorAll('.mark.working').length + ' ' + document.querySelectorAll('.map .flow, .map .pulse').length" '^0 0 0$'
 expect "the rail no longer says it" "$(js "() => document.querySelector('.rail .mark.live') ? 'still' : 'gone'")" '^gone$'
+
+# ---- 6. phone width: the map shows where the run is
+pw resize 390 844
+tab_to '^Waits for you'
+pw press Enter
+wait_for "the map is scrolled to the lane the run waits at" "() => { const s = document.querySelector('.rundetail .map .station[aria-label*=\" is here\"]')?.getBoundingClientRect(), b = document.querySelector('.rundetail .map-scroll')?.getBoundingClientRect(); return s && b ? String(s.left >= b.left - 1 && s.right <= b.right + 1) : 'no map'; }" '^true$'
 
 playwright-cli -s="$session" close > /dev/null 2>&1
 kill "$server" 2> /dev/null

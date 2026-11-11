@@ -213,6 +213,12 @@ a.button {
 }
 .runmap .map-scroll {
   overflow: auto;
+  /* a soft edge where the map goes on out of sight: the grounds move with the map and cover it at its ends */
+  background:
+    linear-gradient(to right, var(--ground), transparent) left / 28px 100% local no-repeat,
+    linear-gradient(to left, var(--ground), transparent) right / 28px 100% local no-repeat,
+    linear-gradient(to right, var(--rule), transparent) left / 14px 100% scroll no-repeat,
+    linear-gradient(to left, var(--rule), transparent) right / 14px 100% scroll no-repeat;
 }
 .scrub {
   display: flex;
@@ -540,6 +546,9 @@ a.button {
 }
 .account .said {
   max-width: 80ch;
+  /* what the agent said is what a reviewer reads first: body size and ink, not the quiet line of an answer */
+  font: var(--text-body) / 1.45 var(--font);
+  color: var(--ink);
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
@@ -599,4 +608,9 @@ a.button {
 .account .end {
   padding-top: var(--sm);
   border-top: 1px solid var(--rule);
+}
+
+/* "N more lines" under a result: a target of at least 24 px */
+button.more {
+  min-height: 24px;
 }

@@ -26,6 +26,8 @@ const row = (status: RunRow["status"], outcome: "pass" | "fail"): RunRow => ({
   tokens: 0,
   usd: 0,
   usdUnknown: false,
+  workingSince: null,
+  lastAt: null,
 });
 async function lit(given: RunRow): Promise<string[]> {
   // api.ts reads the page's address when it is loaded

@@ -1,12 +1,13 @@
 // The shell: the navy rail with the six sections, and the section that is open.
 import { useEffect, useState } from "react";
 import { Accounts } from "./Accounts.tsx";
-import { hasKey, keyRefused, takeKey } from "./api.ts";
+import { hasKey, takeKey } from "./api.ts";
 import { Costs } from "./Costs.tsx";
 import { Floor } from "./Floor.tsx";
 import { Inbox } from "./Inbox.tsx";
 import { icons } from "./icons.tsx";
 import { useRuns } from "./live.ts";
+import { useKeyRefused } from "./Offline.tsx";
 import { Plugins } from "./Plugins.tsx";
 import { Runs } from "./Runs.tsx";
 import { go, usePath } from "./route.ts";
@@ -90,14 +91,20 @@ export function App() {
   }, [theme]);
 
   // a tab kept with a key the server no longer takes says so on every section, and takes the new one there
-  const [refused, setRefused] = useState(keyRefused);
+  const refused = useKeyRefused();
+  // and says, for a few seconds, that the new one was taken
+  const [taken, setTaken] = useState(false);
   useEffect(() => {
-    const heard = () => setRefused(keyRefused());
-    addEventListener("factor:refused", heard);
+    let timer: ReturnType<typeof setTimeout>;
+    const heard = () => {
+      setTaken(true);
+      clearTimeout(timer);
+      timer = setTimeout(() => setTaken(false), 6000);
+    };
     addEventListener("factor:key", heard);
     return () => {
-      removeEventListener("factor:refused", heard);
       removeEventListener("factor:key", heard);
+      clearTimeout(timer);
     };
   }, []);
 
@@ -109,10 +116,20 @@ export function App() {
   const waits = hasKey ? (runs ?? []).filter((r) => standing(r).mark === "asked").length : 0;
   const working = hasKey ? (runs ?? []).filter((r) => standing(r).mark === "working").length : 0;
   const nextTheme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? "auto";
-  useEffect(() => showInTab(section.name, waits), [section.name, waits]);
+  useEffect(() => showInTab(section.name, waits, working), [section.name, waits, working]);
 
   return (
     <div className="shell">
+      {hasKey && (section.path === "/runs" || section.path === "/inbox") ? (
+        // the list is the first thing after the rail: one Tab from here instead of seven
+        <button
+          type="button"
+          className="skip"
+          onClick={() => document.querySelector<HTMLElement>('main [role="listbox"] [tabindex="0"]')?.focus()}
+        >
+          Skip to the list
+        </button>
+      ) : null}
       <nav className={`rail${armed ? " armed" : ""}`} aria-label="Sections">
         {SECTIONS.map((s) => (
           <a
@@ -165,6 +182,10 @@ export function App() {
             onChange={(event) => takeKey(event.target.value)}
           />
         </label>
+      ) : taken ? (
+        <p className="keyless taken" role="status">
+          Key taken. Save to keep your changes.
+        </p>
       ) : null}
       {!hasKey ? (
         <main className="work">

@@ -20,9 +20,13 @@ export const detail = (run: RunRow): string =>
 const whole = new Intl.NumberFormat("en-US");
 /** "1,200 tokens". */
 export const tokens = (n: number) => `${whole.format(n)} ${n === 1 ? "token" : "tokens"}`;
+const cents = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+/** "$2.59": cents, and two significant digits only for an amount under one cent ("$0.0042"). The exact figure is in `softwarefactor cost --json`. */
+export const dollars = (usd: number) =>
+  usd > 0 && usd < 0.01 ? `$${Math.max(usd, 0.000001).toPrecision(2)}` : cents.format(usd);
 /** "$0.25", and "at least $0.25" when a part of the cost is not known. */
 export const cost = (usd: number, unknown: boolean) =>
-  unknown ? (usd > 0 ? `at least $${usd.toFixed(2)}` : "cost not known") : `$${usd.toFixed(2)}`;
+  unknown ? (usd > 0 ? `at least ${dollars(usd)}` : "cost not known") : dollars(usd);
 /** "45s", "3m 05s", "2h 10m". */
 export function span(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000));

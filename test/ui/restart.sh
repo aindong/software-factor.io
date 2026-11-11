@@ -3,7 +3,8 @@
 # the floor holds a change: the page is not loaded again, nothing is lost, and with the new
 # address in the same tab the change can be saved. (2) Arriving in the inbox puts the keyboard on
 # the section's name, one Tab before the list, and a deciding key pressed there says what to do
-# instead of nothing: no key decides on an item the person did not choose.
+# instead of nothing: no key decides on an item the person did not choose. (3) Arriving on an item
+# from a run's page leaves the keyboard on that item.
 # Needs playwright-cli and a built command (pnpm run build).
 # Usage: bash test/ui/restart.sh [folder for screenshots]
 # Prints "restart: ok" and exits 0, or says which step failed and exits 1.
@@ -79,9 +80,12 @@ notice='() => document.querySelector(".keyless")?.textContent ?? ""'
 wait_for "the tab says its key is no longer good, and why it was kept" "$notice" 'started again.*not saved.*address'
 expect "it was not loaded again" "$(js "$loaded")" "^$before\$"
 [ -n "$shots" ] && pw screenshot --filename="$shots/restart-key-refused-light-1440.png"
+wait_for "the top bar says the key is refused, not that the page is trying again" "() => document.querySelector('.topbar .status.bad')?.textContent ?? ''" "key is refused"
 tab_to '^The address the command printed$'
 pw type "$address"
-wait_for "the address typed there is taken, and the notice goes" "$notice" '^$'
+wait_for "the address typed there is taken, and the notice says so" "$notice" '^Key taken\. Save to keep your changes\.$'
+[ -n "$shots" ] && pw screenshot --filename="$shots/restart-key-taken-light-1440.png"
+wait_for "and goes by itself after a few seconds" "$notice" '^$'
 expect "still without loading the page again" "$(js "$loaded")" "^$before\$"
 wait_for "the page hears the server again from the inbox" "() => document.querySelector('.topbar .status.bad')?.textContent ?? 'connected'" '^connected$'
 section Floor
@@ -101,7 +105,7 @@ pw press Control+s
 wait_for "the refused save brings the notice at once" "$notice" 'address'
 pw goto "$address"
 sleep 1
-expect "the address in the tab is taken in place" "$(js "$loaded") $(js "$notice")" "^$before \$"
+expect "the address in the tab is taken in place, and the notice only says so" "$(js "$loaded") $(js "$notice")" "^$before (Key taken\\. Save to keep your changes\\.)?\$"
 pw press Control+s
 wait_for "and the third change is saved" "() => document.querySelector('.topbar .status').textContent" '^Saved'
 
@@ -127,6 +131,18 @@ pw resize 1440 900
 tab_to '^[0-9]+ First'
 pw press a
 wait_for "on the item, a approves it" "() => document.querySelector('.said')?.textContent ?? ''" 'pproved'
+
+# ---- 5. arriving on an item from a run's page: the item is on show, so the keyboard works on it
+for _ in $(seq 1 40); do sf run > "$work/second.log" 2>&1 && break; [ $? -eq 3 ] && break; sleep 0.5; done
+sf inbox 2> /dev/null | grep -q Second || fail "the second task does not wait: $(sf inbox)"
+section Runs
+tab_to 'Second'
+pw press Enter
+tab_to '^Decide in the inbox$'
+pw press Enter
+wait_for "the inbox shows the run's item" "() => location.pathname.startsWith('/inbox/') && document.querySelectorAll('.deciding').length === 1" '^true$'
+pw press a
+wait_for "a approves the item on show, and does not say to choose one" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Second'
 
 playwright-cli -s="$session" close > /dev/null 2>&1
 kill "$server" 2> /dev/null
