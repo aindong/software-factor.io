@@ -53,7 +53,11 @@ const arg = (v: unknown) => oneLine(text(v).split("\n")[0] ?? "", LINE);
 
 function out(content: unknown, error: boolean): Out {
   const parts = Array.isArray(content) ? content.map((p) => text(object(p)?.text)) : [text(content)];
-  const lines = parts.join("\n").split("\n");
+  // the host wraps a refused tool call in its own tags: they are not the agent's words
+  const lines = parts
+    .join("\n")
+    .replace(/<\/?tool_use_error>/g, "")
+    .split("\n");
   while (lines.length > 0 && lines[lines.length - 1]?.trim() === "") lines.pop();
   return {
     lines: lines.slice(0, OUT_LINES).map((l) => oneLine(l, LINE)),

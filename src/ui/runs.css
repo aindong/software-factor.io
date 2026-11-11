@@ -546,6 +546,9 @@ a.button {
 }
 .account .said {
   max-width: 80ch;
+  /* what the agent said is what a reviewer reads first: body size and ink, not the quiet line of an answer */
+  color: var(--ink);
+  font: var(--text-body) / 1.45 var(--font);
   white-space: pre-line;
   overflow-wrap: anywhere;
 }
