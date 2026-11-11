@@ -136,6 +136,12 @@ async function mcpCommand(args: string[]): Promise<number> {
 }
 
 async function main(): Promise<number> {
+  if (process.argv[2] === "version" || process.argv[2] === "--version") {
+    // before parseArgs, so what follows is ignored; from dist/ or src/ alike, ../package.json is the package root's
+    const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    console.log(version);
+    return 0;
+  }
   if (process.argv[2] === "guard") return guard(process.argv.slice(3));
   if (process.argv[2] === "mcp") return mcpCommand(process.argv.slice(3));
   if (process.argv[2] === "mcp-call") return mcpCall(); // the factory's own, for a collector
@@ -175,16 +181,9 @@ async function main(): Promise<number> {
       check: { type: "boolean" },
       json: { type: "boolean" },
       item: { type: "string" },
-      version: { type: "boolean" },
     },
   });
   const command = positionals[0];
-  if (values.version || command === "version") {
-    // from dist/ or src/ alike, ../package.json is the package root's
-    const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-    console.log(version);
-    return 0;
-  }
   const cwd = process.cwd();
   if (values.help || !command) {
     console.log(HELP);

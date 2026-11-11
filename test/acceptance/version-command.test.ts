@@ -31,6 +31,12 @@ describe("softwarefactor --version", () => {
     },
   );
 
+  it("ignores what follows, as `status` ignores a stray word", () => {
+    const r = call(bare(), ["version", "--nope", "extra"]);
+    expect(r.stdout).toBe(`${version}\n`);
+    expect(r.status).toBe(0);
+  });
+
   it("works inside a git repository with a factory too (3)", () => {
     const repo = makeRepo();
     repo.sf("init");
