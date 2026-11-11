@@ -19,10 +19,10 @@ Usage: softwarefactor <command>
                            Run the seeded cases: does the factory still catch what it must?
   export [workflow]        Print a workflow as one file to share: no secret, no account, no path
   import <file> [--yes]    Show what a shared workflow would run, and write it on a yes
-  run [--all] [--parallel N]
+  run [--all] [--parallel N] [--task <key or words>]
                            Pick up runs a crash left, wake waits that are due, then take the next
                            queued task through the workflow. With --all, keep going until the queue
-                           is empty, several runs at once
+                           is empty, several runs at once. With --task, take that queued task first
   stop <run>               Stop a run that is working or waiting
   requeue <run>            Put the task of a stopped or dropped run back in the queue
   status                   Show tasks, runs, lanes, gates and where the evidence is

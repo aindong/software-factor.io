@@ -87,13 +87,24 @@ export function labelsOf(task: Task): string[] {
   }
 }
 
-/** Takes the oldest queued task for this process, or nothing. The claim comes before any work starts (ADR 0013). */
-export function claimNextTask(db: Db): Task | undefined {
+/** The queued tasks that `words` name: the one with that key, or else every one whose title holds the words. */
+export function queuedTasksNamed(db: Db, words: string): Task[] {
+  const queued = db
+    .prepare("select * from tasks where status = 'queued' order by id")
+    .all() as unknown as Task[];
+  const byKey = queued.filter((t) => t.key === words);
+  return byKey.length > 0 ? byKey : queued.filter((t) => t.title.toLowerCase().includes(words.toLowerCase()));
+}
+
+/** Takes the oldest queued task for this process (or the queued task `id`), or nothing. The claim comes before any work starts (ADR 0013). */
+export function claimNextTask(db: Db, id?: number): Task | undefined {
   db.exec("begin immediate");
   try {
-    const task = db.prepare("select * from tasks where status = 'queued' order by id limit 1").get() as
-      | Task
-      | undefined;
+    const task = db
+      .prepare(
+        `select * from tasks where status = 'queued' ${id === undefined ? "" : "and id = ?"} order by id limit 1`,
+      )
+      .get(...(id === undefined ? [] : [id])) as Task | undefined;
     if (task)
       db.prepare("update tasks set status = 'running' where id = ? and status = 'queued'").run(task.id);
     db.exec("commit");
