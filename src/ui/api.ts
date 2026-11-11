@@ -32,15 +32,19 @@ export function forgetKey(): void {
   // Whoever holds unsaved work answers the browser's own question before leaving: asked here, no
   // dialog is shown. A page that holds work is kept, and takes the new key in place when it comes.
   refused = !dispatchEvent(new Event("beforeunload", { cancelable: true }));
-  if (!refused) location.reload();
+  if (refused) dispatchEvent(new Event("factor:refused"));
+  else location.reload();
 }
-// the printed address opened in a tab that is already on this page changes only what is after
-// the "#", which loads nothing: load the page again, so that the key is read
-addEventListener("hashchange", () => {
-  const given = /^#t=([0-9a-f]+)$/.exec(location.hash)?.[1];
-  if (!given) return;
-  if (!refused) return location.reload();
-  // the page was kept for its unsaved work: the new key is taken without loading it again
+/** Whether this tab is kept with a key the server no longer takes. The shell says so on every section. */
+export const keyRefused = () => refused;
+/**
+ * Take the key out of an address the command printed, in a tab that was kept: without loading
+ * the page again, so that what it holds can be saved. False when the text holds no key.
+ */
+export function takeKey(address: string): boolean {
+  // the whole key, as long as the server makes it: an address still being typed holds none yet
+  const given = /#t=([0-9a-f]{48})\s*$/.exec(address)?.[1];
+  if (!given) return false;
   token = given;
   refused = false;
   try {
@@ -48,8 +52,17 @@ addEventListener("hashchange", () => {
   } catch {
     // storage is blocked: the key lasts until the page is reloaded
   }
-  history.replaceState(null, "", location.pathname);
   dispatchEvent(new Event("factor:key"));
+  return true;
+}
+// the printed address opened in a tab that is already on this page changes only what is after
+// the "#", which loads nothing: load the page again, so that the key is read
+addEventListener("hashchange", () => {
+  if (!/^#t=[0-9a-f]+$/.test(location.hash)) return;
+  if (!refused) return location.reload();
+  // the page was kept for its unsaved work: the new key is taken without loading it again
+  takeKey(location.hash);
+  history.replaceState(null, "", location.pathname);
 });
 /** False when the page was opened without the session's key: the API will refuse it. */
 export const hasKey = token !== "";
@@ -61,6 +74,8 @@ async function call<T>(path: string, method = "GET", body?: unknown): Promise<{ 
       headers: { "x-factor-token": token, "content-type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    // a key the server no longer takes: said once for the whole page, whoever asked
+    if (answer.status === 401 && !refused) forgetKey();
     return { status: answer.status, body: (await answer.json()) as T };
   } catch {
     // no answer, or one that is not JSON: status 0, and the reason where every answer has it

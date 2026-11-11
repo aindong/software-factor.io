@@ -88,8 +88,10 @@ other process on the machine, a coding agent included.
   and removes it from the address bar. The page itself holds no token, so asking the server for the page gives
   nothing that opens the API. A tab opened without the key says so.
 - When the server is started again it has a new key. A tab from before loads itself again and says it has no
-  key, unless the floor in it holds a change that is not saved: that tab is kept as it is. Open the new address
-  in the same tab and it takes the key in place, without loading again, so the change can be saved.
+  key, unless the floor in it holds a change that is not saved. That tab is kept as it is, and a notice at its
+  foot, on whatever section it shows, says so and takes the new address: paste it there, and the tab has the new
+  key without loading again, so the change can be saved. On the floor itself, opening the new address in the
+  tab does the same.
 - No other site can read the server's answers or put the page in a frame.
 - A save writes only a plain file in this repository's own workflows folder, never through a link, and only
   what the checker accepts.
@@ -154,7 +156,8 @@ the run's map and evidence beside the one that is chosen, so you decide with the
 
 The keys work while the keyboard is in the inbox: on an item, or in its decision and proof. On arrival the
 keyboard is on the section's name, one Tab before the list, and nothing is chosen for you. A deciding key
-pressed there says "Choose an item first" and decides nothing: no key decides on an item you did not choose.
+pressed there says "Choose an item first" above the list and decides nothing: no key decides on an item you
+did not choose. The line goes once you are on an item.
 
 A decision is the command line's own command, started by the server in a process of its own (docs/operations.md).
 It is made on the item that is on show and on nothing the run waits on later. After your decision the page

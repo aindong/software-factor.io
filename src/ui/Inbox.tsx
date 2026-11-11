@@ -7,7 +7,7 @@ import { type KeyboardEvent as ReactKey, useEffect, useRef, useState } from "rea
 import type { Decision, InboxItem } from "../core/views.ts";
 import { op } from "./api.ts";
 import { useRuns } from "./live.ts";
-import { useDecidingKeyOutside } from "./outside.ts";
+import { DOING, DONE, HINT, useDecidingKeyOutside } from "./outside.ts";
 import { RunView } from "./RunDetail.tsx";
 import { useWorkflows } from "./Runs.tsx";
 import { go, openIn, usePath } from "./route.ts";
@@ -15,18 +15,6 @@ import { standing } from "./words.ts";
 import "./runs.css";
 import "./sections.css";
 
-const DONE: Record<Decision, string> = {
-  approve: "Approved",
-  reject: "Rejected",
-  "send-back": "Sent back",
-  answer: "Answered",
-};
-const DOING: Record<Decision, string> = {
-  approve: "Approving...",
-  reject: "Rejecting...",
-  "send-back": "Sending back...",
-  answer: "Answering...",
-};
 const typing = (target: EventTarget | null) =>
   target instanceof HTMLTextAreaElement ||
   target instanceof HTMLInputElement ||
@@ -55,7 +43,10 @@ export function Inbox() {
   const rows = useRef(new Map<number, HTMLDivElement>());
   const head = useRef<HTMLHeadingElement>(null);
   const top = useRef<HTMLHeadingElement>(null);
-  useEffect(() => top.current?.focus(), []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on arrival only
+  useEffect(() => {
+    if (!opened) top.current?.focus();
+  }, []);
   const box = useRef<HTMLTextAreaElement>(null);
   const decided = useRef<number>(undefined); // the item this page just decided on
   const lost = useRef(false); // the item on show was decided elsewhere: nothing is chosen until the person chooses
@@ -124,7 +115,7 @@ export function Inbox() {
   const choose = (item: InboxItem) => {
     lost.current = false;
     // good news about another item has been read, once the person moves on by themselves
-    if (item.id !== current?.id && !said?.bad && !moving.current) setSaid(undefined);
+    if ((item.id !== current?.id || said?.text === HINT) && !said?.bad && !moving.current) setSaid(undefined);
     setPicked(item.id);
     if (opened) go(`/inbox/${item.run}`, true); // the address follows the item on show
   };
@@ -221,9 +212,7 @@ export function Inbox() {
   };
   // A refusal is said in the decision bar of the item it is about. What went well is said above the
   // list, where the item was: inside the next item's bar it would read as being about that item.
-  useDecidingKeyOutside(current !== undefined, () =>
-    setSaid({ text: "Choose an item first: Tab moves to the list.", bad: true, item: current?.id }),
-  );
+  useDecidingKeyOutside(current !== undefined, () => setSaid({ text: HINT, bad: false }));
   const refusal = said?.bad && (said.item === undefined || said.item === current?.id);
   const answer =
     said && (said.bad ? refusal : true) ? (

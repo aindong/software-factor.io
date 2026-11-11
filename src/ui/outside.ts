@@ -4,6 +4,22 @@
 // On arrival the inbox puts the keyboard on its heading, one Tab before the list: nothing is
 // chosen yet, and the first item is one key away.
 import { useEffect } from "react";
+import type { Decision } from "../core/views.ts";
+
+export const DONE: Record<Decision, string> = {
+  approve: "Approved",
+  reject: "Rejected",
+  "send-back": "Sent back",
+  answer: "Answered",
+};
+export const DOING: Record<Decision, string> = {
+  approve: "Approving...",
+  reject: "Rejecting...",
+  "send-back": "Sending back...",
+  answer: "Answering...",
+};
+/** What a deciding key pressed outside the list is answered with. It goes once an item is chosen. */
+export const HINT = "Choose an item first: Tab moves to the list.";
 
 export function useDecidingKeyOutside(on: boolean, say: () => void): void {
   useEffect(() => {
