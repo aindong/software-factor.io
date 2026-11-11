@@ -8,7 +8,7 @@ import "./runs.css";
 import "./sections.css";
 
 const KINDS: [keyof Pick<PluginsView, "lanes" | "gates" | "collectors" | "agents">, string, string][] = [
-  ["lanes", "Lane types", "What a lane can be: `uses` in a lane."],
+  ["lanes", "Lane types", "The kinds of lane you can add: `uses` in a lane."],
   ["gates", "Gate types", "Checks the host runs on a lane's work: `uses` in a gate."],
   ["collectors", "Collectors", "Where tasks come from: `uses` in a collector."],
   ["agents", "Agents", "The CLIs an account can be a login of. `fake` is the scripted agent."],
