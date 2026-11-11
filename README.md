@@ -20,7 +20,7 @@ softwarefactor run
 
 - **Lanes and gates.** An agent's claim is never the verdict. Gates run on a clean checkout of the commit the
   lane left: your own checks, a guard on CI and agent configuration, tests that were deleted or weakened, a new
-  test that passes without the change, a secret in any commit of the change.
+  test that passes without the change, and a gate you can add for a secret in any commit of the change.
 - **A record.** Every run keeps its evidence, each agent start with its tokens and cost, and the transcript the
   agent's CLI printed. `softwarefactor cost --check` proves the cost report against those records.
 - **A floor to look at.** `softwarefactor ui` serves a local page: the workflow as a line diagram you can edit,
@@ -41,7 +41,7 @@ git clone https://github.com/aindong/software-factor.io.git
 cd software-factor.io
 pnpm install
 pnpm run build
-alias softwarefactor="node $PWD/dist/cli.js"
+alias softwarefactor="node \"$PWD/dist/cli.js\""
 
 # a small project to try it on
 mkdir ../hello-factory && cd ../hello-factory
@@ -61,7 +61,8 @@ softwarefactor runs
 `softwarefactor init` writes `.factor/` with a one-lane workflow and a first task, "Say hello". `softwarefactor
 run` takes the task through the lane: the scripted agent commits a file, the gates check that commit, and the
 run waits for you (exit code 3 means "waits", not "failed"). `softwarefactor inbox` shows the run's id. Put it in
-place of `<run>`. After the approval the run is done, and `softwarefactor runs` says so.
+place of `<run>`. After the approval the run is done, and `softwarefactor runs` says so. The agent's commit is on
+the run's own branch (`git branch` shows it): the starter workflow has no lane that merges.
 
 Then look at it:
 
@@ -82,8 +83,10 @@ profile folder is, never a key or a token.
 softwarefactor account add work --agent claude --profile ~/.claude
 softwarefactor account add codex --agent codex --profile ~/.codex
 softwarefactor role bind author --account work --large opus --medium sonnet
-softwarefactor role bind reviewer --account codex
 ```
+
+The workflow that `init` writes has one role, `author`. A workflow with a second role, such as `reviewer` in
+`alleo-loop`, is bound the same way, and works best on a login of another vendor.
 
 Write tasks as open boxes in `.factor/tasks.md`, or collect them from GitHub issues, a schedule or an MCP server
 ([collectors](docs/collectors.md)). More in [accounts, roles and the guard](docs/accounts.md).
@@ -136,8 +139,12 @@ Only on the scripted agent or a stand-in:
 
 - The eval suite, by design: it starts no real agent.
 - Two runs at the same time on separate slots.
-- `bugfix-fast` and `research-only` end to end. `alleo-loop` also runs end to end on the scripted agent, with a
-  stand-in for `alleo-plan-check`.
+- `bugfix-fast` and `research-only` end to end, with stand-ins for `gh` and for the command that opens a pull
+  request. `alleo-loop` also runs end to end on the scripted agent, with a stand-in for `alleo-plan-check`.
+- Two parts of `alleo-loop` that the real runs did not reach: its `verify-ui` lane (the check of a change to the
+  interface in a browser), and a review that sent work back to the build lane.
+- The gate `core/no-secrets@1` is in no workflow that ships and not in the one `init` writes: it has only run
+  in tests and in the eval suite.
 - The Kimi adapter: written from its documentation, tested against a stand-in binary, never the real CLI.
 - The `command` adapter (any command of yours as an agent): scripted commands in tests only.
 - A collector on an MCP server (the Jira case), and installing a skill for a run: stand-ins only.

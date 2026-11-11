@@ -204,10 +204,10 @@ Give it a folder as its argument and it leaves screenshots there in both themes.
 stopped, one waiting), and by key presses alone moves through the list, steps a run back and forth on its map,
 and opens the diff, a screenshot pair, a recording, a gate's output and a hand-off.
 `bash test/ui/ladder.sh` does the ladder at a lane, and `bash test/ui/restart.sh` a server started again under
-a floor that holds a change, and the arrival in the inbox. `bash test/ui/all.sh <folder>` runs them all.
+a floor that holds a change, and the arrival in the inbox.
 `bash test/ui/inbox.sh` does the inbox, accounts, costs and plugins: it approves, sends work back with a note,
 answers a question, has a decision refused, and binds a role, all by key presses.
-`bash test/ui/all.sh <folder>` runs the three and leaves a screenshot of every main screen in both themes at
+`bash test/ui/all.sh <folder>` runs all five and leaves a screenshot of every main screen in both themes at
 1440 and 390 wide, each checked to be of that screen, in that theme and that wide. At phone width every screen
 is walked with the Tab key (each control shown must be reached) and checked not to scroll sideways. It takes
 about twelve minutes. The design itself is recorded in `DESIGN.md`, and its palette's contrast is held by
