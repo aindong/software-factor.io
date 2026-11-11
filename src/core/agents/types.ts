@@ -19,6 +19,9 @@ export interface AgentJob {
   env: Record<string, string>;
   /** The command line of the factor MCP server for this lane, for a CLI that can be given one. */
   server?: string[];
+  /** The skills and the profile servers the lane names (`*` for all), by the profile's names. */
+  skills?: string[];
+  servers?: string[];
   /** Branches the agent must not push to or move. */
   protect?: string[];
   /** How many times this lane's agent has been started in this run before now. */
@@ -53,6 +56,8 @@ export interface AgentExit {
   error?: string;
   /** The CLI said the account's limit is reached. */
   limit?: boolean;
+  /** Something the host could not do for this start, for the lane's record. */
+  notice?: string;
   /** The hand-off the agent gave in its last message, when it gave one there. */
   said?: string;
   /** Set when the agent changed something that decides what its CLI runs later: the run stops. */

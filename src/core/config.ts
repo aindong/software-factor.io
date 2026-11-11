@@ -108,7 +108,7 @@ export const LocalConfig = z.strictObject({
   // the workflow this machine uses in place of the one factory.json names: a variant of your own, not shared
   workflow: id.optional(),
   // MCP servers a collector may start here, each by the print of what it runs (`softwarefactor allow`)
-  servers: z.record(id, z.string()).optional(),
+  servers: z.record(z.string().min(1), z.string()).optional(),
   // plugins installed and said yes to here, each by the hash of its files (`softwarefactor add`)
   plugins: z.record(id, z.string()).optional(),
   // skills from a repository that a run may install here, each by the print of its source (`softwarefactor allow --skill`)

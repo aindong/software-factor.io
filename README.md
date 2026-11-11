@@ -145,7 +145,7 @@ the plan names a check for each acceptance criterion, and its `verify-ui` lane u
 - [Write a lane](docs/write-a-lane.md), and [write a plugin](docs/plugins.md) for a lane, gate or collector type
   of your own.
 - [Collectors](docs/collectors.md): where tasks come from.
-- [Accounts, roles and the guard](docs/accounts.md).
+- [Accounts, roles and the guard](docs/accounts.md), and [skills and servers on a lane](docs/skills-and-servers.md).
 - [The hand-off](docs/handoff.md) and [panels](docs/panels.md).
 - [Memory and the factor server](docs/memory.md).
 - [The interface](docs/interface.md).
@@ -186,7 +186,7 @@ Only on the scripted agent or a stand-in:
   in tests and in the eval suite.
 - The Kimi adapter: written from its documentation, tested against a stand-in binary, never the real CLI.
 - The `command` adapter (any command of yours as an agent): scripted commands in tests only.
-- A collector on an MCP server (the Jira case), and installing a skill for a run: stand-ins only.
+- A collector on an MCP server (the Jira case), and installing a skill for a run: stand-ins only. So are the skills and profile servers a lane may use (see [the guide](docs/skills-and-servers.md)): no real agent has called a skill or a server through them.
 - The autonomy ladder and retros: scripted runs. No lane has yet earned a step on real work.
 - The interface is checked in a real browser, driven by keyboard, on runs of the scripted agent.
 

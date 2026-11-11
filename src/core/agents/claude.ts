@@ -3,8 +3,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Account } from "../accounts.ts";
-import { type Choice, count, handoffFromText, LIMIT, profileEnv, quote, runCli } from "./cli.ts";
-import { FACTOR_TOOLS, mcpName } from "./factor-tools.ts";
+import { claudeArgs } from "./claude-args.ts";
+import { discoverServers } from "./claude-discover.ts";
+import { type Choice, count, handoffFromText, LIMIT, profileEnv, runCli } from "./cli.ts";
 import type { AgentAdapter } from "./types.ts";
 
 /** The settings files of a profile folder, as one text. */
@@ -17,57 +18,25 @@ function settingsOf(profile: string | undefined): string {
     .join("\0");
 }
 
-// A lane that only reads has no tool that writes files: it gives its hand-off in its last message.
-const READ_TOOLS = ["Read", "Glob", "Grep", "Bash"];
-const WRITE_TOOLS = ["Write", "Edit", "NotebookEdit"];
-
 export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
   return {
     guarded: true,
     server: true,
     async run(job) {
-      const canWrite = job.lane.agent?.access === "write";
-      // The hook runs this same program, so the guard is the one the tests cover. The lane is on
-      // its command line, where the agent cannot change it. A CLI lets a call through when its hook
-      // breaks (any exit code but 2), so every failure of the guard to run is turned into a denial.
-      const lane = [
-        ...["--worktree", job.cwd, "--lane-dir", job.laneDir],
-        ...["--access", canWrite ? "write" : "read"],
-        ...(job.protect ?? []).flatMap((branch) => ["--protect", branch]),
-      ];
-      // with an empty environment: the CLI's settings can set variables for hooks, and one such as
-      // NODE_OPTIONS would decide what the guard loads
-      const self = ["/usr/bin/env", "-i", process.execPath, process.argv[1] ?? "", "guard", ...lane];
-      const guard = `${self.map(quote).join(" ")} || exit 2`;
-      const hooks = { PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: guard }] }] };
-      const tools = [...READ_TOOLS, ...(canWrite ? WRITE_TOOLS : [])].join(",");
-      const server = job.server ?? [];
-      const args = [
-        "-p",
-        "--output-format",
-        "stream-json",
-        "--verbose",
-        ...(choice.model ? ["--model", choice.model] : []),
-        ...(choice.effort ? ["--effort", choice.effort] : []),
-        "--add-dir",
-        job.laneDir,
-        "--settings",
-        JSON.stringify({ hooks }),
-        // the worktree is the agent's to write: its settings, hooks and MCP servers are not loaded
-        "--setting-sources",
-        "user",
-        "--strict-mcp-config",
-        // the one MCP server there is: the factory's own, for this lane
-        "--mcp-config",
-        JSON.stringify({ mcpServers: { factor: { command: server[0], args: server.slice(1) } } }),
-        "--tools", // the only tools there are for this run
-        tools,
-        "--allowedTools", // and they need no approval: nobody is there to give one
-        [tools, ...FACTOR_TOOLS.map(mcpName)].join(","),
-      ]; // never --bare: it skips hooks, so the guard would not run. And no permission mode that skips checks.
       const env = profileEnv("CLAUDE_CONFIG_DIR", account.profile, ".claude");
+      const bin = account.bin ?? "claude";
+      const named = (job.servers ?? []).length > 0;
+      // run outside the worktree: a server file the agent wrote there is not the profile's
+      const others = named ? discoverServers(bin, env, job.runId, job.hostDir) : undefined;
+      // with "claude mcp list" unreadable, the guard still holds the lane to the servers it names
+      const notice =
+        named && others === undefined
+          ? 'the other servers of the profile could not be listed ("claude mcp list" failed or printed nothing readable), so they could not be shut out: the guard still denies their tools'
+          : undefined;
+      const self = ["/usr/bin/env", "-i", process.execPath, process.argv[1] ?? "", "guard"];
+      const args = claudeArgs(job, choice, self, others);
       const settingsBefore = settingsOf(account.profile);
-      const out = await runCli(job, account.bin ?? "claude", args, env, true);
+      const out = await runCli(job, bin, args, env, true);
       // the profile's settings are loaded by every later lane, and can turn hooks off
       const tampered =
         settingsOf(account.profile) === settingsBefore
@@ -109,6 +78,7 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
         streamPath: out.streamPath,
         tampered,
         said,
+        notice,
       };
     },
   };

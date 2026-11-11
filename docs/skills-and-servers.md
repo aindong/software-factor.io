@@ -1,0 +1,94 @@
+# Skills and servers on a lane
+
+A lane that names no skill and no server starts sealed: file and shell tools (the writing ones only when its
+access is `write`), the five tools of the factory's own server, and nothing from the account's profile. The
+agent is not shown the profile's skills as callable, and its MCP servers are not loaded. This is what every
+lane gets unless its workflow says more.
+
+## Naming them
+
+Declare what a lane may reach at the top of the workflow, then name it in the lane's `agent`:
+
+```json
+{
+  "mcp": {
+    "docs": { "from": "profile" },
+    "tracker": { "from": "profile", "name": "my tracker" }
+  },
+  "skills": { "my-plugin:plan": { "from": "profile" } },
+  "lanes": [
+    {
+      "id": "plan",
+      "uses": "core/agent@1",
+      "agent": {
+        "role": "author",
+        "access": "read",
+        "prompt": "Plan the task.",
+        "skills": ["my-plugin:plan"],
+        "servers": ["docs", "tracker"]
+      }
+    }
+  ]
+}
+```
+
+- A server is declared with `"from": "profile"`. The key is the name the workflow uses; `name` is what the
+  account's own profile calls it (`claude mcp list` prints it), and defaults to the key.
+- `servers` on a lane's agent names declared profile servers. `skills` names declared skills. A profile skill
+  goes by its key, which must be the name the Skill tool is called with. A skill from a repository goes by its
+  `skill` name; with none (all the skills of that source) its names are not known, so the lane gets none of
+  them.
+- `*` (written `"*"`) in either list means every skill, or every server, of the account. It is a wide grant: use it only on a
+  machine and a task you trust.
+- `softwarefactor check` reports a lane that names something undeclared, and a profile server that no lane
+  names. Two servers whose names become the same tool prefix (`a.b` and `a b` both become `a_b`), and a server
+  that would be called `factor`, are refused.
+
+## Allowing a server on this machine
+
+A workflow can come from someone else, so a server it names is not used until you allow it here:
+
+```sh
+softwarefactor allow docs
+softwarefactor allow '*'
+```
+
+The run stops before any task is claimed, and says which `softwarefactor allow` to run. The approval is kept
+in `.factor/local.json` (not committed) by the server's name in the profile; a workflow that names another
+profile name asks again. One lane's approval opens nothing for a server another lane names. A skill from a
+profile needs no approval; one from a repository is allowed as before, with `softwarefactor allow --skill`.
+
+## How it is held
+
+Claude Code is started with the `Skill` tool when the lane names a skill, and without `--strict-mcp-config`
+when it names a server. Every other server that `claude mcp list` prints for the account is disallowed by
+name, and the guard, a hook before every tool call, is told the lane's skills and servers on its command line.
+The guard allows a `Skill` call only when the skill's name is exactly one the lane names, and a tool
+`mcp__<server>__<tool>` only when `<server>` is exactly a server the lane names after every character outside
+`A-Za-z0-9_-` is turned into `_`. A name it cannot read is denied, and so is a tool name with a second `__`
+in it: it could belong to another server. The factory's own tools stay allowed on every lane. The prompt tells
+the agent which skills and servers it may use.
+
+When `claude mcp list` fails or prints nothing readable, the lane still starts with its named servers, and
+its session record carries a notice that the other servers could not be shut out. The guard still denies
+their tools.
+
+## What is not held
+
+- A server reaches outside the worktree. It can read and change things the factory cannot see or undo, and
+  the gates do not see what it did. A task that comes from a public issue can ask for it. What stands between
+  is the label on the issue, the workflow file, your approval on this machine, and the person at the
+  checkpoint.
+- A skill may ask for tools the lane does not have, such as subagents. It then works in part.
+- Without `--strict-mcp-config`, a server could load under the same name as a named one from a file of the
+  worktree (`.mcp.json`) or from the profile's settings for that path. The lane keeps `--setting-sources
+  user`, but whether Claude Code then still reads a project `.mcp.json` was not checked. The guard denies a
+  write to `.mcp.json` by the agent, and does not know which file a server came from.
+- Codex and the other agents are unchanged: what their lanes load from their own profiles is not checked here.
+
+## Not tried with a real agent
+
+Everything here was tested with stand-ins for `claude` and for `claude mcp list`. It was not tried with a real
+agent: that a real Claude Code session gets the `Skill` tool from `--tools`, that it honours `--allowedTools`
+and `--disallowedTools` by server name, that the text of `claude mcp list` is as parsed, and what a server
+that needs a login does in a headless session.

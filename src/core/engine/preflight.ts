@@ -9,6 +9,7 @@ import { pluginType } from "../plugins/use.ts";
 import { readPrices } from "../prices.ts";
 import type { CommandSettings, WaitSettings } from "../schema/builtins.ts";
 import type { Workspace } from "../workspace.ts";
+import { serverProblem, serversNeeded } from "./reach.ts";
 import { skillProblem, skillsNeeded } from "./skills.ts";
 
 const SUPPORTED_LANES = ["core/agent@1", "core/command@1", "core/wait@1"];
@@ -70,6 +71,10 @@ export function preflight(ws: Workspace): void {
     if (!c.uses.startsWith("core/")) pluginType(ws, "collector", c.uses);
   for (const skill of skillsNeeded(ws)) {
     const problem = skillProblem(ws, skill);
+    if (problem) throw problem;
+  }
+  for (const [key, name] of serversNeeded(ws)) {
+    const problem = serverProblem(ws, key, name);
     if (problem) throw problem;
   }
 }

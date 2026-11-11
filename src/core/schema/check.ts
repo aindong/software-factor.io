@@ -1,5 +1,6 @@
 // Rules a JSON shape cannot express: references that must exist, settings each built-in accepts,
 // who may write and who checks it (ADR 0005, ADR 0012). Every problem names the place and the fix.
+import { serverSegment } from "../agents/reach.ts";
 import { BUILTINS, commandsIn, findSecrets, own } from "./builtins.ts";
 import { checkRef, checkTransitions } from "./transitions.ts";
 import type { Workflow } from "./workflow.ts";
@@ -155,17 +156,25 @@ export function checkWorkflow(w: Workflow): Problem[] {
       }
     };
     declared(lane.agent?.role, `${at}.agent.role`);
-    for (const [kind, names, known] of [
-      ["MCP server", lane.agent?.mcp ?? [], w.mcp ?? {}],
-      ["Skill", lane.agent?.skills ?? [], w.skills ?? {}],
+    for (const [kind, key, top, names] of [
+      ["MCP server", "mcp", "mcp", lane.agent?.mcp ?? []],
+      ["MCP server", "servers", "mcp", lane.agent?.servers ?? []],
+      ["Skill", "skills", "skills", lane.agent?.skills ?? []],
     ] as const) {
-      const key = kind === "Skill" ? "skills" : "mcp";
+      const known: Record<string, { from: string }> = w[top] ?? {};
       for (const name of names) {
+        if (name === "*") continue;
         if (!Object.hasOwn(known, name)) {
           add(
             `${at}.agent.${key}`,
             `${kind} "${name}" is not declared.`,
-            `Add "${name}" to the top-level "${key}" with where it comes from.`,
+            `Add "${name}" to the top-level "${top}" with where it comes from.`,
+          );
+        } else if (key === "servers" && known[name]?.from !== "profile") {
+          add(
+            `${at}.agent.servers`,
+            `The server "${name}" does not come from the agent's profile.`,
+            'A lane can only use servers declared with "from": "profile".',
           );
         }
       }
@@ -307,6 +316,33 @@ export function checkWorkflow(w: Workflow): Problem[] {
       }
     }
   });
+
+  const named = new Set(w.lanes.flatMap((l) => [...(l.agent?.mcp ?? []), ...(l.agent?.servers ?? [])]));
+  const segments = new Map<string, string>();
+  for (const [name, server] of Object.entries(w.mcp ?? {})) {
+    if (server.from !== "profile") continue;
+    if (!named.has(name) && !named.has("*")) {
+      add(
+        `mcp.${name}`,
+        `The profile server "${name}" is named by no lane.`,
+        `Add "${name}" to the "servers" of a lane's agent, or remove it from the top-level "mcp".`,
+      );
+    }
+    // Claude Code names a tool mcp__<server>__<tool> with every odd character turned into _, so
+    // two names can meet in one prefix, and the factory's own server is called factor
+    const segment = serverSegment(server.name ?? name);
+    const clash = segments.get(segment);
+    segments.set(segment, name);
+    if (segment === "factor" || clash !== undefined) {
+      add(
+        `mcp.${name}`,
+        segment === "factor"
+          ? `The profile server "${name}" would be called "factor" in tool names, the factory's own server.`
+          : `The profile servers "${clash}" and "${name}" become the same tool prefix "mcp__${segment}__".`,
+        'Rename one with "name", or remove it.',
+      );
+    }
+  }
 
   checkTransitions(w, index, problems);
   const seen = new Set<string>();

@@ -14,6 +14,7 @@ import {
   SECRET_GLOB,
   SECRET_IN_SHELL,
 } from "./guard-patterns.ts";
+import { judgeReach } from "./reach.ts";
 
 export interface ToolCall {
   tool: unknown;
@@ -28,6 +29,9 @@ export interface Where {
   defaultBranch: string | string[];
   /** The path of the factory's own program, which an agent may not run, move or change. */
   self?: string;
+  /** The skills and the MCP servers the lane names (reach.ts). */
+  skills?: string[];
+  servers?: string[];
 }
 export interface Verdict {
   allow: boolean;
@@ -432,6 +436,8 @@ export function judge(call: ToolCall, where: Where): Verdict {
     if (READS.has(tool)) return judgeRead(tool, values, where);
     // the factory's own server: its tools check their own input, and it has none that changes the rules
     if (FACTOR_TOOLS.some((name) => mcpName(name) === tool)) return ALLOW;
+    const reach = judgeReach(tool, values, where.skills, where.servers);
+    if (reach) return reach;
     return deny(`The guard has no rule for the tool "${tool}", so it is denied.`);
   } catch (error) {
     return deny(`The guard could not check this tool call, so it is denied: ${(error as Error).message}`);
