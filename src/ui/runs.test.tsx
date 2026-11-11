@@ -7,7 +7,7 @@ import type { RunRow } from "../core/runs/view.ts";
 import type { Workflow } from "../core/schema/workflow.ts";
 import { Diagram } from "./Diagram.tsx";
 import { Strip } from "./Strip.tsx";
-import { ago, cost, span, standing, tokens } from "./words.ts";
+import { ago, cost, dollars, span, standing, tokens } from "./words.ts";
 
 const workflow = drawable({
   lanes: [
@@ -115,5 +115,22 @@ describe("the words of a row", () => {
     expect(ago("2026-11-10T11:55:00Z", now)).toBe("5 min ago");
     expect(ago("2026-11-10T09:00:00Z", now)).toBe("3 h ago");
     expect(ago("not a date", now)).toBe("");
+  });
+});
+
+describe("money as a person reads it", () => {
+  it("is cents, and more digits only under one cent", () => {
+    expect([dollars(0), dollars(2.594884), dollars(1234.5), dollars(0.01), dollars(7.952181)]).toEqual([
+      "$0.00",
+      "$2.59",
+      "$1,234.50",
+      "$0.01",
+      "$7.95",
+    ]);
+    expect([dollars(0.0042), dollars(0.000123), dollars(0.00999)]).toEqual(["$0.0042", "$0.00012", "$0.010"]);
+  });
+  it("is the same in the cost of a run", () => {
+    expect(cost(1.033629, false)).toBe("$1.03");
+    expect(cost(0.0042, true)).toBe("at least $0.0042");
   });
 });
