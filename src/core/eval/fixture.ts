@@ -20,7 +20,7 @@ export interface Fixture {
   remove: () => void;
 }
 
-const WORKFLOW = (on: Json) => ({
+const WORKFLOW = (on: Json, plan = false) => ({
   $schema: "https://softwarefactor.io/schema/workflow/v1.json",
   version: 1,
   name: "eval",
@@ -35,13 +35,15 @@ const WORKFLOW = (on: Json) => ({
     secrets: { uses: "core/no-secrets@1", onFail: "fail" },
     "new-tests": { uses: "core/new-tests-fail-on-base@1", onFail: "fail" },
     verify: { uses: "core/command@1", with: { command: "verify" }, onFail: "fail" },
+    ...(plan ? { contract: { uses: "core/plan-contract@1", onFail: "fail" } } : {}),
   },
   lanes: [
     {
       id: "build",
       uses: "core/agent@1",
       agent: { role: "author", access: "write", prompt: "Do the task." },
-      gates: ["protected", "tests-kept", "secrets", "new-tests", "verify"],
+      ...(plan ? { outputs: { plan: { type: "string", required: true } } } : {}),
+      gates: [...(plan ? ["contract"] : []), "protected", "tests-kept", "secrets", "new-tests", "verify"],
       checkpoint: "out",
       on,
     },
@@ -49,7 +51,11 @@ const WORKFLOW = (on: Json) => ({
 });
 
 /** `script` is what the agent does at each visit of the lane, or a list of them, one for each visit. */
-export function makeFixture(o: { script: FakeAction[] | FakeAction[][]; on?: Json }): Fixture {
+export function makeFixture(o: {
+  script: FakeAction[] | FakeAction[][];
+  on?: Json;
+  plan?: boolean;
+}): Fixture {
   const top = realpathSync(mkdtempSync(join(tmpdir(), "sf-eval-")));
   const dir = join(top, "repo");
   const home = join(top, "home");
@@ -59,7 +65,7 @@ export function makeFixture(o: { script: FakeAction[] | FakeAction[][]; on?: Jso
     "sum.test.js": TESTS,
     ".gitignore": ".factor/state.db*\n.factor/runs/\n.factor/local.json\n",
     ".factor/factory.json": `${JSON.stringify({ version: 1, workflow: "eval", commands: { verify: "node --test" } }, null, 2)}\n`,
-    ".factor/workflows/eval.json": `${JSON.stringify(WORKFLOW(o.on ?? { pass: "@done", fail: "@stop" }), null, 2)}\n`,
+    ".factor/workflows/eval.json": `${JSON.stringify(WORKFLOW(o.on ?? { pass: "@done", fail: "@stop" }, o.plan), null, 2)}\n`,
     ".factor/local.json": `${JSON.stringify({ roles: { author: { adapter: "fake", script: { build: o.script } } } }, null, 2)}\n`,
     ".factor/tasks.md": "- [ ] The task of this case\n",
   };

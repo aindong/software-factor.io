@@ -32,13 +32,13 @@ describe("the plan check", () => {
   it("names a criterion that has no check", () => {
     const problems = check(plan(TWO, "- 1: test:a.test.js"));
     expect(problems).toHaveLength(1);
-    expect(problems[0]).toMatch(/criterion 2 has no line in the verification contract/);
+    expect(problems[0]).toMatch(/Criterion 2 has no line in the verification contract/);
   });
 
   it("names a criterion that has two checks", () => {
     const problems = check(plan(TWO, "- 1: test:a.test.js\n- 1: cmd:true\n- 2: ui:x"));
     expect(problems).toHaveLength(1);
-    expect(problems[0]).toMatch(/criterion 1 has 2 lines/);
+    expect(problems[0]).toMatch(/Criterion 1 has 2 lines/);
   });
 
   it("names a check for a number that is no criterion", () => {
@@ -53,8 +53,12 @@ describe("the plan check", () => {
   });
 
   it("names a line that says nothing of what is checked", () => {
-    expect(check(plan(TWO, "- 1: test:a.test.js\n- 2: ui:  ")).join("\n")).toMatch(/"- 2: ui:".*nothing after/);
-    expect(check(plan(TWO, "- 1: test:a.test.js\n- 2: later")).join("\n")).toMatch(/"- 2: later".*<kind>:<what>/);
+    expect(check(plan(TWO, "- 1: test:a.test.js\n- 2: ui:  ")).join("\n")).toMatch(
+      /"- 2: ui:".*nothing after/,
+    );
+    expect(check(plan(TWO, "- 1: test:a.test.js\n- 2: later")).join("\n")).toMatch(
+      /"- 2: later".*<kind>:<what>/,
+    );
   });
 
   it("names a test file that is not in the checkout", () => {

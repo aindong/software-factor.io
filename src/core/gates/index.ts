@@ -7,6 +7,7 @@ import { commandGate } from "./command.ts";
 import { newTestsFailOnBaseGate } from "./fail-on-base.ts";
 import { testFloorGate } from "./floor.ts";
 import { protectedPathsGate } from "./paths.ts";
+import { planContractGate } from "./plan-contract.ts";
 import { noSecretsGate } from "./secrets.ts";
 import type { GateJob } from "./types.ts";
 import { testsNotWeakenedGate } from "./weakened.ts";
@@ -18,6 +19,7 @@ export const GATES: Record<string, (g: GateJob) => GateRecord | Promise<GateReco
   "core/test-floor@1": testFloorGate,
   "core/new-tests-fail-on-base@1": newTestsFailOnBaseGate,
   "core/no-secrets@1": noSecretsGate,
+  "core/plan-contract@1": planContractGate,
 };
 
 export const isBuiltGate = (uses: string) => Object.hasOwn(GATES, uses);

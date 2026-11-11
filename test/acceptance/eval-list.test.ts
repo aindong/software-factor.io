@@ -26,6 +26,6 @@ it("runs no case: it returns at once and leaves the directory as it was", () => 
   const repo = makeRepo();
   const began = Date.now();
   expect(repo.sf("eval", "--list").status).toBe(0);
-  expect(Date.now() - began).toBeLessThan(5_000); // a run is several seconds for each of eleven cases
+  expect(Date.now() - began).toBeLessThan(5_000); // a run is several seconds for each of twelve cases
   expect(repo.git("status", "--porcelain")).toBe("");
 });
