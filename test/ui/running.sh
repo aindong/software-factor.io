@@ -104,7 +104,7 @@ expect "the train there is not yellow" "$(js "() => document.querySelectorAll('.
 [ -n "$shots" ] && pw screenshot --filename="$shots/running-light-1440.png"
 
 # ---- 3. the run that waits for a person does not move
-tab_to '^Waits for you.*[0-9]+ Show the cost of each lane'
+tab_to '^Working.*[0-9]+ Show the cost of each lane'
 pw press ArrowDown
 wait_for "the run beside the list follows" "() => document.querySelector('.rundetail h2').textContent" '^Fix the date format$'
 expect "its head says it waits" "$(js "() => document.querySelector('.rundetail .state').textContent")" '^Waits for you$'
