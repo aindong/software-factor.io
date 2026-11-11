@@ -96,3 +96,5 @@ What it cannot prove: that the vendor counted right, anything about a session of
 no transcript), and a record changed by someone who can write the database and the kept files alike. The check
 finds mistakes, in the report and in what was recorded. It is no seal. A Codex transcript that was cut for its size is not re-read, and the check says how many were
 not.
+
+In a workspace with no record, `cost` prints "No sessions yet" and creates no `.factor/state.db`.

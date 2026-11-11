@@ -304,7 +304,8 @@ async function main(): Promise<number> {
         "Run them one after the other.",
       );
     const ws = loadWorkspace(cwd);
-    const db = openDb(ws.dbPath);
+    // A read of the record must not write one: with none, cost reads an empty database in memory.
+    const db = openDb(command === "cost" && !existsSync(ws.dbPath) ? ":memory:" : ws.dbPath);
     try {
       if (command === "cost" && values.json) {
         console.log(costJson(db)); // not `say`: it strips control characters, and a document must not change
