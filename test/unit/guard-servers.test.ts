@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { judge } from "../../src/core/agents/guard.ts";
+import { hookFor } from "../helpers/hook.ts";
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), "sf-guard-server-")));
 const worktree = join(root, "wt");
@@ -70,5 +71,43 @@ describe("the guard and the tools of MCP servers", () => {
   it("does not allow a tool the factory's server does not have, unless the lane names it", () => {
     expect(call("mcp__factor__memory_keep").allow).toBe(false);
     expect(call("mcp__factor__memory_keep", ["docs"]).allow).toBe(false);
+  });
+});
+
+describe("the guard as the hook of a lane's arguments", () => {
+  const exits = (servers: string[] | undefined, tool: string, others?: string[]) =>
+    hookFor(servers ? { servers } : {}, others)(tool, {});
+
+  it("exits 0 for a tool of a named server and for the factory's own tools", () => {
+    expect(exits(["docs"], "mcp__docs__search")).toBe(0);
+    expect(exits(undefined, "mcp__factor__handoff_write")).toBe(0);
+    expect(exits(["docs"], "mcp__factor__memory_read")).toBe(0);
+  });
+
+  it("exits 2 for a server the lane does not name, and for every server on a lane that names none", () => {
+    expect(exits(["docs"], "mcp__tracker__list")).toBe(2);
+    expect(exits(undefined, "mcp__docs__search")).toBe(2);
+    expect(exits([], "mcp__docs__search")).toBe(2);
+  });
+
+  it("exits 2 for a server whose name only starts like a named one", () => {
+    expect(exits(["My Server"], "mcp__My_Server__dev___x")).toBe(2); // the server "My Server (dev)"
+    expect(exits(["My Server"], "mcp__My_Server__search")).toBe(0);
+    expect(exits(["docs"], "mcp__docs_private__x")).toBe(2);
+    expect(exits(["named"], "mcp__namedX__t")).toBe(2);
+    expect(exits(["named"], "mcp__named")).toBe(2);
+  });
+
+  it("exits 2 for a tool the factory's server does not have, also for *", () => {
+    expect(exits(undefined, "mcp__factor__anything_else")).toBe(2);
+    expect(exits(["*"], "mcp__factor__anything_else")).toBe(2);
+  });
+
+  it("refuses to build a lane where two names become one tool prefix, or one is called factor", () => {
+    const build = (servers: string[], others: string[]) => () => hookFor({ servers }, others);
+    expect(build(["a.b"], ["a.b", "a b"])).toThrow(/both become "mcp__a_b__"/);
+    expect(build(["a.b", "a b"], [])).toThrow(/both become/);
+    expect(build(["factor"], ["factor"])).toThrow(/factor/);
+    expect(build(["a.b"], ["a.b", "other"])).not.toThrow();
   });
 });

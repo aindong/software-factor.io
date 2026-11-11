@@ -1,5 +1,6 @@
 // A run whose lane names a profile server that this machine has not allowed stops before the lane
 // starts and says how to allow it; after `allow` the lane starts, held to what it names.
+import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
 import { edit } from "../helpers/collect.ts";
 import { runsOf } from "../helpers/plugin.ts";
@@ -9,9 +10,7 @@ const LIST = "docs: npx docs-mcp - ✓ Connected\nother: https://example.com/mcp
 
 function setup(servers = ["docs"]) {
   const repo = flowRepo({
-    lanes: [
-      agentLane("look", { agent: { mcp: servers, skills: ["my-plugin:plan"] }, checkpoint: "out" }),
-    ],
+    lanes: [agentLane("look", { agent: { servers, skills: ["my-plugin:plan"] }, checkpoint: "out" })],
   });
   edit(repo, (w) => {
     w.mcp = { docs: { from: "profile" } };
@@ -79,7 +78,7 @@ it("asks again when the workflow names another profile name for the server", () 
   });
   const r = repo.sf("run");
   expect(r.status).toBe(1);
-  expect(r.stderr).toMatch(/server "docs" has changed since it was allowed/);
+  expect(r.stderr).toMatch(/server "docs" .*has changed since it was allowed/);
 });
 
 it("asks for its own approval when a lane names *", () => {
@@ -97,4 +96,46 @@ it("refuses to allow a server that no lane names or the workflow does not declar
   const r = repo.sf("allow", "nothing");
   expect(r.status).toBe(1);
   expect(r.stderr).toMatch(/no MCP server "nothing"/);
+});
+
+it("records exactly the print of the profile's name in local.json, and keeps what else is there", () => {
+  const { repo } = setup();
+  const before = repo.json<Record<string, unknown>>(".factor/local.json");
+  expect(repo.sf("allow", "docs").status).toBe(0);
+  const print = createHash("sha256")
+    .update(JSON.stringify(["profile", "docs"]))
+    .digest("hex");
+  expect(repo.json(".factor/local.json")).toEqual({ ...before, servers: { docs: print } });
+});
+
+it("does not let the approval of a server of one lane open a server of another lane", () => {
+  const repo = flowRepo({
+    lanes: [
+      agentLane("one", { agent: { servers: ["docs"] }, on: { pass: "two", fail: "@stop" } }),
+      agentLane("two", { agent: { servers: ["other"] } }),
+    ],
+  });
+  edit(repo, (w) => {
+    w.mcp = { docs: { from: "profile" }, other: { from: "profile" } };
+  });
+  repo.git("add", "-A");
+  repo.git("commit", "-q", "-m", "two servers");
+  const profile = standinAccount(repo, "claude-a", "claude", { actions: [pass()], mcpList: { out: LIST } });
+  bind(repo, "author", "claude-a");
+  expect(repo.sf("allow", "docs").status).toBe(0);
+  const r = repo.sf("run");
+  expect(r.status).toBe(1);
+  expect(r.stderr).toContain("softwarefactor allow other");
+  expect(r.stderr).not.toContain("softwarefactor allow docs");
+  expect(profile.calls()).toEqual([]);
+});
+
+it("refuses a server whose name in tool names would be the factory's own", () => {
+  const { repo } = setup();
+  edit(repo, (w) => {
+    w.mcp = { docs: { from: "profile", name: "factor" } };
+  });
+  const r = repo.sf("run");
+  expect(r.status).toBe(1);
+  expect(r.stderr + r.stdout).toMatch(/factor/);
 });

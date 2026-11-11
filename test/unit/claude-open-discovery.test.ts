@@ -5,6 +5,7 @@ import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { claudeArgs } from "../../src/core/agents/claude-args.ts";
 import { discoverServers, parseServers } from "../../src/core/agents/claude-discover.ts";
 import { edit } from "../helpers/collect.ts";
 import { agentLane, bind, flowRepo, pass, standinAccount } from "../helpers/repo.ts";
@@ -63,7 +64,7 @@ describe("a lane when the profile's servers cannot be listed", () => {
     ["prints nothing", { out: "" }],
   ] as const) {
     it(`still starts with its named server when the list ${why}, and the record says so`, () => {
-      const repo = flowRepo({ lanes: [agentLane("look", { agent: { mcp: ["docs"] } })] });
+      const repo = flowRepo({ lanes: [agentLane("look", { agent: { servers: ["docs"] } })] });
       edit(repo, (w) => {
         w.mcp = { docs: { from: "profile" } };
       });
@@ -93,5 +94,31 @@ describe("a lane when the profile's servers cannot be listed", () => {
     expect(profile.calls()[0]?.argv).toContain("--strict-mcp-config");
     const events = repo.rows<{ data: string }>("select data from events where kind = 'lane.session'");
     expect(JSON.parse(events[0]?.data ?? "{}").notice).toBeUndefined();
+  });
+});
+
+describe("the names from a real print of claude mcp list", () => {
+  const PRINT = [
+    "Checking MCP server health…",
+    "",
+    "plugin:a:b: npx -y pkg mcp - ✓ Connected",
+    "claude.ai Supabase: https://example.invalid/mcp - ✓ Connected",
+    "rea: npx -y x mcp",
+    "",
+  ].join("\n");
+
+  it("shuts out the servers a lane names neither of", () => {
+    const names = parseServers(PRINT);
+    expect(names).toEqual(["plugin:a:b", "claude.ai Supabase", "rea"]);
+    const job = {
+      runId: "r",
+      lane: { id: "x", agent: { access: "read" } },
+      cwd: "/w",
+      laneDir: "/l",
+      servers: ["rea"],
+    };
+    const args = claudeArgs(job as never, {}, ["g"], names);
+    const shut = (args[args.indexOf("--disallowedTools") + 1] ?? "").split(",");
+    expect(shut).toEqual(["mcp__plugin_a_b", "mcp__claude_ai_Supabase"]);
   });
 });

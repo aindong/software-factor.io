@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { judge } from "../../src/core/agents/guard.ts";
+import { hookFor } from "../helpers/hook.ts";
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), "sf-guard-skill-")));
 const worktree = join(root, "wt");
@@ -48,5 +49,38 @@ describe("the guard and the Skill tool", () => {
     const where = { worktree, laneDir, access: "read" as const, defaultBranch: "main", skills: ["*"] };
     expect(judge({ tool: "Task", input: {} }, where).allow).toBe(false);
     expect(judge({ tool: "skill", input: { skill: "a" } }, where).allow).toBe(false);
+  });
+});
+
+describe("the guard as the hook of a lane's arguments", () => {
+  const exits = (skills: string[] | undefined, input: unknown) =>
+    hookFor(skills ? { skills } : {})("Skill", input);
+
+  it("exits 0 for a skill the lane names", () => {
+    expect(exits(["allowed"], { skill: "allowed" })).toBe(0);
+    expect(exits(["plugin:allowed"], { skill: "plugin:allowed" })).toBe(0);
+    expect(exits(["*"], { skill: "any:thing" })).toBe(0);
+  });
+
+  it("exits 2 for any Skill call on a lane that names none", () => {
+    expect(exits(undefined, { skill: "allowed" })).toBe(2);
+    expect(exits([], { skill: "allowed" })).toBe(2);
+  });
+
+  it("exits 2 for a skill of another lane, and for every spelling that is not the same string", () => {
+    for (const skill of [
+      "plugin:allowed",
+      "/allowed",
+      "Allowed",
+      "allowed ",
+      " allowed",
+      ["allowed"],
+      1,
+      undefined,
+    ]) {
+      expect(exits(["allowed"], { skill }), JSON.stringify(skill)).toBe(2);
+    }
+    expect(exits(["allowed"], {})).toBe(2);
+    expect(exits(["allowed"], "allowed")).toBe(2);
   });
 });
