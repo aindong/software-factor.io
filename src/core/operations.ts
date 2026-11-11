@@ -27,7 +27,7 @@ import { acceptStep, ladderView } from "./ladder.ts";
 import { listRuns, runDetail, runDiff, runFile } from "./runs/view.ts";
 import { type Problem, parseWorkflow } from "./schema/parse.ts";
 import { accountsView, inboxItems, pluginsView } from "./views.ts";
-import { factorHome, loadWorkspace, workspaceId } from "./workspace.ts";
+import { factorHome, loadWorkspace, workflowHere, workspaceId } from "./workspace.ts";
 
 export interface At {
   /** The workspace's root: the repository with the `.factor` folder. */
@@ -91,15 +91,7 @@ export function workspaceInfo(root: string) {
         .map((f) => f.slice(0, -5))
         .sort()
     : [];
-  let workflow = "";
-  try {
-    const config = JSON.parse(readFileSync(join(root, ".factor", "factory.json"), "utf8")) as {
-      workflow?: unknown;
-    };
-    workflow = String(config.workflow ?? "");
-  } catch {
-    // no factory file that reads: the list still stands
-  }
+  const workflow = workflowHere(root); // empty when no factory file reads: the list still stands
   return { name: basename(root), root, workflow, workflows: names };
 }
 

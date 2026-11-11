@@ -68,7 +68,30 @@ export function locateWorkspace(cwd: string): Pick<Workspace, "root" | "factorDi
   if (!existsSync(configPath)) {
     throw new UserError("This repository has no factory yet.", "Run `softwarefactor init`.");
   }
-  return { root, factorDir, config: readJson(configPath, FactoryConfig, "factory.json") };
+  const config = readJson(configPath, FactoryConfig, "factory.json");
+  const here = localWorkflow(factorDir);
+  return { root, factorDir, config: here ? { ...config, workflow: here } : config };
+}
+
+/** The workflow local.json names for this machine, when it names one. */
+function localWorkflow(factorDir: string): string | undefined {
+  try {
+    const name = JSON.parse(readFileSync(join(factorDir, "local.json"), "utf8")).workflow;
+    return typeof name === "string" && /^[a-z][a-z0-9-]*$/.test(name) ? name : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The name of the workflow in use here, for a page or a listing. Empty when the setup cannot be read. */
+export function workflowHere(root: string): string {
+  const factorDir = join(root, ".factor");
+  try {
+    const shared = JSON.parse(readFileSync(join(factorDir, "factory.json"), "utf8")).workflow;
+    return localWorkflow(factorDir) ?? String(shared ?? "");
+  } catch {
+    return "";
+  }
 }
 
 export function loadWorkspace(cwd: string): Workspace {
@@ -85,7 +108,7 @@ export function loadWorkspace(cwd: string): Workspace {
   } catch (error) {
     throw new UserError(
       `Cannot read the workflow at ${workflowPath}: ${(error as Error).message}`,
-      'Check "workflow" in .factor/factory.json.',
+      `Check "workflow" in .factor/${local.workflow ? "local" : "factory"}.json.`,
     );
   }
   const { workflow, problems } = parseWorkflow(workflowJson);

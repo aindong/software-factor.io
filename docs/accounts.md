@@ -44,6 +44,19 @@ The binding is written to `.factor/local.json`, which is not committed. A lane a
 list` shows each role with its account, and flags a role that the workflow wants on a different vendor
 (`differentVendorFrom`) when both are on the same one.
 
+## A workflow of your own on this machine
+
+`.factor/factory.json` names the workflow everybody who clones the project runs. To run a variant of your own
+here, put its file in `.factor/workflows/` and name it in `.factor/local.json`:
+
+```json
+{ "roles": {}, "workflow": "mine" }
+```
+
+Every command then uses `mine` on this machine: runs, the Floor, `check`, `export`. `factory.json` is not
+changed. Whether the variant's file is shared is up to you: commit it, or keep it out with a line in
+`.git/info/exclude`.
+
 ## Limits
 
 `--limit 5h=2000000` says the account may use that many tokens in any five hours. Every agent start writes what
