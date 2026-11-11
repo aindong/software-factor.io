@@ -66,7 +66,7 @@ const { DatabaseSync } = require("node:sqlite");
 const db = new DatabaseSync(".factor/state.db", { readOnly: true });
 const runs = db.prepare("select status from runs").all();
 const agents = db.prepare("select distinct agent from sessions").all().map((s) => s.agent);
-const approved = db.prepare("select count(*) as n from inbox where status <> \"open\"").get().n;
+const approved = db.prepare("select count(*) as n from inbox where status <> ?").get("open").n;
 console.log("runs:", JSON.stringify(runs), "agents:", JSON.stringify(agents), "approvals:", approved);
 if (runs.length !== 1 || runs[0].status !== "done") process.exit(1);
 if (agents.length !== 1 || agents[0] !== "fake") process.exit(2); // no login of any agent was used
