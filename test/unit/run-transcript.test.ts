@@ -56,6 +56,18 @@ describe("an account of a Claude Code session", () => {
   });
 });
 
+describe("a failed call", () => {
+  it("shows its message without the host's tags around it", () => {
+    const got = account(
+      j(
+        use("t1", "Edit", { file_path: "/w/x.ts" }),
+        back("t1", "<tool_use_error>File not found.</tool_use_error>", true),
+      ),
+    );
+    expect(got.steps[0]).toMatchObject({ out: { error: true, lines: ["File not found."] } });
+  });
+});
+
 describe("an account of a Codex session", () => {
   const item = (type: string, rest: object) => ({ type: "item.completed", item: { id: "i", type, ...rest } });
   const got = account(

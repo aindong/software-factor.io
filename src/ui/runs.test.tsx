@@ -168,6 +168,10 @@ describe("small things from the final critique", () => {
     expect(titleOf("Runs", 0, 2)).toBe("(2 working) Runs · Software Factor.io");
     expect(titleOf("Inbox", 3, 1)).toBe("(3) (1 working) Inbox · Software Factor.io");
   });
+  it("sets the agent's own words at body size and in ink, not as the quiet line of an answer", () => {
+    const css = readFileSync("src/ui/runs.css", "utf8");
+    expect(css).toMatch(/\.account \.said\s*\{[^}]*font:\s*var\(--text-body\)[^}]*color:\s*var\(--ink\)/);
+  });
   it("gives the 'more lines' buttons a target of 24 px", () => {
     const css = readFileSync("src/ui/runs.css", "utf8");
     expect(css).toMatch(/button\.more\s*\{[^}]*min-height:\s*24px/);
