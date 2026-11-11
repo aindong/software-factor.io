@@ -14,7 +14,7 @@
 }
 .run {
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 2px var(--sm);
   padding: var(--sm) var(--lg);
@@ -56,11 +56,15 @@
   white-space: nowrap;
   text-align: right;
 }
+/* the state is the first line of every row, in the same place: its mark and its word, then the age */
+.run .task {
+  grid-column: 1 / -1;
+}
 .run .strip {
-  grid-column: 2;
+  grid-column: 1;
 }
 .run .sentence {
-  grid-column: 2 / -1;
+  grid-column: 1 / -1;
   color: var(--ink-soft);
   overflow-wrap: anywhere;
 }

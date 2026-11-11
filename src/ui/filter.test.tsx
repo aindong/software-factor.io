@@ -9,7 +9,7 @@ import { detail } from "./words.ts";
 
 const row = (id: string, status: RunRow["status"], stopCode: string | null = null, sentence = "") =>
   ({ id, status, stopCode, sentence }) as RunRow;
-const runs = [
+const runs: [RunRow, RunRow, RunRow, RunRow, RunRow] = [
   row("a", "running"),
   row("b", "waiting", "awaiting_approval"),
   row("c", "done", "done", "Done."),
@@ -70,7 +70,8 @@ describe("the filter in the address", () => {
 });
 
 describe("the filter's markup", () => {
-  const draw = (show?: string) => renderToStaticMarkup(<RunFilter runs={runs} show={show} onShow={() => {}} />);
+  const draw = (show?: string) =>
+    renderToStaticMarkup(<RunFilter runs={runs} show={show} onShow={() => {}} />);
   it("is a group of buttons, and says which one is chosen", () => {
     const all = draw();
     expect(all).toContain("<fieldset");

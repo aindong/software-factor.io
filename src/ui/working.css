@@ -27,10 +27,7 @@
   top: 9px;
   right: 16px;
 }
-.run .now {
-  margin-right: 0.5ch;
-}
-.rundetail .state {
+.state {
   display: flex;
   align-items: center;
   gap: var(--sm);
