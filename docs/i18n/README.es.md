@@ -1,5 +1,7 @@
 <h1><img src="../media/banner.webp" alt="Software Factor.io"></h1>
 
+[![CI](https://github.com/aindong/software-factor.io/actions/workflows/ci.yml/badge.svg)](https://github.com/aindong/software-factor.io/actions/workflows/ci.yml)
+
 [English](../../README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · Español
 
 Esta página es una traducción del README en inglés. La página en inglés es la fuente y, donde difieran, la correcta es la página en inglés.
@@ -8,11 +10,11 @@ Esta página es una traducción del README en inglés. La página en inglés es 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../media/how-it-works-dark.webp">
-  <img src="../media/how-it-works-light.webp" width="800" alt="Una tarea avanza por una línea de cinco carriles. Plan trabaja y luego espera hasta que una persona lo aprueba. Build trabaja y sus compuertas pasan. Review y Test pasan. Ship espera una segunda aprobación, fusiona el cambio y la ejecución termina.">
+  <img src="../media/how-it-works-light.webp" width="940" alt="Una grabación de la interfaz en una primera ejecución. El Floor muestra la línea de cinco carriles, y una tarea trabaja en Plan, que luego espera. En la bandeja, una persona pulsa a para aprobar el plan. Build, Review y Test trabajan por turno en el Floor, y la ejecución espera en Ship. Tras una segunda aprobación, la página de la ejecución muestra todos los carriles superados y la ejecución Done.">
 </picture>
 
-<sub>Una tarea en el flujo de trabajo que escribe `softwarefactor init`. Es una ilustración, no una grabación:
-[cómo se hace](../demo.md).</sub>
+<sub>Una primera ejecución en el flujo de trabajo que escribe `softwarefactor init`, grabada desde la interfaz real con el
+agente con guion: [cómo se hace](../demo.md).</sub>
 
 Esta es la versión 0.0.0 y está en una fase temprana. Lo que se ha ejecutado con agentes reales y lo que no se enumera cerca del final.
 
@@ -161,7 +163,9 @@ softwarefactor eval
 
 Las pruebas no arrancan ningún agente real y no necesitan red.
 
-La animación de la parte superior de esta página se hace con `pnpm run demo:film`. [La demo](../demo.md) dice qué necesita y cuándo conviene volver a grabarla.
+La grabación de la parte superior de esta página se hace con `pnpm run demo:film`. [La demo](../demo.md) dice qué necesita y cuándo conviene volver a grabarla.
+
+Para enviar un cambio, lee [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Licencia
 

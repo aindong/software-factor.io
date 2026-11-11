@@ -1,5 +1,7 @@
 <h1><img src="../media/banner.webp" alt="Software Factor.io"></h1>
 
+[![CI](https://github.com/aindong/software-factor.io/actions/workflows/ci.yml/badge.svg)](https://github.com/aindong/software-factor.io/actions/workflows/ci.yml)
+
 [English](../../README.md) · [简体中文](README.zh-CN.md) · 日本語 · [Español](README.es.md)
 
 このページは英語版 README の翻訳です。英語版が原本であり、両者に違いがある場合は英語版が正しい内容です。
@@ -10,10 +12,10 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../media/how-it-works-dark.webp">
-  <img src="../media/how-it-works-light.webp" width="800" alt="1 つのタスクが 5 つのレーンの並びを進んでいく。Plan は作業をしたあと、人が承認するまで待つ。Build は作業をして、ゲートがすべて通る。Review と Test は通る。Ship は 2 回目の承認を待ち、変更をマージして、実行が完了する。">
+  <img src="../media/how-it-works-light.webp" width="940" alt="最初の実行時のインターフェースを録画したものです。Floor には 5 つのレーンが並ぶ線が表示され、1 つのタスクが Plan で処理されたあと、待機します。受信箱で人が a キーを押して計画を承認します。Build、Review、Test が Floor 上で順に動き、実行は Ship で待機します。2 回目の承認のあと、実行のページにはすべてのレーンが通過し、実行が Done になったことが表示されます。">
 </picture>
 
-<sub>`softwarefactor init` が書き出すワークフロー上の 1 つのタスクです。録画ではなく、説明用の図です。
+<sub>`softwarefactor init` が書き出すワークフローでの最初の実行を、スクリプトのエージェントを使って実際のインターフェースから録画したものです。
 [作り方](../demo.md)。</sub>
 
 バージョンは 0.0.0 で、まだ初期の段階です。実際のエージェントで動かしたものと動かしていないものは、末尾近くに一覧しています。
@@ -163,7 +165,9 @@ softwarefactor eval
 
 テストは実際のエージェントを起動せず、ネットワークも要りません。
 
-このページ上部のアニメーションは `pnpm run demo:film` で作っています。[デモ](../demo.md)に、必要なものと、撮り直す時期を書いています。
+このページ上部の録画は `pnpm run demo:film` で作っています。[デモ](../demo.md)に、必要なものと、撮り直す時期を書いています。
+
+変更を送るときは、まず [CONTRIBUTING.md](../../CONTRIBUTING.md) を読んでください。
 
 ## ライセンス
 

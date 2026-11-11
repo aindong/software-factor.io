@@ -1,5 +1,7 @@
 <h1><img src="docs/media/banner.webp" alt="Software Factor.io"></h1>
 
+[![CI](https://github.com/aindong/software-factor.io/actions/workflows/ci.yml/badge.svg)](https://github.com/aindong/software-factor.io/actions/workflows/ci.yml)
+
 [简体中文](docs/i18n/README.zh-CN.md) · [日本語](docs/i18n/README.ja.md) · [Español](docs/i18n/README.es.md)
 
 **A software factory you assemble yourself.** You describe your own way of working as lanes, say what checks
@@ -8,11 +10,11 @@ work the lanes. The host, not the agent, decides whether a lane's work passes.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/how-it-works-dark.webp">
-  <img src="docs/media/how-it-works-light.webp" width="800" alt="One task travels along a line of five lanes. Plan works, then waits until a person approves. Build works and its gates pass. Review and Test pass. Ship waits for a second approval, merges the change, and the run is done.">
+  <img src="docs/media/how-it-works-light.webp" width="940" alt="A recording of the interface on a first run. The Floor shows the line of five lanes, and one task works in Plan, which then waits. In the Inbox a person presses a to approve the plan. Build, Review and Test work in turn on the Floor, and the run waits at Ship. After a second approval the run's page shows every lane passed and the run Done.">
 </picture>
 
-<sub>One task on the workflow that `softwarefactor init` writes. This is an illustration, not a recording:
-[how it is made](docs/demo.md).</sub>
+<sub>A first run on the workflow that `softwarefactor init` writes, recorded from the real interface on the scripted
+agent: [how it is made](docs/demo.md).</sub>
 
 This is version 0.0.0 and early. What has run with real agents, and what has not, is listed near the end.
 
@@ -199,8 +201,10 @@ softwarefactor eval
 
 The tests start no real agent and need no network.
 
-The animation at the top of this page is made with `pnpm run demo:film`. [The demo](docs/demo.md) says what it
-needs and when to film it again.
+The recording at the top of this page is made with `pnpm run demo:film`. [The demo](docs/demo.md) says what it
+needs and when to record it again.
+
+To send a change, read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
