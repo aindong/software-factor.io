@@ -18,6 +18,9 @@ collector issues: could not collect: To get started with GitHub CLI, please run:
 A route can ask where a task came from (`task.source`, the collector's id) and what labels it carries
 (`task.labels`). See `docs/workflow-schema.md`.
 
+`softwarefactor run` takes the oldest queued task. To take another one first, name it by its key or by words of
+its title: `softwarefactor run --task "#12"`. The words must fit exactly one queued task.
+
 ## A local file: `core/file@1`
 
 A markdown checklist in the repository. An open box is a task, and the indented lines under it are its body. A

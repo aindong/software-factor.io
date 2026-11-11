@@ -165,6 +165,7 @@ async function main(): Promise<number> {
       note: { type: "string" },
       all: { type: "boolean" },
       parallel: { type: "string" },
+      task: { type: "string" },
       agent: { type: "string" },
       profile: { type: "string" },
       bin: { type: "string" },
@@ -382,7 +383,7 @@ async function main(): Promise<number> {
         "For example: --parallel 2.",
       );
     }
-    const summary = await runNext(loadWorkspace(cwd), { all: values.all, parallel });
+    const summary = await runNext(loadWorkspace(cwd), { all: values.all, parallel, task: values.task });
     for (const line of summary.log) say(line);
     return EXIT[summary.status];
   }

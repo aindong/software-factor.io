@@ -4,6 +4,7 @@
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { openDb } from "../db.ts";
+import { UserError } from "../errors.ts";
 import { saveRunFile } from "../evidence.ts";
 import { wasInterrupted } from "../exec.ts";
 import { addWorktree, headOf } from "../git.ts";
@@ -22,6 +23,8 @@ export interface RunOptions {
   all?: boolean;
   /** How many runs may work at once in this call. Never more than the workspace's slots. */
   parallel?: number;
+  /** Take this queued task first, not the oldest: its key, or words of its title. */
+  task?: string;
 }
 
 /**
@@ -53,6 +56,20 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
     log.push(...said);
     let started = 0;
     let busy = false;
+    // a task asked for by name is taken first; it must be exactly one, or nothing starts
+    let asked: number | undefined;
+    if (options.task !== undefined) {
+      const named = store.queuedTasksNamed(db, options.task);
+      if (named.length !== 1) {
+        throw new UserError(
+          named.length === 0
+            ? `No queued task has the key or the words "${options.task}".`
+            : `"${options.task}" fits ${named.length} queued tasks:\n${named.map((t) => `  ${t.key}  ${t.title}`).join("\n")}`,
+          "Give a task's key, or more of its title. `softwarefactor status` shows the queue.",
+        );
+      }
+      asked = named[0]?.id;
+    }
 
     /** The next run this call can move, with a slot claimed for it, or nothing. */
     const next = (): Ctx | undefined => {
@@ -95,7 +112,8 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
         busy = true;
         return undefined;
       }
-      const task = store.claimNextTask(db);
+      const task = store.claimNextTask(db, asked);
+      asked = undefined; // only the first task of this call is the one asked for
       if (!task) {
         store.releaseSlot(db, runId); // another process took the last task
         return undefined;
