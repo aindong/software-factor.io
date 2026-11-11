@@ -13,7 +13,7 @@ import { go } from "./route.ts";
 import { State } from "./State.tsx";
 import { STATE_WORD } from "./Strip.tsx";
 import { TranscriptView } from "./Transcript.tsx";
-import { ago, cost, span, standing, tokens } from "./words.ts";
+import { ago, cost, dollars, span, standing, tokens } from "./words.ts";
 
 const OUTCOME = { pass: "pass", fail: "fail", needsPerson: "asked" } as const;
 const stateOf = (outcome: keyof typeof OUTCOME | null) => (outcome ? OUTCOME[outcome] : "here");
@@ -326,7 +326,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                       {[
                         lane.durationMs ? span(lane.durationMs) : "",
                         lane.tokens ? tokens(lane.tokens) : "",
-                        lane.usd ? `$${lane.usd.toFixed(2)}` : "",
+                        lane.usd ? dollars(lane.usd) : "",
                       ]
                         .filter(Boolean)
                         .join(", ")}
@@ -410,7 +410,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                           session.account ?? session.agent,
                           session.model ?? "",
                           tokens(session.tokens),
-                          session.usd === null ? "cost not known" : `$${session.usd.toFixed(2)}`,
+                          session.usd === null ? "cost not known" : dollars(session.usd),
                         ]
                           .filter(Boolean)
                           .join(", ")}

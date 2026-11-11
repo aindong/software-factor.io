@@ -5,11 +5,12 @@ import { money } from "../core/text.ts";
 import type { CostLine, CostsView } from "../core/views.ts";
 import { op } from "./api.ts";
 import { useRuns } from "./live.ts";
+import { dollars } from "./words.ts";
 import "./runs.css";
 import "./sections.css";
 
 const whole = new Intl.NumberFormat("en-US");
-const amount = (line: CostLine) => (line.usd === null ? "not known" : money(line.usd));
+const amount = (line: CostLine) => (line.usd === null ? "not known" : dollars(line.usd));
 
 function Table({
   title,
@@ -52,7 +53,9 @@ function Table({
                 <th scope="row">{row.name}</th>
                 <td className="num data">{whole.format(row.sessions)}</td>
                 <td className="num data">{whole.format(row.tokens)}</td>
-                <td className="num data">{amount(row)}</td>
+                <td className="num data" title={row.usd === null ? undefined : money(row.usd)}>
+                  {amount(row)}
+                </td>
                 {rest ? (
                   <td className="quiet">
                     {row.unknown > 0 && row.usd !== null
@@ -92,7 +95,8 @@ export function Costs() {
           <h1>Costs</h1>
           {total ? (
             <span>
-              {whole.format(total.tokens)} tokens, {amount(total)}
+              {whole.format(total.tokens)} tokens,{" "}
+              <span title={total.usd === null ? undefined : money(total.usd)}>{amount(total)}</span>
               {total.unknown > 0 && total.usd !== null ? `, and ${total.unknown} of unknown cost` : ""}
             </span>
           ) : null}

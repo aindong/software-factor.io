@@ -4,7 +4,7 @@
 import { useMemo, useState } from "react";
 import { account, type Out, type Step } from "../core/runs/transcript.ts";
 import { Text, useFile, Waiting } from "./Evidence.tsx";
-import { tokens } from "./words.ts";
+import { dollars, tokens } from "./words.ts";
 
 const SHOWN = 3; // lines of a result before the rest is folded
 
@@ -31,7 +31,7 @@ function StepView({ step }: { step: Step }) {
   if (step.kind === "end") {
     const used = [
       step.tokens ? tokens(step.tokens) : "",
-      step.usd === undefined ? "" : `$${step.usd.toFixed(2)}`,
+      step.usd === undefined ? "" : dollars(step.usd),
     ].filter(Boolean);
     return (
       <p className="end">

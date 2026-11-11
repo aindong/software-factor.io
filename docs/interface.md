@@ -197,7 +197,9 @@ another vendor than a role it shares one with is flagged. Adding a login stays i
 ## Costs
 
 Tokens and cost by lane, by task and by account, from the session records, with the whole in the top bar. A
-session with no known cost is counted as not known, never as nothing. `softwarefactor cost` prints the same.
+session with no known cost is counted as not known, never as nothing. Money is shown in cents (more digits only
+under one cent, and the exact figure in a tooltip); `softwarefactor cost` prints the same figures to the
+millionth, and `softwarefactor cost --json` the exact ones.
 
 ## Plugins
 
