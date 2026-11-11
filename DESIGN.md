@@ -341,7 +341,7 @@ label and its end.
 A 20px line icon with a label under it. Other sections are rail-ink-soft. The current one is rail-ink on the
 rail-active block with a 2px rail-ink bar at its left (at its top on the bottom bar). The inbox carries the
 count of what waits: signal yellow, 1.5px signal-ink border, 9px radius. `g` then a section's letter goes to
-it. The tab's title carries the same count, and the tab's icon a yellow mark.
+it. The tab's title carries the count and how many work; its icon, a yellow mark.
 
 ### The Floor: the line diagram, the inspector and the JSON view
 
