@@ -129,9 +129,11 @@ Run with real agents, on the author's own subscription logins:
 
 - One task in a scratch project, built on Claude Code and reviewed on Codex, with the Codex lane reading a
   memory note the Claude lane wrote (2026-11-10).
-- The factory on its own repository with `alleo-loop`: see [what the factory has done on itself](docs/dogfood.md)
-  for each task, its rounds and its cost. The checkpoints in those runs were approved by the AI agent that the
-  author set to build this project, acting as the operator. No person read those plans before they were approved.
+- The factory on its own repository with `alleo-loop`: seven runs, of which five tasks landed (one of them after
+  its review sent work back to the build lane) and two stopped on faults of the factory that were then fixed. See
+  [what the factory has done on itself](docs/dogfood.md) for each task, its rounds and its cost. The checkpoints
+  in those runs were approved by the AI agent that the author set to build this project, acting as the operator.
+  No person read those plans before they were approved.
 - The GitHub issues collector against the real `gh` (read only), and `softwarefactor add` from a GitHub
   repository.
 
@@ -141,8 +143,8 @@ Only on the scripted agent or a stand-in:
 - Two runs at the same time on separate slots.
 - `bugfix-fast` and `research-only` end to end, with stand-ins for `gh` and for the command that opens a pull
   request. `alleo-loop` also runs end to end on the scripted agent, with a stand-in for `alleo-plan-check`.
-- Two parts of `alleo-loop` that the real runs did not reach: its `verify-ui` lane (the check of a change to the
-  interface in a browser), and a review that sent work back to the build lane.
+- One part of `alleo-loop` that the real runs did not reach: its `verify-ui` lane, the check of a change to the
+  interface in a browser. No real task touched the interface.
 - The gate `core/no-secrets@1` is in no workflow that ships and not in the one `init` writes: it has only run
   in tests and in the eval suite.
 - The Kimi adapter: written from its documentation, tested against a stand-in binary, never the real CLI.
