@@ -24,6 +24,7 @@ Usage: softwarefactor <command>
                            queued task through the workflow. With --all, keep going until the queue
                            is empty, several runs at once
   stop <run>               Stop a run that is working or waiting
+  requeue <run>            Put the task of a stopped or dropped run back in the queue
   status                   Show tasks, runs, lanes, gates and where the evidence is
   runs [run] [--diff]      Show every run with one sentence on what is happening, or one run lane by
                            lane, or what it changed

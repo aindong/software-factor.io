@@ -8,6 +8,35 @@ import { cleanUp, isAlive } from "./recover.ts";
 
 const WAIT_MS = 15_000;
 
+// A stopped or dropped run's task goes back to queued; the run and its record stay as they are.
+export function requeueRun(ws: Workspace, runId: string): string {
+  const db = openDb(ws.dbPath);
+  try {
+    const run = store.getRun(db, runId);
+    if (!run)
+      throw new UserError(`There is no run "${runId}".`, "See the run ids with `softwarefactor status`.");
+    const refuse = (why: string, fix: string) =>
+      new UserError(`Run ${runId} cannot be requeued: ${why}.`, fix);
+    if (run.status === "running") throw refuse("it is still working", "Stop it first, or wait.");
+    if (run.status === "waiting")
+      throw refuse("it is waiting for a person", "Decide on it, or stop it first.");
+    if (run.status === "done") throw refuse("it ended done", "A task that is done needs no second try.");
+    const task = store.getTask(db, run.task_id);
+    if (task?.status === "queued")
+      throw refuse("its task is already queued", "The next `softwarefactor run` takes it.");
+    const taken = refuse("another run has taken its task since", "See `softwarefactor status`.");
+    if (task?.status !== "stopped" && task?.status !== "dropped") throw taken;
+    // one conditional write: a run in another process may take the task between the check and here
+    const changed = db
+      .prepare("update tasks set status = 'queued' where id = ? and status in ('stopped', 'dropped')")
+      .run(run.task_id).changes;
+    if (!changed) throw taken;
+    return `run ${runId} requeued: the task "${task.title}" is queued, and the next softwarefactor run takes it.`;
+  } finally {
+    db.close();
+  }
+}
+
 export async function stopRun(ws: Workspace, runId: string): Promise<string> {
   const db = openDb(ws.dbPath);
   try {

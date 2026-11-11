@@ -20,7 +20,7 @@ import { decide } from "./core/engine/inbox.ts";
 import { handoffPath, riskLine } from "./core/engine/report.ts";
 import { collect } from "./core/engine/run.ts";
 import { runNext } from "./core/engine/schedule.ts";
-import { stopRun } from "./core/engine/stop.ts";
+import { requeueRun, stopRun } from "./core/engine/stop.ts";
 import { UserError } from "./core/errors.ts";
 import { evalCommand } from "./core/eval/index.ts";
 import { interrupt } from "./core/exec.ts";
@@ -358,6 +358,14 @@ async function main(): Promise<number> {
     if (!runId)
       throw new UserError('"stop" needs a run id.', "See the run ids with `softwarefactor status`.");
     say(await stopRun(loadWorkspace(cwd), runId));
+    return 0;
+  }
+
+  if (command === "requeue") {
+    const runId = positionals[1];
+    if (!runId)
+      throw new UserError('"requeue" needs a run id.', "See the run ids with `softwarefactor status`.");
+    say(requeueRun(loadWorkspace(cwd), runId));
     return 0;
   }
 
