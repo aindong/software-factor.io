@@ -2,6 +2,7 @@
 // A role is bound here as `softwarefactor role bind` binds it. Adding a login stays in the
 // terminal, where the login itself is made.
 import { useCallback, useEffect, useState } from "react";
+import { withBound } from "../core/models.ts";
 import type { AccountsView } from "../core/views.ts";
 import { op } from "./api.ts";
 import "./runs.css";
@@ -10,32 +11,67 @@ import "./sections.css";
 const whole = new Intl.NumberFormat("en-US");
 type Role = AccountsView["roles"][number];
 const EFFORTS = ["", "low", "medium", "high", "max"];
+const TIERS = ["small", "medium", "large"] as const;
+// the value of "Another model": no model is named so, and it is never sent
+const ANOTHER = "+another";
+const AGENT_WORDS: Record<string, string> = {
+  claude: "Claude Code",
+  codex: "Codex",
+  kimi: "Kimi",
+  command: "a command",
+};
+const named = (models: Record<string, string>) =>
+  Object.fromEntries(Object.entries(models).filter(([, model]) => model.trim() !== ""));
+const listed = (names: string[]) =>
+  names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 
-function RoleRow({
+export function RoleRow({
   role,
   accounts,
   onBound,
 }: {
   role: Role;
-  accounts: string[];
+  accounts: AccountsView["accounts"];
   onBound: (said: string, bad: boolean) => void;
 }) {
   const bound = typeof role.works === "object" && role.works ? role.works.account : "";
   const [account, setAccount] = useState(bound);
-  const [models, setModels] = useState(role.models);
+  const [models, setModels] = useState<Record<string, string>>(role.models);
+  // the tiers whose model is typed under "Another model"
+  const [typed, setTyped] = useState<string[]>([]);
+  const [cleared, setCleared] = useState("");
   const [effort, setEffort] = useState(role.effort ?? "");
   const [busy, setBusy] = useState(false);
+  const names = accounts.map((a) => a.name);
+  const agentOf = (name: string) => accounts.find((a) => a.name === name)?.agent ?? "";
+  const choices = accounts.find((a) => a.name === account)?.models ?? [];
   const changed =
     account !== bound ||
     effort !== (role.effort ?? "") ||
-    JSON.stringify(models) !== JSON.stringify(role.models);
+    JSON.stringify(named(models)) !== JSON.stringify(named(role.models));
+  const chooseAccount = (next: string) => {
+    const agent = agentOf(next);
+    const gone = TIERS.map((tier) => models[tier] ?? "").filter((model) => model.trim() !== "");
+    setAccount(next);
+    if (agent === agentOf(account) || gone.length === 0) {
+      setCleared("");
+      return;
+    }
+    // a model of one agent means nothing to another: it is not kept without a word
+    setModels({});
+    setTyped([]);
+    setCleared(
+      gone.length === 1
+        ? `The model was cleared: ${gone[0]} is not a model of ${AGENT_WORDS[agent] ?? agent}.`
+        : `The models were cleared: ${listed(gone)} are not models of ${AGENT_WORDS[agent] ?? agent}.`,
+    );
+  };
   const bind = async () => {
     setBusy(true);
-    const sizes = Object.fromEntries(Object.entries(models).filter(([, model]) => model.trim() !== ""));
     const { status, body } = await op("roles_bind", {
       role: role.role,
       account,
-      ...sizes,
+      ...named(models),
       ...(effort ? { effort } : {}),
     });
     setBusy(false);
@@ -58,31 +94,56 @@ function RoleRow({
         <select
           aria-label={`Account for the role ${role.role}`}
           value={account}
-          onChange={(event) => setAccount(event.target.value)}
+          onChange={(event) => chooseAccount(event.target.value)}
         >
           {bound === "" ? (
             <option value="">{role.works === "scripted" ? "the scripted agent" : "not bound"}</option>
           ) : null}
-          {bound !== "" && !accounts.includes(bound) ? (
+          {bound !== "" && !names.includes(bound) ? (
             // bound to a login that was removed, or made on another machine: shown as it is
             <option value={bound}>{bound} (not on this machine)</option>
           ) : null}
-          {accounts.map((name) => (
+          {names.map((name) => (
             <option key={name}>{name}</option>
           ))}
         </select>
+        <span className="quiet sub" role="status">
+          {cleared}
+        </span>
       </td>
-      {(["small", "medium", "large"] as const).map((size) => (
-        <td key={size} data-label={`Model for ${size} lanes`}>
-          <input
-            aria-label={`Model for ${size} lanes of ${role.role}`}
-            value={models[size] ?? ""}
-            placeholder="the CLI's own"
-            spellCheck={false}
-            onChange={(event) => setModels({ ...models, [size]: event.target.value })}
-          />
-        </td>
-      ))}
+      {TIERS.map((tier) => {
+        const another = typed.includes(tier);
+        return (
+          <td key={tier} data-label={`Model for ${tier} lanes`}>
+            <select
+              aria-label={`Model for ${tier} lanes of ${role.role}`}
+              value={another ? ANOTHER : (models[tier] ?? "")}
+              onChange={(event) => {
+                const value = event.target.value;
+                setTyped(value === ANOTHER ? [...typed, tier] : typed.filter((t) => t !== tier));
+                setModels({ ...models, [tier]: value === ANOTHER ? "" : value });
+              }}
+            >
+              <option value="">the CLI's own</option>
+              {withBound(choices, another ? undefined : models[tier]).map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+              <option value={ANOTHER}>Another model</option>
+            </select>
+            {another ? (
+              <input
+                aria-label={`Another model for ${tier} lanes of ${role.role}`}
+                value={models[tier] ?? ""}
+                placeholder="its name"
+                spellCheck={false}
+                onChange={(event) => setModels({ ...models, [tier]: event.target.value })}
+              />
+            ) : null}
+          </td>
+        );
+      })}
       <td data-label="Effort">
         <select
           aria-label={`Effort for the role ${role.role}`}
@@ -100,13 +161,13 @@ function RoleRow({
         <button
           type="button"
           className="button"
-          disabled={!changed || !accounts.includes(account) || busy}
+          disabled={!changed || !names.includes(account) || busy}
           onClick={bind}
         >
           Bind
         </button>
         {/* why it is off, said where it is off */}
-        {accounts.includes(account) ? null : <span className="quiet sub">Choose a login to bind.</span>}
+        {names.includes(account) ? null : <span className="quiet sub">Choose a login to bind.</span>}
       </td>
     </tr>
   );
@@ -217,7 +278,7 @@ export function Accounts() {
                         // a row begins again from the record whenever the record changes
                         key={JSON.stringify(role)}
                         role={role}
-                        accounts={view.accounts.map((a) => a.name)}
+                        accounts={view.accounts}
                         onBound={(text, bad) => {
                           setNotice({ text, bad });
                           if (!bad) read();

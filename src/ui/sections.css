@@ -175,6 +175,18 @@
   border-radius: var(--control);
   background: var(--ground);
 }
+/* a role's choices are as wide as their longest option, and a typed model sits under its list */
+.table.roles select {
+  width: auto;
+}
+.table.roles input,
+.table.roles select {
+  height: var(--row);
+}
+.table.roles input {
+  display: block;
+  margin-top: var(--xs);
+}
 .table input:hover,
 .table select:hover {
   border-color: var(--ink-soft);

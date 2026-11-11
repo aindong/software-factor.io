@@ -61,10 +61,10 @@ tab_to '^Another model for small lanes of author$'
 pw type "claude-preview-6"
 tab_to '^Model for medium lanes of author$'
 pw press s
-expect "typing a letter picks a model" "$(js "$(model_of medium)().value")" '^claude-sonnet-5-5$'
+expect "typing a letter picks a model" "$(js "() => ($(model_of medium))().value")" '^claude-sonnet-5-5$'
 tab_to '^Model for large lanes of author$'
 pw press o
-expect "typing a letter picks a model" "$(js "$(model_of large)().value")" '^claude-opus-5-5$'
+expect "typing a letter picks a model" "$(js "() => ($(model_of large))().value")" '^claude-opus-5-5$'
 tab_to '^Effort for the role author$'
 pw press h
 tab_to '^Bind$'
