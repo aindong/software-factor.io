@@ -120,7 +120,7 @@ softwarefactor role bind author --account work --large opus --medium sonnet
 - [工作流文件](../workflow-schema.md)：泳道、关卡、转移、检查点。
 - [编写泳道](../write-a-lane.md)，以及[编写插件](../plugins.md)，用于你自己的泳道、关卡或收集器类型。
 - [收集器](../collectors.md)：任务从哪里来。
-- [账号、角色与防护](../accounts.md)。
+- [账号、角色与防护](../accounts.md)，以及[通道的技能与服务器](../skills-and-servers.md)。
 - [交接](../handoff.md)与[评审小组](../panels.md)。
 - [记忆与 factor 服务器](../memory.md)。
 - [界面](../interface.md)。
@@ -149,7 +149,7 @@ softwarefactor role bind author --account work --large opus --medium sonnet
 - 关卡 `core/no-secrets@1` 不在任何随附的工作流里，也不在 `init` 写入的工作流里：它只在测试和评测套件中跑过。
 - Kimi 适配器：依据其文档编写，对照替身程序测试过，从未用真实的 CLI 试过。
 - `command` 适配器（把你的任意命令当作智能体）：只在测试中用过脚本化的命令。
-- 基于 MCP 服务器的收集器（Jira 的情形），以及为一次运行安装技能：只有替身。
+- 基于 MCP 服务器的收集器（Jira 的情形），以及为一次运行安装技能：只有替身。通道可用的技能和配置文件中的服务器也一样：还没有真实代理通过这条路径调用过技能或服务器。
 - 自主性阶梯和复盘：只有脚本化的运行。还没有哪条泳道在真实工作上赢得升级。
 - 界面是在真实浏览器里检查的，用键盘操作，针对的是脚本化智能体的运行。
 

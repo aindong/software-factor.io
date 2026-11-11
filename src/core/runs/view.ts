@@ -239,6 +239,15 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
     lane: at ? (def?.name ?? at) : undefined,
     parked: state.parked?.kind,
   };
+  if (run.status === "done") {
+    const last = db
+      .prepare(
+        "select lane, note from lane_runs where run_id = ? and outcome = 'pass' order by id desc limit 1",
+      )
+      .get(run.id) as { lane: string; note: string | null } | undefined;
+    if (last?.note)
+      now.last = { lane: lanes.find((l) => l.id === last.lane)?.name ?? last.lane, said: last.note };
+  }
   let lastAt: string | undefined;
   if (run.status === "running") {
     now.gone = run.pid !== process.pid && !isAlive(run.pid);

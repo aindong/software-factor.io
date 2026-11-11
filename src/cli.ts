@@ -57,7 +57,15 @@ const EXIT = { none: 0, done: 0, dropped: 0, running: 0, stopped: 1, waiting: 3 
 function guard(args: string[]): number {
   let verdict: Verdict;
   try {
-    const named: Record<string, string[]> = { worktree: [], "lane-dir": [], access: [], protect: [] };
+    const named: Record<string, string[]> = {
+      worktree: [],
+      "lane-dir": [],
+      access: [],
+      protect: [],
+      skill: [],
+      server: [],
+      profile: [],
+    };
     for (let i = 0; i < args.length; i += 2) {
       const list = named[(args[i] ?? "").replace(/^--/, "")];
       const value = args[i + 1];
@@ -76,7 +84,16 @@ function guard(args: string[]): number {
     const { tool_name, tool_input } = call as Record<string, unknown>;
     verdict = judge(
       { tool: tool_name, input: tool_input },
-      { worktree, laneDir, access, defaultBranch: named.protect ?? [], self: process.argv[1] },
+      {
+        worktree,
+        laneDir,
+        access,
+        defaultBranch: named.protect ?? [],
+        self: process.argv[1],
+        skills: named.skill,
+        servers: named.server,
+        profile: named.profile?.[0],
+      },
     );
   } catch (error) {
     verdict = {
