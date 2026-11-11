@@ -114,7 +114,7 @@ describe("the live list", () => {
     expect(await run.exit).toBe(0);
     expect(await until(() => latest(live.frames)?.status === "done", 3000)).toBe(true);
     expect(latest(live.frames)).toMatchObject({
-      sentence: "Done.",
+      sentence: "Done. Build: ok" /* a done run says what its last lane said */,
       visits: [{ lane: "build", outcome: "pass" }],
     });
     live.stop();
