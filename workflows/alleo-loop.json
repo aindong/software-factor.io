@@ -237,7 +237,8 @@
       },
       "checkpoint": "near",
       "limits": {
-        "minutes": 30
+        "minutes": 30,
+        "repairRounds": 1
       },
       "on": {
         "pass": [

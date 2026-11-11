@@ -117,7 +117,8 @@ ${where}
     {"outcome": "pass", "summary": "What you did.", "claims": [{"text": "One thing you assert.", "evidence": ["file:src/a.ts"]}], "open": ["What is still open or unsure."]}
 
 - "outcome" is "pass", "fail" or "needsPerson" (then the summary is your question). It is required, and so is "summary".
-- Evidence is "file:<committed path>", "commit:HEAD", "gate:<lane>.<gate>" or "attached:<file name>" for a file you put in ${evidenceDir}
+- Evidence is "file:<committed path>", "commit:HEAD", "gate:<lane>.<gate>" for a gate that passed in this run, such as "gate:build.verify", or "attached:<file name>" for a file you put in ${evidenceDir}
+- A lane's own report is not evidence, and a lane is not a gate: for what an earlier lane found, name the file or the commit it rests on.
 - ${outputs.length > 0 ? `Add "outputs", an object with these keys and no others:\n${outputs.join("\n")}` : 'Leave "outputs" out: this lane declares none.'}
 - If the repository has a CLAUDE.md or AGENTS.md at its top, read it first: it holds the project's own rules.
 - ${

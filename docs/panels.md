@@ -17,6 +17,10 @@ How a panel runs:
   folders sit in, so a hand-off file there could be another member's work. A member on Claude Code or Codex
   therefore hands off through the factor server or in its last message, and a file is not read. Only an agent
   with no other way (the scripted agent, Kimi Code, a command) hands off by file.
+- A member whose hand-off the host rejects for its form (a claim with evidence that is not there, an output of
+  the wrong kind) is started once more with the reason, when the lane has a repair round
+  (`"limits": { "repairRounds": 1 }`). Without one, the rejected hand-off counts as that member's `fail`. A member
+  that said `fail` is not asked again: that is a verdict, not a slip.
 - When a member's start breaks, the others are left to end before the run ends as crashed, so none is left
   running and what they used is counted.
 - The verdict: with `all`, one deciding member that fails makes the lane fail; otherwise a member that asks a

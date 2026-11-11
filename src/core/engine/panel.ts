@@ -35,6 +35,8 @@ export interface PanelResult {
 }
 
 interface Verdict {
+  /** Why the host rejected the member's hand-off, when it did: the member may be asked once more. */
+  rejected?: string;
   id: string;
   advisory: boolean;
   outcome: store.Outcome;
@@ -117,7 +119,10 @@ function verdictOf(ctx: Ctx, own: Lane, member: Member, started: Started, stem: 
     own,
     handoff.value,
   );
-  if (!checked.handoff) return failed(`the hand-off was rejected: ${checked.problems.join(" ")}`);
+  if (!checked.handoff) {
+    const why = checked.problems.join("\n");
+    return { ...failed(`the hand-off was rejected: ${checked.problems.join(" ")}`), rejected: why };
+  }
   return {
     id: member.id,
     advisory: member.advisory === true,
@@ -162,24 +167,39 @@ export async function runPanel(
     joined.map(async (member) => {
       const own = memberLane(lane, member);
       const part = ws.prompts[own.id];
-      const started = await startAgent(ctx, own, {
-        laneRun: at.laneRun,
-        stem: stemOf(member),
-        try: 1,
-        entry: at.entry,
-        prompt: at.prompt + (part ? `\n# Your part in this review\n\n${part}\n` : ""),
-        env: at.env,
-        ms: at.ms,
-        member: true,
-      });
-      return { started, verdict: verdictOf(ctx, own, member, started, stemOf(member)) };
+      const prompt = at.prompt + (part ? `\n# Your part in this review\n\n${part}\n` : "");
+      const start = (n: number, stem: string, more = "") =>
+        startAgent(ctx, own, {
+          laneRun: at.laneRun,
+          stem,
+          try: n,
+          entry: at.entry + n - 1, // only the scripted agent reads it: its next script, as for a lane's repair
+          prompt: prompt + more,
+          env: at.env,
+          ms: at.ms,
+          member: true,
+        });
+      const first = await start(1, stemOf(member));
+      const verdict = verdictOf(ctx, own, member, first, stemOf(member));
+      // A hand-off the host rejected for its form goes back to the member once, when the lane has
+      // a repair round: what a reviewer found is not thrown away for how it was written down.
+      // shortcut: the second start gets the lane's whole time again, not what the first left.
+      if (verdict.rejected === undefined || (lane.limits?.repairRounds ?? 0) < 1)
+        return { starts: [first], verdict };
+      const stem = `${stemOf(member)}.2`;
+      const again = await start(
+        2,
+        stem,
+        `\n# Your hand-off was rejected\n\nThe host checks every hand-off before using it. Fix this and hand off again.\n\n${verdict.rejected}\n`,
+      );
+      return { starts: [first, again], verdict: verdictOf(ctx, own, member, again, stem) };
     }),
   );
   // every member has ended by now, whatever broke: none is left running when the run ends as crashed
   const broken = settled.find((r) => r.status === "rejected");
   if (broken?.status === "rejected") throw broken.reason;
   const ended = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
-  const starts = ended.map((e) => e.started);
+  const starts = ended.flatMap((e) => e.starts);
   const over = (r: Partial<PanelResult>): PanelResult => ({
     outcome: "fail",
     note: "",
