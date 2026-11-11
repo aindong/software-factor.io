@@ -12,11 +12,12 @@ imported from `src/ui`, and the map uses its class names.
   entrances of the sentence, the Approve button, the "passed" words and the gates, which the film check asks for.
 - The loop ends with the title alone on the page and the next task entering the line, so the seam is clean and the reset has a cause.
 - The words are the product's: the run's sentences are those of `src/core/runs/sentence.ts` and `src/ui/RunDetail.tsx`; "Done." is left out, as the product leaves it out. The red return lines and their `fail ×2` tags were dropped: a tag that means "may go back twice" reads as "failed twice" on a run that has not failed.
-- The poster (reduced motion) is the last step: every lane passed, the run Done.
+- The poster is the last step: every lane passed, the run Done. Each WebP file opens on it, held for about a
+  second, so a viewer that never animates still sees the result.
 
 ## Fresh-eye review
 
-A separate reviewer read the sheets and sources. Fixed after it: the return lines and tags (above), the missing task-enters beat, text sizes raised, the empty lower band (the gates and the lane marks now stand from the first frame), the gates block centred under Build, the sentences taken from the product's own code, a lifted dim line in the dark palette. Not changed: the Approve button sits in the run header though the product offers it in the inbox (the picture merges the run page and the decision bar).
+A separate reviewer read the sheets and sources. Fixed after it: the return lines and tags (above), the missing task-enters beat, text sizes raised, the empty lower band (the gates stand from the first frame; a lane's "passed" arrives under its own station when the lane passes), the gates block centred under Build, the sentences taken from the product's own code, a lifted dim line in the dark palette. Not changed: the Approve button sits in the run header though the product offers it in the inbox (the picture merges the run page and the decision bar).
 
 ## Checked
 
