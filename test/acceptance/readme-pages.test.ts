@@ -48,6 +48,11 @@ describe.each(PAGES)("%s", (page) => {
     for (const other of PAGES.filter((p) => p !== page)) expect(all, other).toContain(other);
   });
 
+  it("opens with the banner", () => {
+    expect(read(page)).toMatch(/^<h1><img src="[^"]*media\/banner\.webp" alt="Software Factor\.io"><\/h1>\n/);
+    expect(targets(page)).toContain("docs/media/banner.webp");
+  });
+
   it("holds no path of one machine", () => {
     expect(read(page)).not.toMatch(/\/Volumes\/|\/Users\/|\/home\/[a-z]/);
   });

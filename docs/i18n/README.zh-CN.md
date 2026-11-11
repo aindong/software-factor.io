@@ -1,4 +1,4 @@
-# Software Factor.io
+<h1><img src="../media/banner.webp" alt="Software Factor.io"></h1>
 
 简体中文 · [English](../../README.md) · [日本語](README.ja.md) · [Español](README.es.md)
 

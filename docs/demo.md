@@ -52,3 +52,12 @@ stage's clock frame by frame, shoots one loop in the light and the dark palette 
 
 The two files are one `<picture>` at the top of [the README](../README.md) and of its translations in
 `docs/i18n/`, the dark file for a dark page. The picture has a width and no height, so a narrow page scales it.
+
+## The banner
+
+`docs/media/banner.webp`, the first thing on the README, is a picture and not part of the film. It was made with
+the image tool of the Codex CLI from a prompt that asked for the product's navy ground, the wordmark, the line
+"A software factory you assemble yourself." and a transit line with five stations, then cut to 1600 by 440 and
+saved with `cwebp -q 90`. To replace it, make a new picture of that size on a ground of its own (it has to
+stand on a white page and on a dark one) and save it under the same name.
+
