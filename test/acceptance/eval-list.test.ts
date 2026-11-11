@@ -15,7 +15,9 @@ it("prints each case's id and its one line, in the order they run, and exits 0",
   lines.forEach((line, i) => {
     const what = SHIPPED[i]?.what ?? "";
     expect(what.length, CASES[i]).toBeGreaterThan(0);
-    expect(line, CASES[i]).toMatch(new RegExp(`^${CASES[i]}\\s+${what.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
+    expect(line, CASES[i]).toMatch(
+      new RegExp(`^${CASES[i]}\\s+${what.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`),
+    );
   });
   expect(r.stdout).not.toMatch(/^(ok|FAIL)\s|cases passed/m);
 });

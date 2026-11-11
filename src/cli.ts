@@ -147,6 +147,7 @@ async function main(): Promise<number> {
       lane: { type: "string" },
       lesson: { type: "string" },
       break: { type: "string" },
+      list: { type: "boolean" },
       save: { type: "string" },
       compare: { type: "string" },
       hash: { type: "string" },

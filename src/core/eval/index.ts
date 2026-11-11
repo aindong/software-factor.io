@@ -20,9 +20,20 @@ const Saved = z.object({
 });
 
 export async function evalCommand(
-  flags: { break?: string; save?: string; compare?: string },
+  flags: { list?: boolean; break?: string; save?: string; compare?: string },
   say: Say,
 ): Promise<number> {
+  if (flags.list) {
+    const given = (["break", "save", "compare"] as const).filter((f) => flags[f] !== undefined);
+    if (given.length)
+      throw new UserError(
+        `"--list" only lists the cases: it cannot be used with ${given.map((f) => `--${f}`).join(", ")}, which need the cases to run.`,
+        "Run `softwarefactor eval --list` alone, or leave --list out.",
+      );
+    const id = Math.max(...CASES.map((c) => c.id.length));
+    for (const c of CASES) say(`${c.id.padEnd(id)}  ${c.what}`);
+    return 0;
+  }
   let before: z.infer<typeof Saved> | undefined;
   if (flags.compare !== undefined) {
     if (!existsSync(flags.compare))
