@@ -11,8 +11,15 @@ const KINDS = ["test", "cmd", "ui", "human"];
 
 /** The lines under the heading `title`, up to the next heading of the same or a higher level. */
 function section(lines: string[], title: string): string[] | undefined {
-  const heading = (l: string) => /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(l);
-  const at = lines.findIndex((l) => heading(l)?.[2]?.replace(/:$/, "").toLowerCase() === title.toLowerCase());
+  // The plan is an agent's file and this runs in the host: a pattern that can retry over a long
+  // run of spaces would hold it. The line is cut and trimmed first, and the pattern cannot retry.
+  const heading = (l: string) => /^(#{1,6})[ \t]+(\S.*)$/.exec(l.slice(0, 300).trim());
+  const name = (l: string) =>
+    heading(l)?.[2]
+      ?.replace(/[ \t#]+$/, "")
+      .replace(/:$/, "")
+      .toLowerCase();
+  const at = lines.findIndex((l) => name(l) === title.toLowerCase());
   if (at < 0) return undefined;
   const level = heading(lines[at] ?? "")?.[1]?.length ?? 1;
   const rest = lines.slice(at + 1);
@@ -30,6 +37,8 @@ export function planProblems(root: string, planPath: string): string[] {
   if (!inside(realpathSync(full)))
     return [`The plan "${planPath}" is outside the checkout. Name a file of the repository.`];
   if (!statSync(full).isFile()) return [`The plan "${planPath}" is not a file in the commit.`];
+  if (statSync(full).size > 1_000_000)
+    return [`The plan "${planPath}" is larger than 1 MB. A plan is a short text: write it again.`];
   const lines = readFileSync(full, "utf8").split("\n");
 
   const problems: string[] = [];
