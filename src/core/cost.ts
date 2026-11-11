@@ -156,6 +156,9 @@ const used = (line: CostLine) =>
 const name = (text: string) => text.slice(0, 28).padEnd(28);
 const num = (n: number) => String(n).padStart(13);
 
+/** `cost --json`: the report as the `costs` operation returns it, as one document. */
+export const costJson = (db: Db): string => JSON.stringify(costReport(db), null, 2);
+
 /** `cost`: the report, printed. */
 export function costCommand(db: Db, say: Say): number {
   const costs = costReport(db);
