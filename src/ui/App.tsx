@@ -116,7 +116,7 @@ export function App() {
   const waits = hasKey ? (runs ?? []).filter((r) => standing(r).mark === "asked").length : 0;
   const working = hasKey ? (runs ?? []).filter((r) => standing(r).mark === "working").length : 0;
   const nextTheme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? "auto";
-  useEffect(() => showInTab(section.name, waits), [section.name, waits]);
+  useEffect(() => showInTab(section.name, waits, working), [section.name, waits, working]);
 
   return (
     <div className="shell">
