@@ -1,52 +1,55 @@
-# The demo at the top of the README
+# The picture at the top of the README
 
-`docs/media/how-it-works-light.webp` and `how-it-works-dark.webp` show how the factory works: one task, "Say hello",
-goes down the five lanes of the starter workflow. Plan works and the run waits for a person; the person approves;
-Build works and its three gates (protected, tests kept, verify) are run by the host; Review and Test pass; the run
-waits once more before Ship; the person approves; Ship merges and the run is Done. It loops, about 14 seconds.
+`docs/media/how-it-works-light.webp` and `how-it-works-dark.webp` are a recording of the real interface. It is the
+first run of the starter workflow on the scripted agent: the Floor with the run on the line, Plan working and then
+waiting, the Inbox where the plan is approved with the `a` key, Build, Review and Test working on the Floor, the
+run waiting at Ship, the second approval, and the run's page with every lane passed. It loops, about 20 seconds,
+at 940 by 540 pixels. No real agent runs and nothing costs anything.
 
-It is a hand-made illustration, not a recording. Nothing in it runs the product. It is drawn with the product's
-own style sheets, so it looks like the floor and a run's map, but its story is written by hand.
-
-## Where things are
-
-| What | Where |
-| --- | --- |
-| The look: colours, type, marks, lines, stations | `src/ui/*.css`, imported by `demo/main.tsx`. A design change shows in the film without an edit here. |
-| The page grounds (GitHub's `#ffffff` and `#0d1117`) | `demo/host.css` |
-| The story: steps, words, timing | `demo/Factory.tsx` (`STEPS`, `GATES`, `script`) |
-| Where things sit on the stage | `demo/factory.css` |
-| Filming and the WebP files | `demo/film.mjs` |
-| Copying the stageshow kit | `demo/setup.mjs` |
+Nothing in it is drawn by hand: it is made from `softwarefactor ui` itself, so it follows the design.
 
 ## Make it again
 
 ```sh
+pnpm run build
 pnpm run demo:film
 ```
 
-This copies the stageshow kit into `demo/.stageshow` (ignored by git), installs what it needs there, steps the
-stage's clock frame by frame, shoots one loop in the light and the dark palette and assembles the files with
-`img2webp`. Add `--light` or `--dark` after `demo/film.mjs` to make one. Stills of the last frame are in
-`demo/.stageshow/stills`.
+`demo/film.mjs` makes a scratch project in a temporary folder with its own `FACTOR_HOME` (nothing of yours is
+touched), runs `softwarefactor init` there, starts the interface on a free port and has `playwright-cli run-code`
+run `demo/capture.js`: it presses the keys of the first run, by keyboard only, and shoots the page about ten
+times a second. The frames are put together with `img2webp`, lossless, each held as long as it was on screen,
+and written over the two files above. The server and the temporary folders are removed also when it fails. The
+frames stay in `demo/frames/<theme>/` (ignored by git) for you to look at. Add `--light` or `--dark` to make one
+file, and `--lossy` for a smaller one.
 
 ## What it needs
 
-- The stageshow skill, installed at `$HOME/.claude/skills/stageshow`, or the
-  folder named by `STAGESHOW_HOME`. Its kit is MIT licensed, by Benji Taylor. It is copied, never committed, and
-  the skill folder is never written to. Its licence is copied with it into `demo/.stageshow/LICENSE`.
-- `img2webp` (from libwebp, `brew install webp`), Node 24 and Google Chrome.
+- A build (`pnpm run build`).
+- `playwright-cli`, with a browser it can open.
+- `img2webp` (from libwebp: `brew install webp`).
 
-## After a design change
+It adds nothing to `package.json`.
 
-1. Run the command and look at the two stills, then at the WebP files in a browser.
-2. Check that the words are still true. The words come from the product: lane names and roles from
-   `src/core/init.ts`, state words and sentences from `src/ui/words.ts` and the run page, the gate names from the
-   starter workflow, "Gates run on the host" from the gate's own tooltip in `src/ui/Diagram.tsx`.
-3. A new lane, gate or state needs an edit in `demo/Factory.tsx`: the map is drawn by hand there.
-4. To check the film's rules, serve the page with the stageshow copy (`demo/.stageshow/node_modules/.bin/vite
-   --config ../vite.config.mjs`) and run `demo/.stageshow/scripts/film.mjs <url> --select '#example' --gate`. It
-   must end `rehearsal passed`. `demo/REHEARSAL.md` says what was checked and what was not.
+## What in it is not the product
+
+- The key captions in the top right corner ("g i inbox", "a approve") are added to the page by
+  `demo/capture.js` for the film only, because a key press cannot be seen in a recording. The product draws no such
+  thing.
+- The agent is slowed. Each scripted lane starts with a `sleep` of one second, so that a lane's working state
+  (its ring and the running line) can be seen. A real lane takes as long as the agent takes.
+- The window is 940 pixels wide. Under 1000 pixels the Floor folds its side panel away, so the whole line, Plan to
+  Done, fits and the text still reads when the picture is shown 830 wide. The Inbox then shows an item after
+  Enter, as it does on a narrow window.
+- The project is `hello-factory`, the one of the quick start, and the two approvals are given by the film's
+  script, a moment after the run waits.
+
+## When to record again
+
+After a change to how the Floor, the Inbox or a run's page looks, or to the words on them, or to the keys: run the
+command, look at the frames in `demo/frames/` (the first, each approval, a lane working, the last), then at the two
+files in a browser. A change to the starter workflow's lanes, or to the keys `g`, `i`, `a`, Tab or Enter, needs an
+edit in `demo/capture.js`, which waits on the page's title and presses those keys.
 
 ## Embed
 
