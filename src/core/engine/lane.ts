@@ -75,6 +75,7 @@ export async function runLane(
     FACTOR_RUN_ID: run.id,
     FACTOR_LANE: lane.id,
     FACTOR_TASK_TITLE: ctx.task.title,
+    FACTOR_TASK_KEY: ctx.task.key,
   };
   const inputEnv = Object.fromEntries(
     Object.entries(inputsOf(ctx, lane)).map(([k, v]) => [`FACTOR_INPUT_${k.toUpperCase()}`, v]),
@@ -153,6 +154,9 @@ export async function runLane(
       if ((lane.gates ?? []).length === 0 && branchTip(ws.root, run.branch) !== tipBefore) {
         failWith("its command committed to the run's branch, and the lane has no gate to check that commit");
       }
+      // what the command said last is the lane's sentence, as an agent's summary is
+      if ((outcome as store.Outcome) !== "fail")
+        note = oneLine(result.output.trimEnd().split("\n").at(-1) ?? "");
     } else if (lane.panel) {
       const entry = state.entries[lane.id] ?? 0;
       state.entries[lane.id] = entry + 1;

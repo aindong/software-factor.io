@@ -18,6 +18,8 @@ export interface Now {
   gatesTotal?: number;
   /** Panel members at work. With the gates phase: the lane is a panel, and they have all ended. */
   members?: number;
+  /** The last lane that passed and what it said, for a run that is done. */
+  last?: { lane: string; said: string };
   /** The last part of the agent's output file. */
   tail?: string;
   /** The run is marked as moving, but the process that moved it is not there. */
@@ -149,7 +151,12 @@ const ended = (sentence: string) => (/[.!?]$/.test(sentence) ? sentence : `${sen
 function words(now: Now): string {
   const lane = now.lane ? clip(now.lane, 60) : undefined;
   const reason = now.reason ? oneLine(now.reason, Number.MAX_SAFE_INTEGER) : "";
-  if (now.status === "done") return "Done.";
+  if (now.status === "done") {
+    // what the last lane said (a ship's address, a merge) is what a person wants to know next
+    return now.last?.said
+      ? `Done. ${clip(now.last.lane, 60)}: ${clip(oneLine(now.last.said), 200)}`
+      : "Done.";
+  }
   if (now.status === "dropped") return reason ? `Dropped: ${reason}` : "Dropped.";
   if (now.status === "stopped") {
     if (now.stopCode === "stopped_by_person") return "Stopped by a person.";
@@ -183,4 +190,6 @@ function words(now: Now): string {
 }
 
 /** One line of at most 160 characters that says where the run is and what is happening. */
-export const sentenceOf = (now: Now): string => clip(ended(words(now)), MAX);
+// What a lane said last may be an address, and a full stop glued to it would break it.
+export const sentenceOf = (now: Now): string =>
+  clip(now.status === "done" && now.last?.said ? words(now) : ended(words(now)), MAX);

@@ -44,7 +44,8 @@ it("writes the done sentence from the last lane's name and words, cut when they 
 });
 
 it("has the starter's ship say what it merged, and that nothing was pushed", () => {
-  const repo = readyRepo({ verify: "true", script: passingScript });
+  const repo = makeRepo();
+  expect(repo.sf("init").status).toBe(0);
   const ship = repo.json<{ commands: { ship: string } }>(".factor/factory.json").commands.ship;
   expect(ship).toMatch(/Merged .* Nothing was pushed\./);
 });
