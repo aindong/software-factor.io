@@ -35,6 +35,13 @@
       "with": {
         "path": ".factor/tasks.md"
       }
+    },
+    {
+      "id": "issues",
+      "uses": "core/github-issues@1",
+      "with": {
+        "label": "factory"
+      }
     }
   ],
   "gates": {
