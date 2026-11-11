@@ -14,7 +14,7 @@ import {
   sessionsCommand,
 } from "./core/commands.ts";
 import { pluginsCommand, runsCommand } from "./core/commands-view.ts";
-import { costCheck, costCommand } from "./core/cost.ts";
+import { costCheck, costCommand, costJson } from "./core/cost.ts";
 import { openDb } from "./core/db.ts";
 import { decide } from "./core/engine/inbox.ts";
 import { handoffPath, riskLine } from "./core/engine/report.ts";
@@ -172,6 +172,7 @@ async function main(): Promise<number> {
       port: { type: "string" },
       diff: { type: "boolean" },
       check: { type: "boolean" },
+      json: { type: "boolean" },
       item: { type: "string" },
     },
   });
@@ -296,9 +297,18 @@ async function main(): Promise<number> {
   }
 
   if (command === "runs" || command === "cost") {
+    if (command === "cost" && values.json && values.check)
+      throw new UserError(
+        '"--json" and "--check" cannot be used together: --check proves the report and prints sentences, --json prints the report.',
+        "Run them one after the other.",
+      );
     const ws = loadWorkspace(cwd);
     const db = openDb(ws.dbPath);
     try {
+      if (command === "cost" && values.json) {
+        console.log(costJson(db)); // not `say`: it strips control characters, and a document must not change
+        return 0;
+      }
       if (command === "cost") return values.check ? costCheck(ws, db, say) : costCommand(db, say);
       return runsCommand(db, ws.root, positionals[1], values.diff === true, say);
     } finally {
