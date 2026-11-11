@@ -63,16 +63,67 @@ grep -q "Keep the change small." .factor/workflows/starter.json || fail "the wor
 sleep 3
 wait_for "the page hears the server again: the tab says what waits" "() => document.title" '^\(1\) '
 
-# ---- 2. arriving in the inbox
+# ---- 2. the same from another section: the tab says its key is refused, and takes the address there
+tab_to '^Lane '
+pw press Enter
+tab_to '^Instructions'
+pw press End
+pw type " Say what you checked."
+expect "the floor holds a change again" "$(status)" '^Not saved$'
+section Inbox
+wait_for "the inbox is on the page" "() => document.querySelector('h1').textContent" '^Inbox'
+kill "$server" && wait "$server" 2> /dev/null
+start_ui "$port"
+notice='() => document.querySelector(".keyless")?.textContent ?? ""'
+wait_for "the tab says its key is no longer good, and why it was kept" "$notice" 'started again.*not saved.*address'
+expect "it was not loaded again" "$(js "$loaded")" "^$before\$"
+[ -n "$shots" ] && pw screenshot --filename="$shots/restart-key-refused-light-1440.png"
+tab_to '^The address the command printed$'
+pw type "$address"
+wait_for "the address typed there is taken, and the notice goes" "$notice" '^$'
+expect "still without loading the page again" "$(js "$loaded")" "^$before\$"
+wait_for "the page hears the server again from the inbox" "() => document.querySelector('.topbar .status.bad')?.textContent ?? 'connected'" '^connected$'
+section Floor
+pw press Control+s
+wait_for "and the change made before the restart is saved" "() => document.querySelector('.topbar .status').textContent" '^Saved'
+grep -q "Say what you checked." .factor/workflows/starter.json || fail "the workflow file does not hold the second change"
+
+# ---- 3. a save right after a restart, before the page has noticed: the refusal itself keeps the tab
+tab_to '^Lane '
+pw press Enter
+tab_to '^Instructions'
+pw press End
+pw type " Third."
+kill "$server" && wait "$server" 2> /dev/null
+start_ui "$port"
+pw press Control+s
+wait_for "the refused save brings the notice at once" "$notice" 'address'
+pw goto "$address"
+sleep 1
+expect "the address in the tab is taken in place" "$(js "$loaded") $(js "$notice")" "^$before \$"
+pw press Control+s
+wait_for "and the third change is saved" "() => document.querySelector('.topbar .status').textContent" '^Saved'
+
+# ---- 4. arriving in the inbox
 section Inbox
 wait_for "the inbox is on the page" "() => document.querySelector('h1').textContent" '^Inbox'
 expect "the keyboard is at the section's name: nothing is chosen for the person" "$(js "$focused")" '^Inbox$'
 pw press a
-wait_for "a deciding key outside the list says what to do" "() => document.querySelector('.said.bad')?.textContent ?? ''" '^Choose an item first'
+hint='() => { const s = document.querySelector(".said"); return s && s.getClientRects().length > 0 ? s.textContent : ""; }'
+wait_for "a deciding key outside the list says what to do" "$hint" '^Choose an item first'
 expect "and decides nothing" "$(js "() => document.querySelectorAll('.runlist .run').length")" '^1$'
 [ -n "$shots" ] && pw screenshot --filename="$shots/restart-inbox-choose-light-1440.png"
 pw press Tab
 expect "the list is one Tab away" "$(js "$focused")" '^[0-9]+ First'
+wait_for "the hint goes once an item is chosen" "$hint" '^$'
+# in a narrow window the list stands alone: the answer must be on show there too
+pw resize 390 800
+section Runs
+section Inbox
+pw press a
+wait_for "at phone width the answer is on show, not in a part that is hidden" "$hint" '^Choose an item first'
+pw resize 1440 900
+tab_to '^[0-9]+ First'
 pw press a
 wait_for "on the item, a approves it" "() => document.querySelector('.said')?.textContent ?? ''" 'pproved'
 
