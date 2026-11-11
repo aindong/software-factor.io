@@ -11,7 +11,7 @@ import { flowRepo, panelLane, pass, promptsOf, sessionRows, trail } from "../hel
 const two = [{ id: "logic" }, { id: "needs" }];
 // a pass whose claim names a lane where a gate belongs
 const wrong = pass({ claims: [{ text: "The impact lane ran the tests.", evidence: ["gate:impact"] }] });
-const right = pass({ claims: [{ text: "The change is the one commit.", evidence: ["commit:HEAD"] }] });
+const right = pass({ summary: "Read the change against the task: nothing found." });
 
 it("gives a member one more try at a hand-off the host rejected, with the reason, and takes its verdict then", () => {
   const repo = flowRepo({
@@ -29,7 +29,7 @@ it("gives a member one more try at a hand-off the host rejected, with the reason
     ]),
   );
   expect(sessionRows(repo)).toHaveLength(3);
-  const again = promptsOf(repo, "review").find((p) => /hand-off was rejected/.test(p)) ?? "";
+  const again = promptsOf(repo, "review.logic").find((p) => /hand-off was rejected/.test(p)) ?? "";
   expect(again).toMatch(/gate:impact|the gate "impact"/);
 });
 
