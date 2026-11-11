@@ -1,20 +1,43 @@
 # Software Factor.io
 
-A software factory you assemble yourself. You describe your own way of working as lanes (plan, build, review,
-ship, or whatever yours are), say what checks each lane's work, and say where a person steps in. Coding agents
-you already have installed (Claude Code, Codex) work the lanes. The host, not the agent, decides whether a lane's
-work passes.
+[简体中文](docs/i18n/README.zh-CN.md) · [日本語](docs/i18n/README.ja.md) · [Español](docs/i18n/README.es.md)
 
-The process is data: one JSON file per workflow, with no account, model or secret in it, so the same file runs
-on another machine.
+**A software factory you assemble yourself.** You describe your own way of working as lanes, say what checks
+each lane's work, and say where a person steps in. Coding agents you already have installed (Claude Code, Codex)
+work the lanes. The host, not the agent, decides whether a lane's work passes.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/media/how-it-works-dark.webp">
+  <img src="docs/media/how-it-works-light.webp" width="900" alt="One task travels along a line of five lanes. Plan works, then waits until a person approves. Build works and its gates pass. Review and Test pass. Ship waits for a second approval, merges the change, and the run is done.">
+</picture>
+
+<sub>One task on the workflow that `softwarefactor init` writes. This is an illustration, not a recording:
+[how it is made](docs/demo.md).</sub>
+
+This is version 0.0.0 and early. What has run with real agents, and what has not, is listed near the end.
+
+## How it works
+
+A workflow is a line of lanes. This is the one `softwarefactor init` writes:
 
 ```
 softwarefactor run
-  plan     an agent writes a plan            gate: every criterion names its check     a person approves
-  build    an agent writes the change        gates: tests kept, tests pass, new tests fail without the change
-  review   another vendor's agent reads it   it can send the work back, twice at most
-  ship     a command you define              a person approves before it runs
+  plan     an agent writes a plan          a person approves it
+  build    an agent writes the change      gates: protected files, tests kept, your own checks
+  review   an agent reads the change       it can send the work back, twice at most
+  test     an agent tries the change       it can send the work back once
+  ship     a command you define            a person approves before it runs
 ```
+
+- A **lane** is one step: an agent with a prompt, a command of yours, or a wait.
+- A **gate** is a check that the host runs on a clean checkout of the commit the lane left. What the agent says
+  about its own work is never the verdict.
+- A **checkpoint** is where a person comes in: the run waits for an approval, or the person is only told.
+- A **run** keeps everything: each lane's hand-off, each gate's output, and each agent start with its tokens
+  and cost.
+
+The process is data: one JSON file per workflow, with no account, model or secret in it, so the same file runs
+on another machine.
 
 ## What you get
 
@@ -68,15 +91,21 @@ the commit Build left, and the run waits again before Ship. The second approval 
 into the branch you started from, on your machine and with nothing pushed. Then the run is done, `softwarefactor
 runs` says so, and `FACTOR-HELLO.md` is in your project.
 
-Then look at it:
+If git asks who you are at the first commit, set `git config user.email` and `user.name` first. In a project of
+your own, `init` finds the test command (`pnpm test`, `cargo test`, `go test ./...`, `pytest`). If it finds none
+it says so: set `commands.verify` in `.factor/factory.json`, or the first run stops at the gate `verify`.
+
+## The interface
 
 ```sh
 softwarefactor ui
 ```
 
-If git asks who you are at the first commit, set `git config user.email` and `user.name` first. In a project of
-your own, `init` finds the test command (`pnpm test`, `cargo test`, `go test ./...`, `pytest`). If it finds none
-it says so: set `commands.verify` in `.factor/factory.json`, or the first run stops at the gate `verify`.
+It prints an address on your own machine. The page shows the workflow as a line diagram you can edit, each run
+with its evidence one key press away, an inbox for what waits for you, and accounts and costs. More in
+[the interface](docs/interface.md).
+
+![The Floor of a new project: the five lanes as a line diagram, with the first run waiting at Plan](docs/media/floor.png)
 
 ## Use a real agent
 
@@ -169,6 +198,9 @@ softwarefactor eval
 ```
 
 The tests start no real agent and need no network.
+
+The animation at the top of this page is made with `pnpm run demo:film`. [The demo](docs/demo.md) says what it
+needs and when to film it again.
 
 ## License
 
