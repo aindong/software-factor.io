@@ -28,6 +28,7 @@ const MOST_STEPS = 500;
 const SAID = 2000;
 const LINE = 300;
 const OUT_LINES = 40;
+const MAX_LINE = 200_000;
 
 type Loose = Record<string, unknown>;
 const object = (v: unknown): Loose | undefined =>
@@ -152,6 +153,10 @@ export function account(transcript: string, most = MOST_STEPS): Account {
 
   for (const line of transcript.split("\n")) {
     if (!line.trim()) continue;
+    if (line.length > MAX_LINE) {
+      plain(line); // not read: a line this long is not an event worth the time
+      continue;
+    }
     let parsed: unknown;
     try {
       parsed = JSON.parse(line);
@@ -162,7 +167,14 @@ export function account(transcript: string, most = MOST_STEPS): Account {
     const event = object(parsed);
     const type = text(event?.type);
     if (!event) plain(line);
-    else if (type === "assistant" || type === "user") claude(event, line);
+    else if (type === "factor.cut") {
+      // the host kept only the end of a session that passed its cap
+      const [kept, size] = [number(event.kept), number(event.bytes)];
+      steps.push({
+        kind: "plain",
+        text: `Only the last ${kept} of ${size} bytes of this session were kept.`,
+      });
+    } else if (type === "assistant" || type === "user") claude(event, line);
     else if (type === "item.started" || type === "item.completed") codex(event, line);
     else if (["system", "rate_limit_event", "tool_progress", "thread.started", "turn.started"].includes(type))
       quiet++;
@@ -197,7 +209,11 @@ export function account(transcript: string, most = MOST_STEPS): Account {
       });
     } else plain(line);
   }
-  return { steps: steps.slice(0, most), quiet, hidden: Math.max(0, steps.length - most) };
+  // past the limit the end still shows: it says what the session used
+  const last = steps[steps.length - 1];
+  const kept =
+    steps.length > most && last?.kind === "end" ? [...steps.slice(0, most - 1), last] : steps.slice(0, most);
+  return { steps: kept, quiet, hidden: steps.length - kept.length };
 }
 
 /** The panel member a session belongs to, from the name of its file (`04-review.correctness.jsonl`). Nobody for a lane's own agent, and for its later tries (`01-plan.2.jsonl`). */

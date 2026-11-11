@@ -87,10 +87,7 @@ export function TranscriptView({ runId, path }: { runId: string; path: string })
           </ol>
           {got.steps.length === 0 ? <p className="quiet">Nothing was printed.</p> : null}
           {got.hidden > 0 ? (
-            <p className="quiet">
-              Only the first {got.steps.length} steps are shown; {got.hidden} more are in the lines as
-              printed.
-            </p>
+            <p className="quiet">{got.hidden} more steps are not shown; they are in the lines as printed.</p>
           ) : null}
           {got.quiet > 0 ? (
             <p className="quiet">

@@ -13,6 +13,8 @@ body {
   background: var(--ground);
   color: var(--ink);
   font: 400 var(--text-body) / 1.45 var(--font);
+  /* Barlow joins two hyphens into one dash: a flag like --compare in a task must read as typed */
+  font-variant-ligatures: none;
   -webkit-font-smoothing: antialiased;
   caret-color: var(--ink);
   scrollbar-color: var(--rule) transparent;
