@@ -10,7 +10,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../media/how-it-works-dark.webp">
-  <img src="../media/how-it-works-light.webp" width="900" alt="1 つのタスクが 5 つのレーンの並びを進んでいく。Plan は作業をしたあと、人が承認するまで待つ。Build は作業をして、ゲートがすべて通る。Review と Test は通る。Ship は 2 回目の承認を待ち、変更をマージして、実行が完了する。">
+  <img src="../media/how-it-works-light.webp" width="800" alt="1 つのタスクが 5 つのレーンの並びを進んでいく。Plan は作業をしたあと、人が承認するまで待つ。Build は作業をして、ゲートがすべて通る。Review と Test は通る。Ship は 2 回目の承認を待ち、変更をマージして、実行が完了する。">
 </picture>
 
 <sub>`softwarefactor init` が書き出すワークフロー上の 1 つのタスクです。録画ではなく、説明用の図です。

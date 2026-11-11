@@ -8,7 +8,7 @@ work the lanes. The host, not the agent, decides whether a lane's work passes.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/how-it-works-dark.webp">
-  <img src="docs/media/how-it-works-light.webp" width="900" alt="One task travels along a line of five lanes. Plan works, then waits until a person approves. Build works and its gates pass. Review and Test pass. Ship waits for a second approval, merges the change, and the run is done.">
+  <img src="docs/media/how-it-works-light.webp" width="800" alt="One task travels along a line of five lanes. Plan works, then waits until a person approves. Build works and its gates pass. Review and Test pass. Ship waits for a second approval, merges the change, and the run is done.">
 </picture>
 
 <sub>One task on the workflow that `softwarefactor init` writes. This is an illustration, not a recording:

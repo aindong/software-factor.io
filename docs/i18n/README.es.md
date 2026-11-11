@@ -8,7 +8,7 @@ Esta página es una traducción del README en inglés. La página en inglés es 
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../media/how-it-works-dark.webp">
-  <img src="../media/how-it-works-light.webp" width="900" alt="Una tarea avanza por una línea de cinco carriles. Plan trabaja y luego espera hasta que una persona lo aprueba. Build trabaja y sus compuertas pasan. Review y Test pasan. Ship espera una segunda aprobación, fusiona el cambio y la ejecución termina.">
+  <img src="../media/how-it-works-light.webp" width="800" alt="Una tarea avanza por una línea de cinco carriles. Plan trabaja y luego espera hasta que una persona lo aprueba. Build trabaja y sus compuertas pasan. Review y Test pasan. Ship espera una segunda aprobación, fusiona el cambio y la ejecución termina.">
 </picture>
 
 <sub>Una tarea en el flujo de trabajo que escribe `softwarefactor init`. Es una ilustración, no una grabación:

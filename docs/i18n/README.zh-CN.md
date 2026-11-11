@@ -10,7 +10,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../media/how-it-works-dark.webp">
-  <img src="../media/how-it-works-light.webp" width="900" alt="一项任务沿着由五条泳道组成的流水线前进。Plan 完成工作后等待，直到有人批准。Build 完成工作，关卡全部通过。Review 和 Test 通过。Ship 等待第二次批准，合并变更，运行结束。">
+  <img src="../media/how-it-works-light.webp" width="800" alt="一项任务沿着由五条泳道组成的流水线前进。Plan 完成工作后等待，直到有人批准。Build 完成工作，关卡全部通过。Review 和 Test 通过。Ship 等待第二次批准，合并变更，运行结束。">
 </picture>
 
 <sub>`softwarefactor init` 所写入的工作流上的一项任务。这是示意图，不是录屏：

@@ -1,4 +1,4 @@
-# The README animation (`demo/`)
+# The demo at the top of the README
 
 `docs/media/how-it-works-light.webp` and `how-it-works-dark.webp` show how the factory works: one task, "Say hello",
 goes down the five lanes of the starter workflow. Plan works and the run waits for a person; the person approves;
@@ -50,6 +50,5 @@ stage's clock frame by frame, shoots one loop in the light and the dark palette 
 
 ## Embed
 
-The two files are one `<picture>`, the dark one for a dark page. The snippet is in the README.
-
-This guide is in `demo/` and not in `docs/`, because a test requires the README to link every guide in `docs/`.
+The two files are one `<picture>` at the top of [the README](../README.md) and of its translations in
+`docs/i18n/`, the dark file for a dark page. The picture has a width and no height, so a narrow page scales it.
