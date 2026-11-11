@@ -68,9 +68,10 @@ it("says what has run with real agents and what only on the scripted agent, by n
   }
   for (const said of ["eval", "slots", "bugfix-fast", "research-only", "alleo-plan-check"])
     expect(standIn, said).toContain(said);
-  // from the review: parts of alleo-loop that no real agent has run, and a gate no shipped workflow uses
-  for (const said of ["verify-ui", "sent work back", "core/no-secrets@1"])
-    expect(standIn, said).toContain(said);
+  // from the review: the part of alleo-loop that no real agent has run, and a gate no shipped workflow uses
+  for (const said of ["verify-ui", "core/no-secrets@1"]) expect(standIn, said).toContain(said);
+  // since the seventh real run a review has sent work back to the build lane: that is said among the real runs
+  expect(real).toContain("sent work back");
   // who approved the checkpoints of the real runs is said in so many words
   expect(real).toContain("approved by the AI agent");
 });
