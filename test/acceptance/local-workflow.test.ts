@@ -48,3 +48,15 @@ it("refuses a name that is no workflow name", () => {
   expect(run.status).not.toBe(0);
   expect(run.stdout + run.stderr).toMatch(/local\.json/);
 });
+
+it("keeps what else local.json holds when a role is bound", () => {
+  const repo = twoWorkflows();
+  const local = repo.json(".factor/local.json");
+  const kept = { workflow: "mine", servers: { tracker: "print-1" }, skills: { "some/skill": "print-2" } };
+  repo.write(".factor/local.json", `${JSON.stringify({ ...local, ...kept }, null, 2)}\n`);
+  const add = repo.sf("account", "add", "spare", "--agent", "command", "--command", "true");
+  expect(add.status, add.stdout + add.stderr).toBe(0);
+  const bind = repo.sf("role", "bind", "author", "--account", "spare");
+  expect(bind.status, bind.stdout + bind.stderr).toBe(0);
+  expect(repo.json(".factor/local.json")).toMatchObject(kept);
+});

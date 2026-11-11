@@ -171,7 +171,8 @@ export function roleCommand(
     ...(Object.keys(models).length > 0 ? { models } : {}),
     ...(effort ? { effort } : {}),
   };
-  const local = LocalConfig.safeParse({ roles: { ...ws.local.roles, [role]: binding } });
+  // the rest of the file (the workflow used here, what was allowed) stays as it is
+  const local = LocalConfig.safeParse({ ...ws.local, roles: { ...ws.local.roles, [role]: binding } });
   if (!local.success) {
     throw new UserError(
       `That binding is not valid: ${local.error.issues[0]?.message}`,
