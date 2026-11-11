@@ -34,6 +34,14 @@ anywhere `git` and `node` do.
 
 The last one is the control. A factory that fails every run would pass every other case.
 
+## Listing the cases
+
+`softwarefactor eval --list` prints each case's id and the one line that says what it shows, in the order the
+cases run, and exits 0. It runs no case and changes nothing. Split a line on the first run of spaces.
+
+`--list` is refused with `--break`, `--save` and `--compare`, which need the cases to run: the command says so and
+exits 1.
+
 ## Showing that the eval can fail
 
 ```
