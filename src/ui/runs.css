@@ -213,6 +213,12 @@ a.button {
 }
 .runmap .map-scroll {
   overflow: auto;
+  /* a soft edge where the map goes on out of sight: the grounds move with the map and cover it at its ends */
+  background:
+    linear-gradient(to right, var(--ground), transparent) left / 28px 100% local no-repeat,
+    linear-gradient(to left, var(--ground), transparent) right / 28px 100% local no-repeat,
+    linear-gradient(to right, var(--rule), transparent) left / 14px 100% scroll no-repeat,
+    linear-gradient(to left, var(--rule), transparent) right / 14px 100% scroll no-repeat;
 }
 .scrub {
   display: flex;

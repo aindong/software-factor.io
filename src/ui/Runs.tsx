@@ -8,6 +8,7 @@ import { drawable } from "../core/floor/layout.ts";
 import { trackOf } from "../core/runs/track.ts";
 import type { Workflow } from "../core/schema/workflow.ts";
 import { getWorkflow, type RunRow } from "./api.ts";
+import { Elapsed } from "./Elapsed.tsx";
 import { emptyWords, kept, readShow, shownRuns, withShow } from "./filter.ts";
 import { useRuns } from "./live.ts";
 import { Offline } from "./Offline.tsx";
@@ -184,6 +185,12 @@ export function Runs() {
                       />
                       <span className="spent data">
                         {run.tokens > 0 ? `${tokens(run.tokens)}, ${cost(run.usd, run.usdUnknown)}` : ""}
+                        {run.tokens > 0 && run.workingSince ? ", " : ""}
+                        {run.workingSince ? (
+                          <>
+                            <Elapsed since={run.workingSince} /> at work
+                          </>
+                        ) : null}
                       </span>
                       {detail(run) ? <span className="sentence">{detail(run)}</span> : null}
                     </div>

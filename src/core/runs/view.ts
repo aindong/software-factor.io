@@ -49,6 +49,10 @@ export interface RunRow {
   usd: number;
   /** A session of the run has no known cost: `usd` is then less than the whole. */
   usdUnknown: boolean;
+  /** When the lane that is working began; null unless the run is working. */
+  workingSince: string | null;
+  /** When the working agent last printed something; null when that is not known (a command, a gate, no output yet). */
+  lastAt: string | null;
 }
 interface Evidence {
   ref: string;
@@ -153,7 +157,7 @@ function busyWith(
   runId: string,
   open: LaneRow | undefined,
   def: LaneDef | undefined,
-): Partial<Now> {
+): Partial<Now> & { lastAt?: string } {
   // a plugin's lane type is a command too
   if (def?.uses?.startsWith("core/command") || (def?.uses && !def.uses.startsWith("core/")))
     return { phase: "command" };
@@ -189,7 +193,13 @@ function busyWith(
   const tail = read(TAIL);
   // the last line is often one long result of a tool: look further back for what was done
   const far = tail !== undefined && activityOf(tail) === undefined;
-  return { phase: "agent", tail: far ? read(FAR_TAIL) : tail };
+  let lastAt: string | undefined;
+  try {
+    lastAt = lstatSync(stream).mtime.toISOString();
+  } catch {
+    // no output yet
+  }
+  return { phase: "agent", tail: far ? read(FAR_TAIL) : tail, lastAt };
 }
 
 const runFolder = (root: string, id: string) => join(root, ".factor", "runs", id);
@@ -229,9 +239,14 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
     lane: at ? (def?.name ?? at) : undefined,
     parked: state.parked?.kind,
   };
+  let lastAt: string | undefined;
   if (run.status === "running") {
     now.gone = run.pid !== process.pid && !isAlive(run.pid);
-    if (!now.gone) Object.assign(now, busyWith(db, root, run.id, open, def));
+    if (!now.gone) {
+      const busy = busyWith(db, root, run.id, open, def);
+      lastAt = busy.lastAt;
+      Object.assign(now, busy);
+    }
   }
   const used = db
     .prepare(
@@ -260,6 +275,8 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
     tokens: used.tokens,
     usd: Math.round(used.usd * 1e6) / 1e6,
     usdUnknown: unknown.n > 0,
+    workingSince: run.status === "running" && !now.gone ? (open?.started_at ?? null) : null,
+    lastAt: lastAt ?? null,
   };
 }
 

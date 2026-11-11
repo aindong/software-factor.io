@@ -8,6 +8,7 @@ import { memberOf } from "../core/runs/transcript.ts";
 import type { Workflow } from "../core/schema/workflow.ts";
 import { getRun, type RunDetail, type RunRow } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
+import { Elapsed } from "./Elapsed.tsx";
 import { DiffView, FileView, PairView, Proof } from "./Evidence.tsx";
 import { go } from "./route.ts";
 import { State } from "./State.tsx";
@@ -37,6 +38,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
   const [station, setStation] = useState<string>();
   const proofs = useRef(new Map<string, HTMLDivElement>());
   const blocks = useRef(new Map<string, HTMLLIElement>()); // each lane's latest part under "Lane by lane"
+  const scroller = useRef<HTMLDivElement>(null);
   // the row changes whenever the run does: its lanes, its sentence, its cost
   const stamp = JSON.stringify(row);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the stamp stands for the row
@@ -60,6 +62,17 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
     [row.own, kept, workflow],
   );
   const floor = useMemo(() => (drawn ? layout(drawn) : undefined), [drawn]);
+  // On a narrow screen the map is wider than the window: show where the run is, or where it ended
+  // biome-ignore lint/correctness/useExhaustiveDependencies: when the run moves or its map is drawn
+  useEffect(() => {
+    const view = scroller.current;
+    const end = { done: "done", stopped: "stop", dropped: "drop" }[row.status as string];
+    const mark = view?.querySelector(end ? `.station.end.${end}` : '.station[aria-label*=" is here"]');
+    if (!view || !mark) return;
+    const at = mark.getBoundingClientRect();
+    const box = view.getBoundingClientRect();
+    view.scrollLeft += at.left - box.left - (box.width - at.width) / 2;
+  }, [row.status, row.at, floor]);
   const names = new Map(row.stops.map((l) => [l.id, l.name]));
   const nameOf = (id: string) => names.get(id) ?? id;
   const total = row.visits.length;
@@ -160,8 +173,24 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
               <dd>{span(Date.parse(row.endedAt) - Date.parse(row.startedAt))}</dd>
             </div>
           ) : null}
+          {row.workingSince ? (
+            <div>
+              <dt>Working for</dt>
+              <dd className="elapsed">
+                <Elapsed since={row.workingSince} />
+              </dd>
+            </div>
+          ) : null}
+          {row.workingSince && row.lastAt ? (
+            <div>
+              <dt>Last output</dt>
+              <dd className="elapsed">
+                <Elapsed since={row.lastAt} /> ago
+              </dd>
+            </div>
+          ) : null}
           <div>
-            <dt>Used</dt>
+            <dt>{row.status === "running" ? "Used so far" : "Used"}</dt>
             <dd>
               {tokens(row.tokens)}, {cost(row.usd, row.usdUnknown)}
             </dd>
@@ -210,7 +239,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
 
       {floor ? (
         <div className="runmap">
-          <div className="map-scroll">
+          <div className="map-scroll" ref={scroller}>
             <Diagram
               floor={floor}
               selected={station}

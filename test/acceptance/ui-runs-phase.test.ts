@@ -176,7 +176,9 @@ describe("the sentence while a lane is open", () => {
       (await jsonOf<{ runs: Row[] }>(await ui.api("/api/runs"))).runs.find((r) => r.id === "since");
     // no output of the agent has been seen: only the start of the lane is known, and it is not "activity"
     expect(await row()).toMatchObject({ workingSince: at(4), lastAt: null });
-    sql(repo, (db) => db.exec("update runs set status = 'waiting', stop_code = 'awaiting_approval' where id = 'since'"));
+    sql(repo, (db) =>
+      db.exec("update runs set status = 'waiting', stop_code = 'awaiting_approval' where id = 'since'"),
+    );
     expect(await row()).toMatchObject({ workingSince: null, lastAt: null });
   }, 120_000);
 });
