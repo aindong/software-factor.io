@@ -130,6 +130,11 @@ expect "each row has its strip map" "$(js "() => document.querySelector('.run .s
 expect "the run that was shown is still the one shown" "$(js "() => document.querySelector('.rundetail h2').textContent")" '^Add an export button$'
 shot runs-light-1440
 
+# ---- 0b. the list is not seven Tabs away: the first stop is a link that skips to it
+back_to '^Skip to the list$'
+pw press Enter
+expect "the skip link puts the keyboard on the run that is shown, in the list" "$(js "() => document.activeElement.getAttribute('role') + ' ' + document.activeElement.getAttribute('aria-selected')")" '^option true$'
+
 # ---- 1. through the list by keyboard
 tab_to '^Done.*[0-9]+ Add an export button'
 expect "the keyboard is on the run that is shown" "$(js "() => document.activeElement.getAttribute('aria-selected')")" '^true$'
