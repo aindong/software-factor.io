@@ -273,8 +273,13 @@ inspector when it is a sheet over the map. Nothing else has one.
 
 ### Named Rules
 
-**The State Steps Rule.** Nothing fades or slides. The style sheets hold no transition and no animation. A
-train is drawn at its lane, and Replay moves it one step at a time.
+**The State Steps Rule.** Motion has one meaning: work is going on right now, in a lane an agent or a gate is
+working in. Only that moves, and it moves slowly and a little (a ring that breathes, dashes that run along the
+line the task came by), with `transform`, `opacity` or `stroke-dashoffset`, and nothing else in the interface does.
+Every other change is a step: nothing fades or slides, and the style sheets hold no transition. Each animation
+is named `at-work-…`, sits in `working.css` inside `@media (prefers-reduced-motion: no-preference)`, and under
+reduced motion the same mark stands still. A train is drawn at its lane, and Replay moves it one step at a time.
+A run that waits, is stopped or is done does not move.
 
 ## Shapes
 
@@ -295,7 +300,10 @@ A station is a ground disc (11px radius) with a 3px ink outline. On a run's map 
 of what the run did there, with a mark inside. The ends have no outline: "Done" is blue with a tick, "Stopped"
 is grey with a bar, the inbox end is yellow with a 1.5px ink outline. A station the workflow lacks is outlined
 in dashed vermilion. One with a problem carries an 8px vermilion diamond. A train is an ink capsule, 34px by
-18px, with the task's number. A train that waits is yellow with an ink outline.
+18px, with the task's number. A train that waits is yellow with an ink outline. Where work is going on, the lane's station has a thin ink
+ring round it that breathes, and the line the task came along carries 2px dashes in the ground colour that run
+the way it goes. A working run's mark is a ring with a dot (a done run's is a disc, a stopped run's a diamond),
+and the rail's Runs item carries the same mark while any run works.
 
 | Radius | Where |
 | --- | --- |

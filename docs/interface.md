@@ -108,6 +108,13 @@ passed, a vermilion diamond failed, a yellow square asked a person, a ring is no
 the lane the run is at) and one sentence about what is happening now. The list follows the record by itself:
 the server sends it again whenever it changes, so a run started in your terminal appears without a reload.
 
+A run that is working says "Working" in its row and at the head of its page, with a mark that is a ring with a
+dot, unlike the disc of a done run, the diamond of a stopped one and the yellow square of one that waits for
+you. On its map the lane where the work is going on has a ring that breathes, and the line the task came along
+carries dashes that run the way it goes; the strip map's train breathes too, and the rail shows the same mark
+by Runs while any run works. A run that waits, is stopped or is done is still. With reduced motion in your
+system's settings nothing moves: the ring, the dashes and the mark stay as still marks of the same meaning.
+
 The sentence comes from the record. For an agent at work it is read from the last lines of its CLI's output:
 "Build: the agent is running `npm test`." It holds no clock, so it changes only when something happens.
 
@@ -138,7 +145,8 @@ The arrow keys move through the list and Enter goes into a run. A run shows:
 
 On the floor, "Runs on map" puts a numbered train on the lane of each run that is moving or waiting. The
 number is the task's, the same as in the rows of Runs and Inbox. A train is a link to its run. One that waits
-for a person is yellow and leads to its decision in the inbox.
+for a person is yellow and leads to its decision in the inbox. The lane a working run is in is ringed and the line
+it came along has running dashes, as on the run's own map.
 
 A run that was entered is in the address (`/runs/<run>`, and `/inbox/<run>` for its decision), so Back leaves
 the run, a reload keeps it, and the address can be passed on.
