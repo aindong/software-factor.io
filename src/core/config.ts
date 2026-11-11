@@ -105,6 +105,8 @@ export type RoleBinding = z.infer<typeof RoleBinding>;
 
 export const LocalConfig = z.strictObject({
   roles: z.record(id, RoleBinding),
+  // the workflow this machine uses in place of the one factory.json names: a variant of your own, not shared
+  workflow: id.optional(),
   // MCP servers a collector may start here, each by the print of what it runs (`softwarefactor allow`)
   servers: z.record(id, z.string()).optional(),
   // plugins installed and said yes to here, each by the hash of its files (`softwarefactor add`)

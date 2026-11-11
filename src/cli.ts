@@ -36,7 +36,7 @@ import { reportFiles } from "./core/schema/check-files.ts";
 import { startServer } from "./core/server.ts";
 import { exportCommand, importCommand } from "./core/sharing.ts";
 import { openInbox, readStatus } from "./core/store.ts";
-import { factorHome, loadWorkspace, locateWorkspace } from "./core/workspace.ts";
+import { factorHome, loadWorkspace, locateWorkspace, workflowHere } from "./core/workspace.ts";
 
 // Task titles and agent summaries come from outside. Printed raw, a control sequence in one could
 // rewrite the terminal's title or hide a failure line.
@@ -228,8 +228,7 @@ async function main(): Promise<number> {
     if (!Number.isInteger(port) || port < 0 || port > 65535) {
       throw new UserError(`--port needs a port number, not "${values.port}".`, "For example: --port 4390.");
     }
-    const config = JSON.parse(readFileSync(file, "utf8")) as { workflow?: unknown };
-    const served = await startServer(root, { workflow: String(config.workflow ?? "") }, port);
+    const served = await startServer(root, { workflow: workflowHere(root) }, port);
     // the address carries this session's key after the "#": it is printed here and nowhere else
     say(`Software Factor.io is open at ${served.address}`);
     say("Open that address as it is: the part after # is this session's key. Ctrl-C closes it.");
