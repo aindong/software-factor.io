@@ -161,4 +161,22 @@ describe("the sentence while a lane is open", () => {
     );
     expect(runs.find((r) => r.id === "open")).toMatchObject({ tokens: 1000, usd: 0.15 });
   }, 120_000);
+
+  it("says since when the lane has worked, and says it only of a run that works", async () => {
+    const repo = flowRepo({ lanes: [agentLane("build", { name: "Build" })] });
+    moving(repo, "since", "build", (db) =>
+      db
+        .prepare("insert into lane_runs (run_id, lane, seq, started_at) values ('since', 'build', 1, ?)")
+        .run(at(4)),
+    );
+    const ui = await startUi(repo);
+    uis.push(ui);
+    type Row = { id: string; workingSince: string | null; lastAt: string | null };
+    const row = async () =>
+      (await jsonOf<{ runs: Row[] }>(await ui.api("/api/runs"))).runs.find((r) => r.id === "since");
+    // no output of the agent has been seen: only the start of the lane is known, and it is not "activity"
+    expect(await row()).toMatchObject({ workingSince: at(4), lastAt: null });
+    sql(repo, (db) => db.exec("update runs set status = 'waiting', stop_code = 'awaiting_approval' where id = 'since'"));
+    expect(await row()).toMatchObject({ workingSince: null, lastAt: null });
+  }, 120_000);
 });

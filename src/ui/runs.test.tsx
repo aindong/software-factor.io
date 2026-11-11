@@ -1,11 +1,12 @@
 // The markup of a run that the keyboard, a screen reader and the browser check rely on.
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { drawable, layout } from "../core/floor/layout.ts";
 import { routeOf, trackOf } from "../core/runs/track.ts";
 import type { RunRow } from "../core/runs/view.ts";
 import type { Workflow } from "../core/schema/workflow.ts";
 import { Diagram } from "./Diagram.tsx";
+import { Elapsed } from "./Elapsed.tsx";
 import { Strip } from "./Strip.tsx";
 import { ago, cost, dollars, span, standing, tokens } from "./words.ts";
 
@@ -132,5 +133,17 @@ describe("money as a person reads it", () => {
   it("is the same in the cost of a run", () => {
     expect(cost(1.033629, false)).toBe("$1.03");
     expect(cost(0.0042, true)).toBe("at least $0.0042");
+  });
+});
+
+describe("how long a lane has worked", () => {
+  afterEach(() => vi.useRealTimers());
+  it("is the time since the lane began, as a span", () => {
+    vi.useFakeTimers({ now: Date.parse("2026-11-10T12:03:10Z") });
+    expect(renderToStaticMarkup(<Elapsed since="2026-11-10T12:00:00Z" />)).toBe("3m 10s");
+  });
+  it("is never negative when the clocks differ", () => {
+    vi.useFakeTimers({ now: Date.parse("2026-11-10T12:00:00Z") });
+    expect(renderToStaticMarkup(<Elapsed since="2026-11-10T12:00:05Z" />)).toBe("0s");
   });
 });

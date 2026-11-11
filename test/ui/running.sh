@@ -90,6 +90,15 @@ expect "the strip's train is the one that works" "$(js "() => document.querySele
 expect "the head of the page says Working" "$(js "() => document.querySelector('.rundetail .state')?.textContent ?? 'none'")" '^Working$'
 expect "the rail tells from here that one works" "$(js "() => document.querySelector('.rail .mark.live')?.getAttribute('aria-label') ?? 'none'")" '^1 working$'
 
+# ---- 1b. how long the lane has worked: said on the row and on the page, and it ticks (it is not animated)
+expect "the row says how long it has been at work" "$(js "() => document.querySelector('.run .spent')?.textContent ?? ''")" '[0-9]+(m [0-9]+)?s at work$'
+expect "the page says how long, and that what it used is so far" "$(js "() => [...document.querySelectorAll('.rundetail .facts dt')].map((d) => d.textContent).join(' | ')")" 'Working for.*Used so far'
+ticks='() => document.querySelector(".rundetail .facts .elapsed")?.textContent ?? ""'
+t0=$(js "$ticks")
+sleep 2
+t1=$(js "$ticks")
+[ -n "$t0" ] && [ "$t0" != "$t1" ] || fail "the time at work does not tick: read \"$t0\" then \"$t1\""
+
 # ---- 2. the map: the lane that works is ringed and breathes, the line it came along runs
 pulse='() => document.querySelector(".rundetail .map .station.working .pulse") ? getComputedStyle(document.querySelector(".rundetail .map .station.working .pulse")).animationName : "no ring"'
 wait_for "the lane that works has a ring that breathes" "$pulse" '^at-work-halo$'
