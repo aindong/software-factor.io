@@ -13,5 +13,5 @@ docs/research/prior-art-own.md
 # working copies an agent session makes for itself
 .claude/worktrees/
 
-# the stageshow kit and its tools, copied from the skill by demo/setup.mjs (MIT, not ours to commit)
-demo/.stageshow/
+# the frames the README recording is made from, left by demo/film.mjs
+demo/frames/

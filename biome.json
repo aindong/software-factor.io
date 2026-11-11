@@ -10,8 +10,7 @@
       "!.claude",
       "!**/dist",
       "!.playwright-cli",
-      "!.impeccable",
-      "!demo/.stageshow"
+      "!.impeccable"
     ]
   },
   "formatter": {
