@@ -107,9 +107,6 @@ export function RoleRow({
             <option key={name}>{name}</option>
           ))}
         </select>
-        <span className="quiet sub" role="status">
-          {cleared}
-        </span>
       </td>
       {TIERS.map((tier) => {
         const another = typed.includes(tier);
@@ -168,6 +165,9 @@ export function RoleRow({
         </button>
         {/* why it is off, said where it is off */}
         {names.includes(account) ? null : <span className="quiet sub">Choose a login to bind.</span>}
+      </td>
+      <td className="cleared quiet sub" role="status">
+        {cleared}
       </td>
     </tr>
   );

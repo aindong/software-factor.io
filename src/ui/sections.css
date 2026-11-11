@@ -211,6 +211,13 @@
 .table.roles th .sub {
   max-width: 72ch;
 }
+/* what the page did to a role's choices is said on a line of its own, and takes no room while there is nothing to say */
+.table.roles td.cleared {
+  flex: 0 0 100%;
+}
+.table.roles td.cleared:empty {
+  margin-top: calc(-1 * var(--sm));
+}
 .table.roles td[data-label]::before {
   content: attr(data-label);
   display: block;
