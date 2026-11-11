@@ -2,7 +2,9 @@
 // one of its allowed values, and its prompt had never said what the values were.
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { agentLane, commitFile, flowRepo, pass, promptsOf, trail } from "../helpers/repo.ts";
+import { handoffHelp } from "../../src/core/engine/prompt.ts";
+import type { Lane } from "../../src/core/schema/workflow.ts";
+import { agentLane, flowRepo, pass, promptsOf, trail } from "../helpers/repo.ts";
 
 const outputs = {
   fact: { type: "string", required: true, description: "The fact the change's safety rests on." },
@@ -11,22 +13,22 @@ const outputs = {
 };
 
 it("tells the agent each output's allowed values, what it is for, and which ones it must give", () => {
-  const repo = flowRepo({
-    lanes: [agentLane("impact", { agent: { access: "write" }, gates: ["verify"], outputs })],
-    scripts: {
-      author: {
-        impact: [...commitFile("a.txt"), pass({ outputs: { fact: "Nothing reads it.", proof: "run" } })],
-      },
-    },
-  });
-  expect(repo.sf("run").status).toBe(0);
-  const prompt = promptsOf(repo, "impact")[0] ?? "";
+  // the part of the prompt an agent with an account gets on top of its lane's own words
+  const prompt = handoffHelp(
+    { id: "impact", outputs } as unknown as Lane,
+    "/lane/handoff.json",
+    "/lane/evidence",
+    false,
+  );
   expect(prompt).toMatch(
     /"proof": text, exactly one of "claimed", "cited", "argued", "run", "reproduced"\. Required\./,
   );
   expect(prompt).toMatch(/"fact": text\. Required\. The fact the change's safety rests on\./);
   expect(prompt).toMatch(/"findings": a list\. Every finding, with its proof\./);
   expect(prompt).not.toMatch(/"findings": a list\. Required/);
+  expect(
+    handoffHelp({ id: "build" } as unknown as Lane, "/lane/handoff.json", "/lane/evidence", false),
+  ).toMatch(/Leave "outputs" out/);
 });
 
 it("gives the impact lane of the shipped alleo-loop a second try at a hand-off the host rejected", () => {

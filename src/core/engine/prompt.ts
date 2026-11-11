@@ -2,6 +2,7 @@
 // again, and, for a real agent, where and how to hand off.
 import { memorySection, notesSection, proposedNotes, readMemory } from "../memory.ts";
 import type { Lane } from "../schema/workflow.ts";
+import { oneLine } from "../text.ts";
 import type { Ctx } from "./lane.ts";
 import { valueAt } from "./transition.ts";
 
@@ -89,7 +90,18 @@ export function handoffHelp(
   /** A panel member with the factor server: other members share its folder, so a file there is not taken. */
   noFile = false,
 ): string {
-  const outputs = Object.entries(lane.outputs ?? {}).map(([name, o]) => `${name} (${o.type})`);
+  // each output as the host will check it: its kind, its allowed values, whether it must be there
+  const KIND = {
+    string: "text",
+    number: "a number",
+    boolean: "true or false",
+    array: "a list",
+    object: "an object",
+  };
+  const outputs = Object.entries(lane.outputs ?? {}).map(
+    ([name, o]) =>
+      `  - "${name}": ${KIND[o.type]}${o.enum ? `, exactly one of ${o.enum.map((v) => `"${v}"`).join(", ")}` : ""}.${o.required ? " Required." : ""}${o.description ? ` ${oneLine(o.description, 300)}` : ""}`,
+  );
   const where = noFile
     ? "When you are done, give your hand-off as one JSON object to the handoff_write tool of the factor server, or end your last message with it in a ```json block. A file is not read."
     : `When you are done, write your hand-off as one JSON object to this file:
@@ -106,7 +118,7 @@ ${where}
 
 - "outcome" is "pass", "fail" or "needsPerson" (then the summary is your question). It is required, and so is "summary".
 - Evidence is "file:<committed path>", "commit:HEAD", "gate:<lane>.<gate>" or "attached:<file name>" for a file you put in ${evidenceDir}
-- ${outputs.length > 0 ? `Add "outputs" with: ${outputs.join(", ")}.` : 'Leave "outputs" out: this lane declares none.'}
+- ${outputs.length > 0 ? `Add "outputs", an object with these keys and no others:\n${outputs.join("\n")}` : 'Leave "outputs" out: this lane declares none.'}
 - If the repository has a CLAUDE.md or AGENTS.md at its top, read it first: it holds the project's own rules.
 - ${
     server
