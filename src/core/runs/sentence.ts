@@ -32,6 +32,9 @@ function clip(text: string, max: number): string {
   const flat = oneLine(text, Number.MAX_SAFE_INTEGER);
   if (flat.length <= max) return flat;
   let cut = flat.slice(0, max - 3);
+  // a word is not cut in two when a space is near enough
+  const space = cut.lastIndexOf(" ");
+  if (flat[max - 3] !== " " && space > max - 3 - 30) cut = cut.slice(0, space);
   const last = cut.charCodeAt(cut.length - 1);
   if (last >= 0xd800 && last <= 0xdbff) cut = cut.slice(0, -1); // half of a pair
   return `${cut}...`;
