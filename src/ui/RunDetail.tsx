@@ -75,6 +75,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
   }, [row.status, row.at, floor]);
   const names = new Map(row.stops.map((l) => [l.id, l.name]));
   const nameOf = (id: string) => names.get(id) ?? id;
+  const asking = !deciding && (detail?.inbox.length ?? 0) > 0;
   const total = row.visits.length;
   const step = stepOf(total, at);
   // the end the run came to: a run a person stopped after its last lane passed did not come to Done
@@ -153,9 +154,12 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
         {deciding ? null : (
           <>
             <State run={row} />
-            <p className="sentence" role="status">
-              {row.sentence}
-            </p>
+            {/* what waits says it in its own block below, with the way to decide */}
+            {asking ? null : (
+              <p className="sentence" role="status">
+                {row.sentence}
+              </p>
+            )}
           </>
         )}
         <dl className="facts data">
