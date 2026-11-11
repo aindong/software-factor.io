@@ -10,6 +10,7 @@ import type { Workflow } from "../core/schema/workflow.ts";
 import { getWorkflow, type RunRow } from "./api.ts";
 import { emptyWords, kept, readShow, shownRuns, withShow } from "./filter.ts";
 import { useRuns } from "./live.ts";
+import { Offline } from "./Offline.tsx";
 import { RunView } from "./RunDetail.tsx";
 import { RunFilter } from "./RunFilter.tsx";
 import { go, openIn, usePath, useSearch } from "./route.ts";
@@ -107,13 +108,7 @@ export function Runs() {
             onShow={(to) => go(withShow(opened ? `/runs/${encodeURIComponent(opened)}` : "/runs", to), true)}
           />
         ) : null}
-        <div className="group push">
-          {live ? null : (
-            <span className="status bad" role="status">
-              Not connected to the factory. Trying again.
-            </span>
-          )}
-        </div>
+        <div className="group push">{live ? null : <Offline />}</div>
       </div>
       {!runs ? (
         <div className="plain">

@@ -7,7 +7,8 @@ import { type KeyboardEvent as ReactKey, useEffect, useRef, useState } from "rea
 import type { Decision, InboxItem } from "../core/views.ts";
 import { op } from "./api.ts";
 import { useRuns } from "./live.ts";
-import { DOING, DONE, HINT, useDecidingKeyOutside } from "./outside.ts";
+import { Offline } from "./Offline.tsx";
+import { DOING, DONE, HINT, useDecidingKeyOutside, useTakesKeyboard } from "./outside.ts";
 import { RunView } from "./RunDetail.tsx";
 import { useWorkflows } from "./Runs.tsx";
 import { go, openIn, usePath } from "./route.ts";
@@ -128,6 +129,7 @@ export function Inbox() {
   }, [current?.id]);
   const row = runs?.find((r) => r.id === current?.run);
   const question = current?.kind === "question";
+  useTakesKeyboard(Boolean(opened && current && row), head);
 
   const decide = async (decision: Decision, words = "") => {
     // also for a button: a second press just as the page moved on must not land on the next item
@@ -238,13 +240,7 @@ export function Inbox() {
             </span>
           ) : null}
         </div>
-        <div className="group push">
-          {live ? null : (
-            <span className="status bad" role="status">
-              Not connected to the factory. Trying again.
-            </span>
-          )}
-        </div>
+        <div className="group push">{live ? null : <Offline />}</div>
       </div>
       {!items ? (
         <div className="plain">

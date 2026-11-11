@@ -3,7 +3,7 @@
 // met with silence. `g` and the key after it never come here: the shell takes them first.
 // On arrival the inbox puts the keyboard on its heading, one Tab before the list: nothing is
 // chosen yet, and the first item is one key away.
-import { useEffect } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import type { Decision } from "../core/views.ts";
 
 export const DONE: Record<Decision, string> = {
@@ -33,4 +33,18 @@ export function useDecidingKeyOutside(on: boolean, say: () => void): void {
     addEventListener("keydown", hear);
     return () => removeEventListener("keydown", hear);
   }, [on, say]);
+}
+
+/**
+ * An item entered from elsewhere (a run's "Decide in the inbox", a reload, a link) is on show, so
+ * the keyboard goes onto it once, if it was nowhere: its keys then work. A row the person clicked
+ * or tabbed to already holds the keyboard and keeps it.
+ */
+export function useTakesKeyboard(ready: boolean, node: RefObject<HTMLElement | null>): void {
+  const taken = useRef(false);
+  useEffect(() => {
+    if (!ready || taken.current) return;
+    taken.current = true;
+    if (!document.activeElement || document.activeElement === document.body) node.current?.focus();
+  }, [ready, node]);
 }

@@ -399,6 +399,28 @@ textarea {
   white-space: nowrap;
 }
 
+/* The first stop of the Tab order on a section with a list: out of sight until the keyboard is on it. */
+.skip {
+  position: fixed;
+  inset: var(--sm) auto auto var(--sm);
+  z-index: 30;
+  padding: var(--sm) var(--md);
+  border: 2px solid var(--ink);
+  border-radius: var(--control);
+  background: var(--panel);
+  color: var(--ink);
+  font: 500 var(--text-body) / 1.4 var(--font);
+}
+.skip:not(:focus) {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* A tab kept with a key the server no longer takes: said over every section, with the way out in it. */
 .keyless {
   position: fixed;
@@ -414,6 +436,10 @@ textarea {
   color: var(--ink);
   font: 500 var(--text-body) / 1.4 var(--font);
   box-shadow: var(--shadow);
+}
+.keyless.taken {
+  margin: 0;
+  border-top-color: var(--through);
 }
 .keyless span {
   flex: 1 1 40ch;
