@@ -1,6 +1,9 @@
 # Shared by the browser checks: drive the page with key presses, then read it. Nothing here
 # clicks or focuses by script. Source it after setting $session and $work.
 
+# shellcheck source=test/fixtures/one-lane.sh
+. "$here/test/fixtures/one-lane.sh"
+
 fail() {
   echo "FAIL: $1"
   playwright-cli -s="$session" close > /dev/null 2>&1

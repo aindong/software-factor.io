@@ -2,70 +2,34 @@
 
 A lane is one step of your process: who does it, what it may touch, what checks it, whether a person looks, and
 where the task goes next. You add one by editing the workflow file in `.factor/workflows/`, by hand or on the
-floor in `softwarefactor ui`. This guide adds a review lane to the workflow that `softwarefactor init` writes.
-Every field is described in [the workflow file](workflow-schema.md).
+floor in `softwarefactor ui`. This guide adds a lane to the workflow that `softwarefactor init` writes, which has
+five: Plan, Build, Review, Test and Ship. Every field is described in [the workflow file](workflow-schema.md).
 
-## The workflow with the new lane
+## The new lane
+
+The starter has no lane that brings the documentation up to date. Add one after Test and before Ship:
 
 ```json
 {
-  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
-  "version": 1,
-  "name": "with-review",
-  "description": "An agent does the task, a second agent reads the change, and a person approves the result.",
-  "roles": {
-    "author": { "description": "Does the task and commits the work." },
-    "reviewer": {
-      "description": "Reads the change and tries to break it.",
-      "differentVendorFrom": ["author"]
-    }
+  "id": "docs",
+  "name": "Docs",
+  "uses": "core/agent@1",
+  "agent": {
+    "role": "author",
+    "access": "write",
+    "prompt": "Bring the README and the guides under docs/ up to date with the change. Change no code. Commit your work."
   },
-  "limits": { "minutes": 60, "tokens": 4000000 },
-  "commands": {
-    "verify": { "description": "Runs this project's checks on a clean checkout. Exits 0 only when they pass." }
-  },
-  "collectors": [{ "id": "tasks", "uses": "core/file@1", "with": { "path": ".factor/tasks.md" } }],
-  "gates": {
-    "tests-kept": { "uses": "core/tests-not-weakened@1", "onFail": "stop" },
-    "verify": { "uses": "core/command@1", "with": { "command": "verify" }, "onFail": "repair" }
-  },
-  "lanes": [
-    {
-      "id": "work",
-      "name": "Work",
-      "uses": "core/agent@1",
-      "agent": {
-        "role": "author",
-        "access": "write",
-        "prompt": "Do the task below. Commit your work. If you are here because the review failed, fix what its hand-off lists and nothing else."
-      },
-      "gates": ["tests-kept", "verify"],
-      "checkpoint": "near",
-      "limits": { "repairRounds": 2 },
-      "on": { "pass": "review", "fail": "@stop" }
-    },
-    {
-      "id": "review",
-      "name": "Review",
-      "uses": "core/agent@1",
-      "agent": {
-        "role": "reviewer",
-        "access": "read",
-        "prompt": "Read the change against the task. Fail the lane only for a fault you reproduced, and say how to reproduce it."
-      },
-      "outputs": { "findings": { "type": "array", "description": "Each fault, with how to reproduce it." } },
-      "checkpoint": "in",
-      "on": {
-        "pass": "@done",
-        "fail": [{ "to": "work", "maxRounds": 2 }, { "to": "@stop" }]
-      }
-    }
-  ]
+  "gates": ["protected", "tests-kept"],
+  "checkpoint": "in",
+  "limits": { "repairRounds": 1 },
+  "on": { "pass": "ship", "fail": "@stop" }
 }
 ```
 
-Save it as `.factor/workflows/with-review.json`, set `"workflow": "with-review"` in `.factor/factory.json`, and
-run `softwarefactor check`. Every problem it finds names the place and what to change.
+Put it in the `lanes` of `.factor/workflows/starter.json`, between `test` and `ship`, and change the `on` of
+`test` so that it goes there: `"pass": "docs"`. Then run `softwarefactor check`. Every problem it finds names the
+place and what to change. The lane writes, so it names gates (the two the starter already defines), and it
+starts at `in`, so a person approves it until it has a record.
 
 ## What each part of the lane decides
 
@@ -80,7 +44,7 @@ run `softwarefactor check`. Every problem it finds names the place and what to c
   failure does: `repair` gives the agent the gate's output and another try, `fail` ends the lane as failed,
   `stop` ends the run for a person.
 - **`outputs`** are named values the lane hands on. A later lane asks for one with
-  `"inputs": { "findings": "review.outputs.findings" }`.
+  `"inputs": { "plan": "plan.outputs.plan" }`, as the Build lane of the starter does.
 - **`checkpoint`** is where a person stands: `in` (you approve before the task moves on), `near` (you are told,
   and it goes on), `out` (no notice). A lane moves along these steps on its record: see
   [the autonomy ladder](ladder.md).
@@ -92,7 +56,8 @@ run `softwarefactor check`. Every problem it finds names the place and what to c
 A step with no model, such as a deploy to a staging server, is a command lane. The command is named in the
 workflow and defined in `.factor/factory.json`, so the workflow does not assume one project's tooling. Declare
 the name under the workflow's `commands` too (`"stage": { "description": "Puts the change on staging." }`), so
-whoever takes the workflow sees what they must define:
+whoever takes the workflow sees what they must define. This lane goes between `docs` and `ship`, and the `on` of
+`docs` goes to it (`"pass": "stage"`):
 
 ```json
 {
@@ -100,13 +65,15 @@ whoever takes the workflow sees what they must define:
   "uses": "core/command@1",
   "with": { "command": "stage" },
   "checkpoint": "in",
-  "on": { "pass": "@done", "fail": "@stop" }
+  "on": { "pass": "ship", "fail": "@stop" }
 }
 ```
 
 ```json
-{ "version": 1, "workflow": "with-review", "commands": { "verify": "pnpm test", "stage": "./scripts/stage.sh" } }
+{ "commands": { "stage": "./scripts/stage.sh" } }
 ```
+
+That goes in `commands` of `.factor/factory.json`, beside `verify` and `ship`.
 
 A command lane is approved before it runs, because afterwards is too late. Its inputs arrive as
 `FACTOR_INPUT_<NAME>`, and it finds the run in `FACTOR_RUN_ID` and the task's title in `FACTOR_TASK_TITLE`. It
@@ -122,6 +89,7 @@ this repository is a small one to copy.
 ## Try the lane before you trust it
 
 - `softwarefactor check` reads the file.
-- Bind the role to the scripted agent in `.factor/local.json` (as `init` does for `author`) and run a task: you
-  see the lane's place in the run, its checkpoint and its transitions without spending anything.
+- Give the scripted agent in `.factor/local.json` a script for the new lane (`init` wrote one for `plan` and
+  `build` under `author`, and for `review` and `test` under the other two roles) and run a task: you see the
+  lane's place in the run, its checkpoint and its transitions without spending anything.
 - Then bind a real login, and keep the checkpoint at `in` until the lane has a record.

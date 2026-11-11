@@ -54,15 +54,19 @@ git add -A && git commit -m "a factory"
 softwarefactor run
 softwarefactor inbox
 softwarefactor approve <run>
+softwarefactor inbox
+softwarefactor approve <run>
 softwarefactor runs
 ```
 <!-- quick-start:end -->
 
-`softwarefactor init` writes `.factor/` with a one-lane workflow and a first task, "Say hello". `softwarefactor
-run` takes the task through the lane: the scripted agent commits a file, the gates check that commit, and the
-run waits for you (exit code 3 means "waits", not "failed"). `softwarefactor inbox` shows the run's id. Put it in
-place of `<run>`. After the approval the run is done, and `softwarefactor runs` says so. The agent's commit is on
-the run's own branch (`git branch` shows it): the starter workflow has no lane that merges.
+`softwarefactor init` writes `.factor/` with a workflow of five lanes, Plan, Build, Review, Test and Ship, and a
+first task, "Say hello". `softwarefactor run` takes the task through the Plan lane: the scripted agent writes a
+plan, and the run waits for you (exit code 3 means "waits", not "failed"). `softwarefactor inbox` shows the run's
+id. Put it in place of `<run>`. The first approval is of the plan: Build, Review and Test run, the gates check
+the commit Build left, and the run waits again before Ship. The second approval lets Ship merge the run's branch
+into the branch you started from, on your machine and with nothing pushed. Then the run is done, `softwarefactor
+runs` says so, and `FACTOR-HELLO.md` is in your project.
 
 Then look at it:
 
@@ -85,8 +89,8 @@ softwarefactor account add codex --agent codex --profile ~/.codex
 softwarefactor role bind author --account work --large opus --medium sonnet
 ```
 
-The workflow that `init` writes has one role, `author`. A workflow with a second role, such as `reviewer` in
-`alleo-loop`, is bound the same way, and works best on a login of another vendor.
+The workflow that `init` writes has three roles: `author`, `reviewer` and `tester`. `reviewer` and `tester` are
+bound the same way as `author`, and may share a login; the review works best on a login of another vendor.
 
 Write tasks as open boxes in `.factor/tasks.md`, or collect them from GitHub issues, a schedule or an MCP server
 ([collectors](docs/collectors.md)). More in [accounts, roles and the guard](docs/accounts.md).

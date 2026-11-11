@@ -26,6 +26,7 @@ mkdir -p "$work/demo-shop" && cd "$work/demo-shop" || fail "no work folder"
 git init -q -b main && git config user.email t@example.com && git config user.name T
 echo "# demo" > README.md && git add -A && git commit -q -m initial
 sf init > /dev/null || fail "init"
+one_lane
 node -e 'const fs = require("fs"); const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.commands.verify = "true"; fs.writeFileSync(".factor/factory.json", JSON.stringify(f, null, 2));'
 printf -- '- [ ] First\n- [ ] Second\n' > .factor/tasks.md
 git add -A && git commit -q -m "a factory"

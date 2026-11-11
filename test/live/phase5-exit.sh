@@ -7,9 +7,10 @@ set -u
 here=$(cd "$(dirname "$0")/../.." && pwd)
 work=$(mktemp -d)
 fail() { echo "FAIL: $*"; exit 1; }
+. "$here/test/fixtures/one-lane.sh"
 [ -f "$here/dist/cli.js" ] || fail "build first: pnpm run build"
 sf() { node "$here/dist/cli.js" "$@"; }
-repo() { mkdir -p "$1" && cd "$1" && git init -q -b main && git config user.email t@example.com && git config user.name T && echo "# $1" > README.md && git add -A && git commit -q -m initial && sf init > /dev/null; }
+repo() { mkdir -p "$1" && cd "$1" && git init -q -b main && git config user.email t@example.com && git config user.name T && echo "# $1" > README.md && git add -A && git commit -q -m initial && sf init > /dev/null && one_lane; }
 edit() { node -e 'const fs = require("fs"); const [f, code] = process.argv.slice(1); const j = JSON.parse(fs.readFileSync(f)); new Function("j", code)(j); fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");' "$@"; }
 
 echo "== 1. a plugin installs with softwarefactor add"

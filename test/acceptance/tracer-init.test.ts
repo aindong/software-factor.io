@@ -22,6 +22,7 @@ describe("softwarefactor init", () => {
     const factory = repo.json<{ workflow: string; commands: Record<string, string> }>(".factor/factory.json");
     expect(factory.workflow).toBe("starter");
     expect(typeof factory.commands.verify).toBe("string");
+    expect(typeof factory.commands.ship).toBe("string");
   });
 
   it("writes a workflow that passes the checker", () => {

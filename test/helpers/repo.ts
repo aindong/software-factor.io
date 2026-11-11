@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { oneLane } from "./one-lane.ts";
 
 const CLI = resolve("src/cli.ts");
 
@@ -77,6 +78,7 @@ export function readyRepo(options: { verify: string; script: unknown[]; task?: s
   const repo = makeRepo();
   const init = repo.sf("init");
   if (init.status !== 0) throw new Error(`init failed: ${init.stdout}${init.stderr}`);
+  oneLane(repo);
   const factory = repo.json<{ commands: Record<string, string> }>(".factor/factory.json");
   factory.commands.verify = options.verify;
   repo.write(".factor/factory.json", `${JSON.stringify(factory, null, 2)}\n`);

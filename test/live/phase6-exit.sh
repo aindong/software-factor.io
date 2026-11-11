@@ -8,6 +8,7 @@ here=$(cd "$(dirname "$0")/../.." && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fail() { echo "FAIL: $*"; exit 1; }
+. "$here/test/fixtures/one-lane.sh"
 [ -f "$here/dist/cli.js" ] || fail "build first: pnpm run build"
 sf() { node "$here/dist/cli.js" "$@"; }
 edit() { node -e 'const fs = require("fs"); const [f, code] = process.argv.slice(1); const j = JSON.parse(fs.readFileSync(f)); new Function("j", code)(j); fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");' "$@"; }
@@ -40,6 +41,7 @@ mkdir -p "$work/shop" && cd "$work/shop" || fail "no work folder"
 git init -q -b main && git config user.email t@example.com && git config user.name T
 echo "# shop" > README.md && git add -A && git commit -q -m initial
 sf init > /dev/null || fail "init"
+one_lane
 edit .factor/factory.json 'j.ladder = { runs: 2 }; j.commands.verify = "true"'
 # the scripted agent says what it used, so that there is something to add up
 edit .factor/local.json 'const s = j.roles.author.script; for (const lane of Object.keys(s)) s[lane] = [{ usage: { tokens: 1234, usd: 0.05 } }, ...s[lane]];'
