@@ -22,7 +22,16 @@ export function Stop({ state }: { state: StopState }) {
   return <circle className={`stop ${state}`} r={state === "pass" ? 4.5 : 3.5} />;
 }
 
-export function Strip({ track, nameOf }: { track: Track; nameOf: (id: string) => string }) {
+export function Strip({
+  track,
+  nameOf,
+  working,
+}: {
+  track: Track;
+  nameOf: (id: string) => string;
+  /** Work is going on in the lane the train is on. */
+  working?: boolean;
+}) {
   const width = PAD * 2 + Math.max(0, track.lanes.length - 1) * GAP;
   const at = track.lanes.findIndex((l) => l.id === track.here);
   const said = track.lanes
@@ -33,7 +42,14 @@ export function Strip({ track, nameOf }: { track: Track; nameOf: (id: string) =>
       <title>{said}</title>
       <path className="way" d={`M${PAD} ${MID}H${width - PAD}`} />
       {at >= 0 ? (
-        <rect className="train" x={PAD + at * GAP - 8} y={MID - 7} width="16" height="14" rx="7" />
+        <rect
+          className={`train${working ? " working" : ""}`}
+          x={PAD + at * GAP - 8}
+          y={MID - 7}
+          width="16"
+          height="14"
+          rx="7"
+        />
       ) : null}
       {track.lanes.map((lane, i) => (
         <g key={lane.id} transform={`translate(${PAD + i * GAP} ${MID})`}>

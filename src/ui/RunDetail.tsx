@@ -12,7 +12,7 @@ import { DiffView, FileView, PairView, Proof } from "./Evidence.tsx";
 import { go } from "./route.ts";
 import { STATE_WORD } from "./Strip.tsx";
 import { TranscriptView } from "./Transcript.tsx";
-import { ago, cost, span, tokens } from "./words.ts";
+import { ago, cost, span, standing, tokens } from "./words.ts";
 
 const OUTCOME = { pass: "pass", fail: "fail", needsPerson: "asked" } as const;
 const stateOf = (outcome: keyof typeof OUTCOME | null) => (outcome ? OUTCOME[outcome] : "here");
@@ -137,9 +137,15 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
         </h2>
         {/* in the inbox the decision bar above says this already */}
         {deciding ? null : (
-          <p className="sentence" role="status">
-            {row.sentence}
-          </p>
+          <>
+            <p className="state">
+              <span className={`mark ${standing(row).mark}`} aria-hidden="true" />
+              <b>{standing(row).word}</b>
+            </p>
+            <p className="sentence" role="status">
+              {row.sentence}
+            </p>
+          </>
         )}
         <dl className="facts data">
           <div>
@@ -224,6 +230,9 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                         lane: track.here,
                         label: String(row.taskId),
                         title: `${row.task}. ${row.sentence}`,
+                        // the line moves only at the last step of a run that is working
+                        working: step === total && row.status === "running",
+                        visits: row.visits,
                         // yellow while it waits for a person, as on the floor, and only at the last step
                         asks:
                           step === total &&

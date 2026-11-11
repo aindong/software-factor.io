@@ -86,7 +86,7 @@ describe("a run over the map", () => {
 describe("the words of a row", () => {
   const row = (status: RunRow["status"], stopCode: string | null) => ({ status, stopCode }) as RunRow;
   it.each([
-    [row("running", null), "moving", "Moving"],
+    [row("running", null), "working", "Working"],
     [row("waiting", "awaiting_approval"), "asked", "Waits for you"],
     [row("waiting", "needs_person"), "asked", "Waits for you"],
     [row("waiting", "waiting"), "moving", "Waits by itself"],

@@ -132,14 +132,12 @@ components:
 
 **Creative North Star: "The Line Diagram"**
 
-The record of what shipped in plan task 17. The signature move: the line diagram. Every value is read from
-`src/ui/tokens.css` and the style sheets beside it. `test/unit/design-record.test.ts` checks it against the code.
+The record of what shipped. The signature move: the line diagram. Every value is read from `src/ui/tokens.css`
+and the style sheets beside it. `test/unit/design-record.test.ts` checks it against the code.
 
 The floor is drawn the way a transit authority draws a network. A lane is a station, a transition is a line,
 each outcome has its own line colour, a task is a numbered train, a gate is a short bar on the line after its
-station. The same notation shrinks into a strip map wherever a run is listed. The map is white by day ("map
-white") and deep blue at night ("night map"). The theme follows the system, and the button at the foot of the
-rail switches between Auto, Light and Dark.
+station. The same notation shrinks into a strip map wherever a run is listed. The map is white by day and deep blue at night. The theme follows the system; the rail's foot button switches Auto, Light, Dark.
 
 **Key Characteristics:**
 
@@ -197,7 +195,7 @@ must be seen: at least 3:1 on ground and on panel.
 
 **The Contrast Rule.** `test/unit/contrast.test.ts` holds the palette in both themes to 4.5:1 for text and 3:1
 for shapes and lines. Two things are deliberately not held to it: the text of a disabled control (end grey),
-and the lines and end marks of the workflow that step back to opacity 0.28 while a run is drawn over the map. Their labels and names do not fade: they turn end grey, which still reads at 3 to 1.
+and the lines and end marks that step back to opacity 0.28 while a run is drawn over the map. Their labels turn end grey, which still reads at 3 to 1.
 
 ## Typography
 
@@ -241,7 +239,7 @@ list, a detail, a plain page. The page never scrolls.
 | `--md` | `12px` | The sides of a button. The padding of a screen under 1000px. |
 | `--lg` | `16px` | Between groups. The padding of the inspector and the top bar. |
 | `--xl` | `24px` | Between the parts of a run or a page, and their side padding. |
-| `--row` | `28px` | The height of a control and of a table row. It is 44px under 760px. |
+| `--row` | `28px` | The height of a control and of a table row. 44px under 760px. |
 | `--control` | `4px` | The radius of a control. |
 
 - **Above 1000px.** The floor is the map with a 360px inspector beside it. Runs and Inbox are a list (320px to
@@ -253,28 +251,29 @@ list, a detail, a plain page. The page never scrolls.
 - **Under 760px.** The rail is a bar along the bottom. Controls are 44px high. Tables fit the width: nothing scrolls
   sideways but the map and a diff.
 
-The map never reflows. It is laid out from the workflow (124px between stations, 28px between tracks) and
+The map never reflows: it is laid out from the workflow (124px between stations, 28px between tracks) and
 scrolls both ways in its own box. A run's map, which is only read, is drawn smaller to fit its box, down to
 seven tenths of its size, and scrolls after that.
 
 ### Not built
 
-- **The strip of running runs along the bottom of the floor**, from the original direction. The Runs section
-  is that list. On the floor, "Runs on map" puts a numbered train on the lane of each moving or waiting run.
-- **A time scrubber in that strip.** It is the "Replay" control under a run's map: a standard range input that
-  steps through the run with the arrow keys.
-- **Sizes that follow the default font.** The rail, the inspector and the map's label offsets are in px. Page
-  zoom works. A larger default font (not zoom) breaks the map. Open: critique finding F18, declined this pass.
+- **The strip of running runs along the bottom of the floor.** The Runs section is that list, and "Runs on map"
+  puts a numbered train on the lane of each working or waiting run.
+- **A time scrubber in that strip.** It is the "Replay" range input under a run's map.
+- **Sizes that follow the default font.** The rail, the inspector and the map's label offsets are in px. Page zoom
+  works; a larger default font breaks the map.
 
 ## Elevation & Depth
 
-Flat, like print: panel tone and 1px rules. The one shadow (`--shadow`) is under the
-inspector when it is a sheet over the map. Nothing else has one.
+Flat, like print: panel tone and 1px rules. The one shadow (`--shadow`) is under the inspector when it is a sheet. Nothing else has one.
 
 ### Named Rules
 
-**The State Steps Rule.** Nothing fades or slides. The style sheets hold no transition and no animation. A
-train is drawn at its lane, and Replay moves it one step at a time.
+**The State Steps Rule.** Motion has one meaning: work is going on right now, in a lane an agent or a gate is
+working in. Only that moves, slowly and a little (`transform`, `opacity`, `stroke-dashoffset`). Every other
+change is a step: nothing fades or slides, and no style sheet holds a transition. Each animation is named
+`at-work-…` and sits in `working.css` inside `@media (prefers-reduced-motion: no-preference)`; under reduced
+motion the same mark stands still. A run that waits, is stopped or is done does not move; Replay steps a train.
 
 ## Shapes
 
@@ -295,7 +294,9 @@ A station is a ground disc (11px radius) with a 3px ink outline. On a run's map 
 of what the run did there, with a mark inside. The ends have no outline: "Done" is blue with a tick, "Stopped"
 is grey with a bar, the inbox end is yellow with a 1.5px ink outline. A station the workflow lacks is outlined
 in dashed vermilion. One with a problem carries an 8px vermilion diamond. A train is an ink capsule, 34px by
-18px, with the task's number. A train that waits is yellow with an ink outline.
+18px, with the task's number. A train that waits is yellow with an ink outline. Where work is going on, the station has a thin ink ring that
+breathes, and the line the task came along has 2px ground dashes that run the way it goes. A
+working run's mark is a ring with a dot, and the rail's Runs item carries it while any run works.
 
 | Radius | Where |
 | --- | --- |

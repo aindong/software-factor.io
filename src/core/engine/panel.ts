@@ -257,8 +257,6 @@ export async function runPanel(
         : asks
           ? "needsPerson"
           : "fail";
-  const said = verdicts.map((v) => `${v.id}${v.advisory ? " (advises)" : ""}: ${v.outcome}. ${v.summary}`);
-
   // Lists are joined in the order of the members. Anything else comes from one member: a deciding
   // one that agrees with the verdict before any other, so a member that lost cannot steer what follows.
   const byWeight = [
@@ -266,6 +264,8 @@ export async function runPanel(
     ...deciding.filter((v) => v.outcome !== outcome),
     ...verdicts.filter((v) => v.advisory),
   ];
+  // the lane's note and the run's one sentence are cut where they get long: who made the verdict comes first
+  const said = byWeight.map((v) => `${v.id}${v.advisory ? " (advises)" : ""}: ${v.outcome}. ${v.summary}`);
   const outputs: Record<string, unknown> = {};
   for (const [name, declared] of Object.entries(lane.outputs ?? {})) {
     const from = declared.type === "array" ? verdicts : byWeight;

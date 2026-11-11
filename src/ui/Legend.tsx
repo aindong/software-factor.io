@@ -10,6 +10,8 @@ export const trainsOf = (runs: RunRow[], workflow: string | undefined) =>
       lane: r.at ?? "",
       label: String(r.taskId),
       title: `${r.task}. ${r.sentence}`,
+      working: r.status === "running",
+      visits: r.visits,
       asks: r.stopCode === "awaiting_approval" || r.stopCode === "needs_person",
       // a train leads to its run, and to the inbox when the run waits for a person
       href: `${r.stopCode === "awaiting_approval" || r.stopCode === "needs_person" ? "/inbox" : "/runs"}/${r.id}`,
@@ -33,6 +35,10 @@ export function Legend() {
       <span>
         <i className="end" />
         ends the run
+      </span>
+      <span>
+        <i className="work" />
+        work is going on
       </span>
       <span>
         <i className="cond" />

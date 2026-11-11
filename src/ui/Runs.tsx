@@ -52,7 +52,7 @@ export function Runs() {
     const moving = all.filter((r) => r.status === "running").length;
     return [
       yours ? `${yours} ${yours === 1 ? "waits" : "wait"} for you` : "",
-      moving ? `${moving} moving` : "",
+      moving ? `${moving} working` : "",
       `${all.length} shown`,
     ]
       .filter(Boolean)
@@ -145,11 +145,18 @@ export function Runs() {
                     <span className="number data">{run.taskId}</span> {run.task || run.id}
                   </span>
                   <span className="when data">{ago(run.startedAt)}</span>
-                  <Strip track={track} nameOf={(id) => names.get(id) ?? id} />
+                  <Strip
+                    track={track}
+                    nameOf={(id) => names.get(id) ?? id}
+                    working={stands.mark === "working"}
+                  />
                   <span className="spent data">
                     {run.tokens > 0 ? `${tokens(run.tokens)}, ${cost(run.usd, run.usdUnknown)}` : ""}
                   </span>
-                  <span className="sentence">{run.sentence}</span>
+                  <span className="sentence">
+                    {stands.mark === "working" ? <b className="now">{stands.word}</b> : null}
+                    {run.sentence}
+                  </span>
                 </div>
               );
             })}

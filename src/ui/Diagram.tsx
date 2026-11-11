@@ -5,7 +5,7 @@
 // took, and a train where each run is. Without `onConnect` the map is only read.
 import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from "react";
 import type { Floor, Line, Outcome, Point, Station } from "../core/floor/layout.ts";
-import type { StopState } from "../core/runs/track.ts";
+import { type StopState, travelledOf, type Visit } from "../core/runs/track.ts";
 
 const BEND = 12;
 const WORD: Record<Outcome, string> = { pass: "pass", fail: "fail", needsPerson: "asks" };
@@ -62,7 +62,7 @@ function headOf(points: Point[]): string {
   return `M${cx + ux * 3} ${cy + uy * 3}L${cx - ux * 2 - uy * 2.5} ${cy - uy * 2 + ux * 2.5}L${cx - ux * 2 + uy * 2.5} ${cy - uy * 2 - ux * 2.5}Z`;
 }
 
-function LineView({ line, lit }: { line: Line; lit: boolean }) {
+function LineView({ line, lit, flows }: { line: Line; lit: boolean; flows: boolean }) {
   const d = pathOf(line.points);
   const toEnd = line.to === "@stop" || line.to === "@drop";
   const track = line.points.length > 2 ? { start: line.points[2], end: line.points[3] } : undefined;
@@ -79,6 +79,7 @@ function LineView({ line, lit }: { line: Line; lit: boolean }) {
         className={`line ${line.outcome}${toEnd ? " to-end" : ""}${line.conditional ? " conditional" : ""}${lit ? " lit" : ""}`}
         d={d}
       />
+      {flows ? <path className="flow" d={d} /> : null}
       {line.conditional ? null : <path className="head" d={headOf(line.points)} />}
       {track?.start ? (
         <text
@@ -112,13 +113,20 @@ export interface Train {
   title: string;
   /** The run waits for a person here. */
   asks?: boolean;
+  /** Work is going on in the lane now: an agent or a gate is working. */
+  working?: boolean;
+  /** The lanes its run has been in, to find the line it came along. */
+  visits?: Visit[];
   /** Where the train leads: its run, or the inbox when it waits for a person. */
   href?: string;
 }
 /** A run on the map: a capsule with the task's number, beside the station it is at. */
 function TrainMark({ train, y }: { train: Train; y: number }) {
   return (
-    <g className={`train${train.asks ? " asks" : ""}`} transform={`translate(0 ${y})`}>
+    <g
+      className={`train${train.asks ? " asks" : ""}${train.working ? " working" : ""}`}
+      transform={`translate(0 ${y})`}
+    >
       <title>{train.title}</title>
       <rect x="-17" y="-9" width="34" height="18" rx="9" />
       <text y="4" textAnchor="middle">
@@ -174,6 +182,10 @@ export function Diagram({
   const nodes = useRef(new Map<string, SVGGElement>());
   const byKeys = useRef(false);
   const [drag, setDrag] = useState<{ from: string; outcome: "pass" | "fail"; x: number; y: number }>();
+  // the line a working run came along carries dashes in the way it goes
+  const flowing = new Set(
+    trains.filter((t) => t.working && t.visits).map((t) => travelledOf(floor.lines, t.visits ?? [])),
+  );
   const order = [...floor.stations].sort((a, b) => a.x - b.x);
   const tabStop = selected && order.some((s) => s.id === selected) ? selected : order[0]?.id;
 
@@ -238,7 +250,12 @@ export function Diagram({
       onClick={(event) => event.target === svg.current && onSelect(undefined)}
     >
       {floor.lines.map((line) => (
-        <LineView key={line.key} line={line} lit={route?.has(line.key) ?? false} />
+        <LineView
+          key={line.key}
+          line={line}
+          lit={route?.has(line.key) ?? false}
+          flows={flowing.has(line.key)}
+        />
       ))}
       {floor.stations.flatMap((s) =>
         s.gates.map((gate, k) => (
@@ -276,7 +293,7 @@ export function Diagram({
         const about =
           s.kind === "end"
             ? `${s.label}, an end of the run`
-            : `Lane ${s.label}${sub ? `, ${sub}` : ""}${capsule ? ", waits for a person" : ""}${flagged.has(s.id) ? ", has problems" : ""}${ran ? `, ${ran.word}` : ""}${here.map((t) => `, task ${t.label} is here`).join("")}`;
+            : `Lane ${s.label}${sub ? `, ${sub}` : ""}${capsule ? ", waits for a person" : ""}${flagged.has(s.id) ? ", has problems" : ""}${ran ? `, ${ran.word}` : ""}${here.map((t) => `, task ${t.label} is here${t.working ? " and working" : ""}`).join("")}`;
         return (
           // biome-ignore lint/a11y/useSemanticElements: a station is drawn in SVG, where there is no button element
           <g
@@ -285,7 +302,7 @@ export function Diagram({
               if (node) nodes.current.set(s.id, node);
               else nodes.current.delete(s.id);
             }}
-            className={`station ${s.kind}${s.kind === "end" ? ` ${END_CLASS[s.id] ?? ""}` : ""}${s.missing ? " missing" : ""}${flagged.has(s.id) ? " bad" : ""}${ran ? ` ran-${states?.[s.id]}` : ""}${far ? " far" : ""}`}
+            className={`station ${s.kind}${s.kind === "end" ? ` ${END_CLASS[s.id] ?? ""}` : ""}${s.missing ? " missing" : ""}${flagged.has(s.id) ? " bad" : ""}${ran ? ` ran-${states?.[s.id]}` : ""}${far ? " far" : ""}${here.some((t) => t.working) ? " working" : ""}`}
             transform={`translate(${s.x} ${s.y})`}
             role="button"
             tabIndex={s.id === tabStop ? 0 : -1}
@@ -295,6 +312,13 @@ export function Diagram({
             onDoubleClick={() => onOpen?.(s.id)}
             onKeyDown={(event) => onKey(event, s)}
           >
+            {here.some((t) => t.working) ? (
+              capsule ? (
+                <rect className="pulse" x="-31" y="-22" width="62" height="44" rx="22" />
+              ) : (
+                <circle className="pulse" r="22" />
+              )
+            ) : null}
             {capsule ? (
               <rect className="ring" x="-26" y="-17" width="52" height="34" rx="17" />
             ) : (

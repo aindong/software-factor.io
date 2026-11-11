@@ -107,6 +107,7 @@ export function App() {
   // how many runs wait for a person: shown on the rail, in the colour of what a person can act on
   const { runs } = useRuns();
   const waits = hasKey ? (runs ?? []).filter((r) => standing(r).mark === "asked").length : 0;
+  const working = hasKey ? (runs ?? []).filter((r) => standing(r).mark === "working").length : 0;
   const nextTheme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? "auto";
   useEffect(() => showInTab(section.name, waits), [section.name, waits]);
 
@@ -130,6 +131,9 @@ export function App() {
             {s.name}
             {s.path === "/" && unsaved ? (
               <span className="unsaved" role="img" aria-label=", not saved" />
+            ) : null}
+            {s.path === "/runs" && working > 0 ? (
+              <span className="mark working live" role="img" aria-label={`${working} working`} />
             ) : null}
             {s.path === "/inbox" && waits > 0 ? (
               <span className="count">
