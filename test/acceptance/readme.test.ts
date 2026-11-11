@@ -29,8 +29,8 @@ it("binds only a role the starter workflow has, and quotes the path of its alias
     readme.indexOf("## The workflows that ship"),
   );
   const bound = [...real.matchAll(/softwarefactor role bind ([a-z]+)/g)].map((m) => m[1]);
-  expect(bound).toEqual(["author"]); // `init` writes one role: binding another fails
-  expect(real).toMatch(/reviewer/); // and the second role is named for the workflows that have one
+  expect(bound).toEqual(["author"]); // the other two roles are said to be bound the same way
+  expect(real).toMatch(/`reviewer` and `tester`/); // `init` writes all three, and a role the workflow lacks fails to bind
 });
 
 it("has a quick start between its two markers, and holds no path of one machine", () => {
@@ -44,6 +44,8 @@ it("has a quick start between its two markers, and holds no path of one machine"
     "softwarefactor approve <run>",
   ])
     expect(block, line).toContain(line);
+  // the starter has two checkpoints at `in`, so the quick start approves twice
+  expect(block.match(/softwarefactor approve <run>/g)).toHaveLength(2);
   expect(readme).not.toMatch(/\/Volumes\/|\/Users\/|\/home\/[a-z]/);
 });
 

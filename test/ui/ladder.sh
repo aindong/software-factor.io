@@ -38,11 +38,12 @@ open_lane() { # the keyboard to the map, along it to the lane, Enter opens it
   wait_for "the lane is open" "() => document.querySelector('.inspector h2').textContent" "^Lane $1"
 }
 
-# ---- a workspace whose Work lane waits for a person, and a step up after two clean runs
+# ---- a workspace (the one-lane workflow) whose Work lane waits for a person, and a step up after two clean runs
 mkdir -p "$work/demo-shop" && cd "$work/demo-shop" || fail "no work folder"
 git init -q -b main && git config user.email t@example.com && git config user.name T
 echo "# demo" > README.md && git add -A && git commit -q -m initial
 sf init > /dev/null || fail "init"
+one_lane
 edit .factor/factory.json 'j.ladder = { runs: 2 }; j.commands.verify = "true"'
 printf -- '- [ ] First\n- [ ] Second\n- [ ] Third\n- [ ] Fourth\n' > .factor/tasks.md
 git add -A && git commit -q -m "a factory"
