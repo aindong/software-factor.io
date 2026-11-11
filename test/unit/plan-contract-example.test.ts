@@ -13,7 +13,8 @@ function messageOf(plan: string): string {
   writeFileSync(join(root, "plan.md"), plan);
   return planMessage(planProblems(root, "plan.md"), "plan.md");
 }
-const GOOD = "# P\n\n## Acceptance criteria\n\n1. It adds.\n\n## Verification contract\n\n- 1: test:a.test.js\n";
+const GOOD =
+  "# P\n\n## Acceptance criteria\n\n1. It adds.\n\n## Verification contract\n\n- 1: test:a.test.js\n";
 const BAD = "# P\n\n## Acceptance criteria\n\n1. It adds.\n\n## Verification contract\n\n- 1: later\n";
 
 describe("the plan check message", () => {
@@ -28,7 +29,9 @@ describe("the plan check message", () => {
   });
 
   it("gives the example for every kind of problem, such as a missing heading", () => {
-    expect(messageOf("# P\n\n1. It adds.\n")).toMatch(/\n## Verification contract\n- 1: test:\S+\n- 2: cmd:.+\n$/);
+    expect(messageOf("# P\n\n1. It adds.\n")).toMatch(
+      /\n## Verification contract\n- 1: test:\S+\n- 2: cmd:.+\n$/,
+    );
   });
 
   it("leaves the example out of a passing plan's message", () => {

@@ -89,6 +89,18 @@ export function planProblems(root: string, planPath: string): string[] {
   return problems;
 }
 
+/** A valid "Verification contract" section, shown at the end of a failing message. */
+const PLAN_EXAMPLE = "## Verification contract\n- 1: test:test/unit/example.test.ts\n- 2: cmd:pnpm test\n";
+
+/** The gate's message for the problems of the plan `planPath`: a failing one ends with `PLAN_EXAMPLE`. */
+export function planMessage(problems: string[], planPath: string): string {
+  if (problems.length === 0) return `The plan "${planPath}" gives each acceptance criterion one check.\n`;
+  return (
+    `The plan has ${problems.length} problem${problems.length === 1 ? "" : "s"}:\n\n${problems.join("\n")}\n\n` +
+    `A valid "Verification contract" section looks like this:\n\n${PLAN_EXAMPLE}`
+  );
+}
+
 export async function planContractGate(g: GateJob) {
   const started = Date.now();
   const name = typeof g.settings.output === "string" ? g.settings.output : "plan";
@@ -97,9 +109,5 @@ export async function planContractGate(g: GateJob) {
   const problems = planPath
     ? planProblems(root, planPath)
     : [`The lane handed off no output "${name}", so there is no plan to check.`];
-  const text =
-    problems.length > 0
-      ? `The plan has ${problems.length} problem${problems.length === 1 ? "" : "s"}:\n\n${problems.join("\n")}\n`
-      : `The plan "${planPath}" gives each acceptance criterion one check.\n`;
-  return record(g, problems.length === 0, text, started);
+  return record(g, problems.length === 0, planMessage(problems, planPath), started);
 }
