@@ -7,7 +7,7 @@ under it are its body.
   `softwarefactor --version` and `softwarefactor version` print the version from package.json on one line
   and exit 0. They work outside a git repository and in the built command (`dist/cli.js`). The help lists
   the command. No new dependency.
-- [ ] `softwarefactor cost --json` prints the report as JSON
+- [x] `softwarefactor cost --json` prints the report as JSON
   `softwarefactor cost --json` prints exactly what the `costs` operation returns, as one JSON document on
   stdout and nothing else. With no sessions it prints the same shape with empty lists. `--json` together
   with `--check` is refused with a clear message and exit 1. `docs/costs.md` and the help say so.
@@ -23,3 +23,16 @@ under it are its body.
   A file written by `softwarefactor eval --break <gate> --save <file>` is no result to compare with. Given such
   a file, `--compare` says which gate it was saved with, runs no case, and exits 1. A file saved without
   `--break` compares as before. `docs/evals.md` says so.
+- [ ] `softwarefactor requeue <run>` puts a stopped task back in the queue
+  A run that stopped leaves its task stopped for good: the only way to try again is to write the task anew.
+  `softwarefactor requeue <run>` sets the task of a stopped or dropped run back to queued, so the next
+  `softwarefactor run` takes it in a new run on a new branch. The old run and its record stay as they are. It
+  refuses a run that is still working or waiting, a run that ended done, and a task that is already queued,
+  each with a clear message and exit 1. It is refused inside a run, like the other commands that change the
+  factory. The help and `docs/operations.md` say so, and the operation is in the operations table.
+- [ ] `softwarefactor --version` prints the version (second try)
+  `softwarefactor --version` and `softwarefactor version` print the version from package.json on one line
+  and exit 0. They work outside a git repository and in the built command (`dist/cli.js`). The help lists
+  the command. No new dependency. The first run of this task stopped on a fault of the factory, with its
+  work unreviewed on the branch `factor/print-the-version-with-softwarefactor-ve-c5aef240`: read that
+  branch before you plan, and take from it what is right.
