@@ -4,6 +4,7 @@ import { memorySection, notesSection, proposedNotes, readMemory } from "../memor
 import type { Lane } from "../schema/workflow.ts";
 import { oneLine } from "../text.ts";
 import type { Ctx } from "./lane.ts";
+import { reachSection } from "./reach.ts";
 import { valueAt } from "./transition.ts";
 
 export const HANDOFF = "hand-off"; // a rejected hand-off goes back to the agent like a failed repair gate
@@ -42,6 +43,8 @@ export function promptFor(
   const parts = [ctx.ws.prompts[lane.id] ?? "", task];
   const inputs = Object.entries(inputsOf(ctx, lane));
   if (inputs.length > 0) parts.push(`# Inputs\n\n${inputs.map(([k, v]) => `${k}: ${v}`).join("\n")}`);
+  const reach = reachSection(ctx.ws.workflow, lane);
+  if (reach) parts.push(reach);
   const memory = memorySection(readMemory(ctx.ws.factorDir));
   if (memory) parts.push(memory);
   const left = notesSection(proposedNotes(ctx.db, ctx.run.id));

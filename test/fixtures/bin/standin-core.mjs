@@ -33,6 +33,15 @@ export async function standin(kind) {
   const argv = process.argv.slice(2);
   const cdAt = argv.indexOf("-C");
   if (cdAt >= 0) process.chdir(argv[cdAt + 1]);
+  if (kind === "claude" && argv[0] === "mcp" && argv[1] === "list") {
+    // `claude mcp list`: no model call, one line for each server of the profile (plan.mcpList)
+    const file = join(profile, "standin.json");
+    const list = (existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {}).mcpList ?? {};
+    appendFileSync(join(profile, "mcp-list.jsonl"), `${JSON.stringify({ argv })}\n`);
+    if (list.exit) process.stderr.write("claude mcp list: failed\n");
+    else process.stdout.write(list.out ?? "");
+    process.exit(list.exit ?? 0);
+  }
   const stdin = process.stdin.isTTY ? "" : readFileSync(0, "utf8");
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => KEPT.test(k)));
   appendFileSync(

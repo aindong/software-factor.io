@@ -2,7 +2,7 @@
 // the workflow is still valid (a lane's agent can use it), and collecting says what to change.
 import { expect, it } from "vitest";
 import { edit, tasks } from "../helpers/collect.ts";
-import { commandLane, flowRepo } from "../helpers/repo.ts";
+import { agentLane, commandLane, flowRepo } from "../helpers/repo.ts";
 
 it.each([
   ["profile", { from: "profile" }],
@@ -11,6 +11,8 @@ it.each([
   const repo = flowRepo({ lanes: [commandLane("build", "true")], tasks: "- [ ] From the file\n" });
   edit(repo, (w) => {
     w.mcp = { atlassian: server };
+    // a profile server is declared for a lane's agent to use
+    if (server.from === "profile") w.lanes = [agentLane("build", { agent: { servers: ["atlassian"] } })];
     w.collectors = [
       {
         id: "tickets",

@@ -1,6 +1,7 @@
 // One start of one agent on a lane: a fresh folder of its own, its prompt on the record, the CLI
 // run to its end or to its time limit, and a session row for it. A lane and each member of a panel
 // start an agent the same way.
+
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { adapterFor, serverFor } from "../agents/index.ts";
@@ -12,6 +13,7 @@ import { clearServed } from "../served.ts";
 import * as store from "../store.ts";
 import type { Ctx } from "./lane.ts";
 import { handoffHelp } from "./prompt.ts";
+import { reachOf } from "./reach.ts";
 import { recordSession } from "./session.ts";
 
 export interface Started {
@@ -101,6 +103,7 @@ export async function startAgent(
         FACTOR_ACCESS: lane.agent?.access ?? "read",
         FACTOR_DEFAULT_BRANCH: currentBranch(ws.root),
       },
+      ...(account ? reachOf(ws.workflow, lane) : {}),
       protect: account ? protectedBranches(ws.root) : undefined,
       server: account ? serverFor(ws.root, run.id, lane.id, laneDir, account) : undefined,
       entry: at.entry,
