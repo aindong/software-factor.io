@@ -56,6 +56,8 @@ describe("the starter workflow", () => {
 
 describe("the first run", () => {
   const repo = makeRepo();
+  // a project with a test command, as the quick start has: `init` finds it for the verify gate
+  repo.write("package.json", '{ "name": "hello", "private": true, "scripts": { "test": "node --test" } }\n');
   expect(repo.sf("init").status).toBe(0);
   repo.git("add", "-A");
   repo.git("commit", "-q", "-m", "a factory");

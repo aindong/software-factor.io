@@ -34,16 +34,34 @@ function detectVerify(root: string): string {
   return NO_VERIFY;
 }
 
+// Delivers the run's branch into the branch the workspace is on, here on this machine. The title
+// comes from the environment, so no value is pasted into the line. Nothing is pushed.
+const SHIP =
+  'root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)") && branch=$(git rev-parse --abbrev-ref HEAD) && git -C "$root" merge --no-ff "$branch" -m "Merge $branch: $FACTOR_TASK_TITLE"';
+
+const plan = { plan: "plan.outputs.plan" };
+
 const STARTER = {
   $schema: SCHEMA_URL,
   version: 1,
   name: "starter",
   description:
-    "One lane: an agent does the task, then the host runs this project's verify command on the committed work.",
-  roles: { author: { description: "Does the task and commits the work." } },
-  limits: { minutes: 60, tokens: 4000000 },
+    "Plans, builds, reviews, tests and ships one task, with a person approving the plan and the ship.",
+  roles: {
+    author: { description: "Plans the task and writes the change." },
+    reviewer: {
+      description:
+        "Reads the change and tries to break it. Best on another vendor's login than the author's.",
+    },
+    tester: { description: "Tries the change the way its user would." },
+  },
+  limits: { minutes: 120, tokens: 8000000 },
   commands: {
     verify: { description: "Runs this project's checks on a clean checkout. Exits 0 only when they pass." },
+    ship: {
+      description:
+        "Delivers the change. As init writes it: merges the run's branch into the branch you started from, on this machine. Nothing is pushed.",
+    },
   },
   collectors: [{ id: "tasks", uses: "core/file@1", with: { path: ".factor/tasks.md" } }],
   gates: {
@@ -60,45 +78,107 @@ const STARTER = {
     verify: {
       uses: "core/command@1",
       with: { command: "verify" },
-      onFail: "fail",
+      onFail: "repair",
       description: "The project's own checks pass on the committed work.",
     },
   },
   lanes: [
     {
-      id: "work",
-      name: "Work",
+      id: "plan",
+      name: "Plan",
+      uses: "core/agent@1",
+      agent: {
+        role: "author",
+        access: "read",
+        prompt:
+          "Read the task below and the code it touches. Write a short plan: what will change, and how each part will be checked. Change no file. Where the task is unclear, choose, and say in the plan what you chose.",
+      },
+      outputs: { plan: { type: "string", required: true, description: "The plan, as text." } },
+      limits: { repairRounds: 1 },
+      checkpoint: "in",
+      on: { pass: "build", fail: "@stop" },
+    },
+    {
+      id: "build",
+      name: "Build",
       uses: "core/agent@1",
       agent: {
         role: "author",
         access: "write",
         prompt:
-          "Do the task below. Commit your work. In your hand-off, say what you changed and how it can be checked.",
+          "Do the task as the plan says. Add or change a test for what you change, where the project has tests. Commit your work. In your hand-off, say what you changed and how it can be checked. If you are here because a later lane failed, fix what its hand-off lists and nothing else.",
       },
+      inputs: plan,
       gates: ["protected", "tests-kept", "verify"],
+      limits: { repairRounds: 2 },
+      checkpoint: "near",
+      on: { pass: "review", fail: "@stop" },
+    },
+    {
+      id: "review",
+      name: "Review",
+      uses: "core/agent@1",
+      agent: {
+        role: "reviewer",
+        access: "read",
+        prompt:
+          "Read the change against the task and the plan. Fail the lane only for a fault you can show, and say how to reproduce it.",
+      },
+      inputs: plan,
+      limits: { repairRounds: 1 },
+      checkpoint: "near",
+      on: { pass: "test", fail: [{ to: "build", maxRounds: 2 }, { to: "@stop" }] },
+    },
+    {
+      id: "test",
+      name: "Test",
+      uses: "core/agent@1",
+      agent: {
+        role: "tester",
+        access: "read",
+        prompt:
+          "Try the change the way its user would: run it, and try the cases the task names and the edges around them. Change no file. Fail the lane with the steps that show the fault.",
+      },
+      limits: { repairRounds: 1 },
+      checkpoint: "near",
+      on: { pass: "ship", fail: [{ to: "build", maxRounds: 1 }, { to: "@stop" }] },
+    },
+    {
+      id: "ship",
+      name: "Ship",
+      uses: "core/command@1",
+      with: { command: "ship" },
       checkpoint: "in",
       on: { pass: "@done", fail: "@stop" },
     },
   ],
 };
 
+const handoff = (summary: string, outputs?: Record<string, string>) => ({
+  handoff: { outcome: "pass", summary, ...(outputs ? { outputs } : {}) },
+});
+const fake = (script: Record<string, unknown[]>) => ({ adapter: "fake", script });
+
+// The scripted stand-in, so the first run costs nothing. A read-only lane writes and commits nothing.
 const LOCAL = {
   roles: {
-    author: {
-      adapter: "fake",
-      script: {
-        "*": [
-          {
-            write: {
-              path: "FACTOR-HELLO.md",
-              content: "Hello from the scripted agent. Bind a real agent in .factor/local.json.\n",
-            },
+    author: fake({
+      plan: [
+        handoff("Planned one new file.", { plan: "Add FACTOR-HELLO.md with one line, and commit it." }),
+      ],
+      build: [
+        {
+          write: {
+            path: "FACTOR-HELLO.md",
+            content: "Hello from the scripted agent. Bind a real agent in .factor/local.json.\n",
           },
-          { commit: "Say hello from the factory" },
-          { handoff: { outcome: "pass", summary: "Added FACTOR-HELLO.md." } },
-        ],
-      },
-    },
+        },
+        { commit: "Say hello from the factory" },
+        handoff("Added FACTOR-HELLO.md."),
+      ],
+    }),
+    reviewer: fake({ review: [handoff("Read the change: one new file, as planned.")] }),
+    tester: fake({ test: [handoff("Opened the file: it says hello.")] }),
   },
 };
 
@@ -141,7 +221,7 @@ export function init(cwd: string): InitResult {
     result.created.push(rel);
   };
   const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
-  write(".factor/factory.json", json({ version: 1, workflow: "starter", commands: { verify } }));
+  write(".factor/factory.json", json({ version: 1, workflow: "starter", commands: { verify, ship: SHIP } }));
   write(".factor/workflows/starter.json", json(STARTER));
   write(".factor/local.json", json(LOCAL));
   write(".factor/tasks.md", TASKS);
