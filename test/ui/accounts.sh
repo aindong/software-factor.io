@@ -33,11 +33,11 @@ fs.writeFileSync(".factor/local.json", JSON.stringify({ ...local, servers: { tra
 ' || fail "local.json"
 before=$(node -e 'const l = require("./.factor/local.json"); console.log(JSON.stringify([l.servers, l.roles.reviewer, l.roles.tester]))')
 
-# no select of the roles is narrower than its longest option's text, its padding and 12 px for its arrow
-cut='() => { const pen = document.createElement("canvas").getContext("2d"); return [...document.querySelectorAll(".roles select")].filter((s) => { const c = getComputedStyle(s); pen.font = c.font; const text = Math.max(...[...s.options].map((o) => pen.measureText(o.text).width)); return text + parseFloat(c.paddingLeft) + parseFloat(c.paddingRight) + 12 > s.clientWidth + 0.5; }).map((s) => s.getAttribute("aria-label")).join(" | ") || "none"; }'
+# no select of the roles is narrower than its longest option's text and its padding, the arrow's room among them
+cut='() => { const pen = document.createElement("canvas").getContext("2d"); return [...document.querySelectorAll(".roles select")].filter((s) => { const c = getComputedStyle(s); pen.font = c.font; const text = Math.max(...[...s.options].map((o) => pen.measureText(o.text).width)); return text + parseFloat(c.paddingLeft) + parseFloat(c.paddingRight) > s.clientWidth + 0.5; }).map((s) => s.getAttribute("aria-label")).join(" | ") || "none"; }'
 uncut() { expect "no select cuts its text off: $1" "$(js "$cut")" '^none$'; }
-# a select is drawn by the page, as the fields are: no native look, one chevron of its own.
-drawn='() => [...document.querySelectorAll(".roles select")].filter((s) => { const c = getComputedStyle(s); return c.appearance !== "none" || !/url|gradient|svg/.test(c.backgroundImage); }).map((s) => s.getAttribute("aria-label")).join(" | ") || "none"'
+# a select is drawn by the page, as the fields are: no native look, one chevron of its own with room left for it.
+drawn='() => [...document.querySelectorAll(".roles select")].filter((s) => { const c = getComputedStyle(s); return c.appearance !== "none" || parseFloat(c.paddingRight) < 24 || !/url|gradient|svg/.test(c.backgroundImage); }).map((s) => s.getAttribute("aria-label")).join(" | ") || "none"'
 # a role's description reads on at most two lines, and nothing of a row is outside the screen or cut off
 lay='() => { const bad = [...document.querySelectorAll(".roles tbody th .sub:first-of-type")].filter((d) => { const c = getComputedStyle(d); return d.getBoundingClientRect().height > 2 * (parseFloat(c.lineHeight) || 1.5 * parseFloat(c.fontSize)) + 1; }).map((d) => "description of " + d.closest("th").childNodes[0].textContent); for (const e of document.querySelectorAll(".roles select, .roles input")) if (e.scrollWidth > e.clientWidth || e.getBoundingClientRect().right > innerWidth) bad.push(e.getAttribute("aria-label")); return bad.join(" | ") || "none"; }'
 look() { expect "the selects are drawn by the page: $1" "$(js "$drawn")" '^none$'; }
