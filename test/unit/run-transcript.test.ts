@@ -1,7 +1,7 @@
 // What an agent did, read from the lines its CLI printed: Claude Code's and Codex's shapes, and
 // whatever else turns up. Every line here is written by hand.
 import { describe, expect, it } from "vitest";
-import { account } from "../../src/core/runs/transcript.ts";
+import { account, memberOf } from "../../src/core/runs/transcript.ts";
 
 const j = (...events: unknown[]) => events.map((e) => JSON.stringify(e)).join("\n");
 const use = (id: string, name: string, input: unknown) => ({
@@ -23,6 +23,7 @@ const claude = j(
   back("t2", [{ type: "text", text: "nope" }], true),
   { type: "assistant", message: { content: [{ type: "thinking", thinking: "" }] } },
   { type: "rate_limit_event", rate_limit_info: {} },
+  { type: "tool_progress", tool_use_id: "t1", elapsed_time_seconds: 30 },
   {
     type: "result",
     subtype: "success",
@@ -44,10 +45,14 @@ describe("an account of a Claude Code session", () => {
     expect(got.steps[3]).toMatchObject({ tokens: 20, usd: 0.15, error: false });
   });
   it("marks a result that was an error, whatever shape its content has", () => {
-    expect(got.steps[2]).toMatchObject({ tool: "Read", arg: "/w/x.ts", out: { error: true, lines: ["nope"] } });
+    expect(got.steps[2]).toMatchObject({
+      tool: "Read",
+      arg: "/w/x.ts",
+      out: { error: true, lines: ["nope"] },
+    });
   });
-  it("counts the hook, system, thinking and rate events it left out", () => {
-    expect(got.quiet).toBe(4);
+  it("counts the hook, system, thinking, rate and progress events it left out", () => {
+    expect(got.quiet).toBe(5);
   });
 });
 
@@ -58,7 +63,10 @@ describe("an account of a Codex session", () => {
       { type: "thread.started", thread_id: "t" },
       { type: "turn.started" },
       item("agent_message", { text: "Checking." }),
-      { type: "item.started", item: { id: "1", type: "command_execution", command: "x", status: "in_progress" } },
+      {
+        type: "item.started",
+        item: { id: "1", type: "command_execution", command: "x", status: "in_progress" },
+      },
       item("command_execution", {
         command: `/bin/zsh -lc "rg --files src"`,
         aggregated_output: "src/a.ts\nsrc/b.ts\n",
@@ -122,5 +130,16 @@ describe("an account stays small", () => {
       j({ type: "assistant", message: { content: [{ type: "text", text: "a‮b\u0007c" }] } }),
     );
     expect(got.steps[0]).toMatchObject({ text: "a b c" });
+  });
+});
+
+describe("whose session a transcript is", () => {
+  it("names the panel member from the file's name, and no one for a lane's own agent or its later try", () => {
+    const at = (name: string) => memberOf(`.factor/runs/abc/sessions/${name}`);
+    expect(at("04-review.correctness.jsonl")).toBe("correctness");
+    expect(at("04-review.correctness.2.jsonl")).toBe("correctness");
+    expect(at("01-plan.jsonl")).toBeUndefined();
+    expect(at("01-plan.2.jsonl")).toBeUndefined();
+    expect(at("odd.jsonl")).toBeUndefined();
   });
 });
