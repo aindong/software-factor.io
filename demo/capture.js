@@ -65,15 +65,19 @@ async (page) => {
     await page.waitForTimeout(700);
     await inbox();
     await press(["a"], "approve", 700);
-    await title("^[^(]"); // the approval is taken
+    await title("^(?!\\(\\d+\\) )"); // the approval is taken: no run waits
     await press(["g", "f"], "floor", 100);
     await title("^\\(1\\)"); // Build, Review and Test worked; Ship waits
     await page.waitForTimeout(800);
     await inbox();
     await press(["a"], "approve", 500);
-    await title("^[^(]"); // Ship merged
+    await title("^(?!\\(\\d+\\) )"); // Ship merged
     await press(["g", "r"], "runs", 100);
-    for (const k of ["Tab", "Tab", "Tab"]) await page.keyboard.press(k);
+    // Tab until the keyboard is on the run's row, however many controls come before it
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press("Tab");
+      if (await page.evaluate(() => document.activeElement?.getAttribute("role") === "option")) break;
+    }
     await press(["Enter"], "open the run", 1600); // the caption goes, then the last frame is held
   } catch (e) {
     throw new Error(`${e.message}; shooting: ${shootError?.message ?? "fine"}`);
