@@ -94,6 +94,14 @@ describe("the model of each tier", () => {
     expect(large.at(-1)?.text).toBe("Another model");
   });
 
+  it("keeps a bound model named as the value of another model once, in its text field", () => {
+    const markup = draw(role("claude-main", { medium: "+another" }));
+    expect(options(markup, "Model for medium lanes of author").filter((o) => o.chosen)).toEqual([
+      { value: "+another", text: "Another model", chosen: true },
+    ]);
+    expect(markup).toMatch(/<input[^>]*aria-label="Another model for medium lanes of author"[^>]*value="\+another"/);
+  });
+
   it("lists the models of a Codex account for a role bound to one", () => {
     const medium = options(draw(role("openai-main", {})), "Model for medium lanes of author");
     expect(medium.map((o) => o.text)).toEqual([
