@@ -163,9 +163,7 @@ const fake = (script: Record<string, unknown[]>) => ({ adapter: "fake", script }
 const LOCAL = {
   roles: {
     author: fake({
-      plan: [
-        handoff("Planned one new file.", { plan: "Add FACTOR-HELLO.md with one line, and commit it." }),
-      ],
+      plan: [handoff("Planned one new file.", { plan: "Add FACTOR-HELLO.md with one line, and commit it." })],
       build: [
         {
           write: {
