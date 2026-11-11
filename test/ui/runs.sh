@@ -283,6 +283,7 @@ tab_to 'Show the cost of each lane'
 pw press End && pw press Enter
 expect "Enter shows the run in place of the list" "$(js "() => getComputedStyle(document.querySelector('.runlist')).display + ' ' + document.activeElement.textContent")" '^none Add an export button$'
 fits "a run"
+wait_for "the map is scrolled to where the run ended, not left at its first lane" "() => { const s = document.querySelector('.rundetail .map .station.end.done')?.getBoundingClientRect(), b = document.querySelector('.rundetail .map-scroll')?.getBoundingClientRect(); return s && b ? String(s.left >= b.left - 1 && s.right <= b.right + 1) : 'no map'; }" '^true$'
 walk "a run"
 shot run-light-390
 tab_to '^Before and after'
