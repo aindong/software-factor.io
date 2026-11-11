@@ -125,6 +125,27 @@ describe("an account stays small", () => {
     expect(call.out.lines).toHaveLength(40);
     expect(call.out.more).toBe(460);
   });
+  it("keeps the end of a long session, where what it used is, and does not parse a huge line", () => {
+    const said = (i: number) => ({
+      type: "assistant",
+      message: { content: [{ type: "text", text: `n${i}` }] },
+    });
+    const got = account(
+      j(...Array.from({ length: 10 }, (_, i) => said(i)), { type: "result", subtype: "success" }),
+      4,
+    );
+    expect(got.steps.map((s) => s.kind)).toEqual(["said", "said", "said", "end"]);
+    expect(got.hidden).toBe(7);
+    const huge = account(`{"type":"assistant","x":"${"y".repeat(300_000)}"}`);
+    expect(huge.steps).toMatchObject([{ kind: "plain" }]);
+    expect((huge.steps[0] as { text: string }).text.length).toBeLessThan(310);
+  });
+  it("says in words that the host kept only the end of a session", () => {
+    const got = account(j({ type: "factor.cut", bytes: 900, kept: 400 }, { type: "turn.started" }));
+    expect(got.steps).toMatchObject([
+      { kind: "plain", text: "Only the last 400 of 900 bytes of this session were kept." },
+    ]);
+  });
   it("strips what could reorder or hide text from every line it shows", () => {
     const got = account(
       j({ type: "assistant", message: { content: [{ type: "text", text: "a‮b\u0007c" }] } }),
