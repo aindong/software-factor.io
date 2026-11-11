@@ -39,7 +39,7 @@ describe("what is built in", () => {
       .map((f) => f.slice(0, -5))
       .sort();
     expect(body.workflows.map((w) => w.name)).toEqual(shipped);
-    expect(shipped).toEqual(expect.arrayContaining(["alleo-loop", "bugfix-fast", "research-only"]));
+    expect(shipped).toEqual(expect.arrayContaining(["full-loop", "bugfix-fast", "research-only"]));
     for (const w of body.workflows) expect(w.description.length, w.name).toBeGreaterThan(10);
   });
 

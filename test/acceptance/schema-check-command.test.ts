@@ -11,7 +11,7 @@ describe("pnpm run schema:check", () => {
   it("prints one line per workflow and exits 0", () => {
     const r = run();
     expect(r.status).toBe(0);
-    for (const name of ["alleo-loop", "bugfix-fast", "research-only"]) {
+    for (const name of ["full-loop", "bugfix-fast", "research-only"]) {
       expect(r.stdout).toMatch(new RegExp(`ok\\s+workflows/${name}\\.json`));
     }
     const count = readdirSync("workflows").filter((f) => f.endsWith(".json")).length;

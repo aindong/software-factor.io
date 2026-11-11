@@ -5,7 +5,7 @@ import { parseWorkflow } from "../../src/core/schema/parse.ts";
 import { workflowJsonSchema } from "../../src/core/schema/workflow.ts";
 
 const load = (path: string) => JSON.parse(readFileSync(path, "utf8"));
-const examples = ["alleo-loop", "bugfix-fast", "research-only"];
+const examples = ["full-loop", "bugfix-fast", "research-only"];
 
 describe("the three example workflows", () => {
   it.each(examples)("%s parses with no problems", (name) => {
@@ -15,7 +15,7 @@ describe("the three example workflows", () => {
   });
 
   it("are three different processes", () => {
-    const loop = JSON.stringify(load("workflows/alleo-loop.json"));
+    const loop = JSON.stringify(load("workflows/full-loop.json"));
     expect(loop).toContain('"maxRounds"');
     expect(loop).toContain('"panel"');
     expect(JSON.stringify(load("workflows/research-only.json"))).not.toContain("core/test-floor@1");

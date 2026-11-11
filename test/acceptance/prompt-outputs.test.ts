@@ -31,8 +31,8 @@ it("tells the agent each output's allowed values, what it is for, and which ones
   ).toMatch(/Leave "outputs" out/);
 });
 
-it("gives the impact lane of the shipped alleo-loop a second try at a hand-off the host rejected", () => {
-  const shipped = JSON.parse(readFileSync("workflows/alleo-loop.json", "utf8")) as {
+it("gives the impact lane of the shipped full-loop a second try at a hand-off the host rejected", () => {
+  const shipped = JSON.parse(readFileSync("workflows/full-loop.json", "utf8")) as {
     lanes: { id: string; limits?: { repairRounds?: number } }[];
   };
   expect(shipped.lanes.find((l) => l.id === "impact")?.limits?.repairRounds).toBe(1);

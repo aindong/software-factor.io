@@ -18,7 +18,7 @@ const frozen = <T>(value: T): T => {
   }
   return value;
 };
-const start = (file = "workflows/alleo-loop.json") => frozen(JSON.parse(readFileSync(file, "utf8")) as Json);
+const start = (file = "workflows/full-loop.json") => frozen(JSON.parse(readFileSync(file, "utf8")) as Json);
 const lanes = (w: Json) => w.lanes as (Json & { id: string; on: Record<string, unknown> })[];
 const lane = (w: Json, id: string) => lanes(w).find((l) => l.id === id);
 const problems = (w: Json) => parseWorkflow(w).problems.map((p) => `${p.path}: ${p.message}`);

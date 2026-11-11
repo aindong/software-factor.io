@@ -130,14 +130,14 @@ Write tasks as open boxes in `.factor/tasks.md`, or collect them from GitHub iss
 
 | Workflow | What it is |
 | --- | --- |
-| `alleo-loop` | Plan with a verification contract, build with tests first, state the impact, review with a panel from another vendor, check the interface in a browser, ship. A person approves the plan and the ship. |
+| `full-loop` | Plan with a verification contract, build with tests first, state the impact, review with a panel from another vendor, check the interface in a browser, ship. A person approves the plan and the ship. |
 | `bugfix-fast` | Collect labelled bug reports, fix each with a test that fails without the fix, open a pull request. |
 | `research-only` | Answer a question with a report that cites its sources. A second agent tries to knock it down. No code is changed. |
 
 To use one, copy it from `workflows/` into `.factor/workflows/`, name it in `.factor/factory.json`
 (`"workflow": "bugfix-fast"`), define the commands it asks for there, and run `softwarefactor check`.
-`alleo-loop` is its author's own process: its first gate calls `alleo-plan-check`, a tool of their setup. Replace
-that gate's command with your own check of a plan, or take the gate out.
+`full-loop` needs nothing of the author's setup: its first gate, `core/plan-contract@1`, is built in and checks that
+the plan names a check for each acceptance criterion, and its `verify-ui` lane uses the public skill `playwright-cli`.
 
 ## Guides
 
@@ -164,7 +164,8 @@ Run with real agents, on the author's own subscription logins:
 
 - One task in a scratch project, built on Claude Code and reviewed on Codex, with the Codex lane reading a
   memory note the Claude lane wrote (2026-11-10).
-- The factory on its own repository with `alleo-loop`: seven runs, of which five tasks landed (one of them after
+- The factory on its own repository with the workflow that is now `full-loop` (in those runs it had another name,
+  its author's own skills and its own plan check): seven runs, of which five tasks landed (one of them after
   its review sent work back to the build lane) and two stopped on faults of the factory that were then fixed. See
   [what the factory has done on itself](docs/dogfood.md) for each task, its rounds and its cost. The checkpoints
   in those runs were approved by the AI agent that the author set to build this project, acting as the operator.
@@ -177,8 +178,9 @@ Only on the scripted agent or a stand-in:
 - The eval suite, by design: it starts no real agent.
 - Two runs at the same time on separate slots.
 - `bugfix-fast` and `research-only` end to end, with stand-ins for `gh` and for the command that opens a pull
-  request. `alleo-loop` also runs end to end on the scripted agent, with a stand-in for `alleo-plan-check`.
-- One part of `alleo-loop` that the real runs did not reach: its `verify-ui` lane, the check of a change to the
+  request. `full-loop` also runs end to end on the scripted agent, with its own gate `core/plan-contract@1`; no real agent has
+  written a plan for that gate yet.
+- One part of `full-loop` that the real runs did not reach: its `verify-ui` lane, the check of a change to the
   interface in a browser. No real task touched the interface.
 - The gate `core/no-secrets@1` is in no workflow that ships and not in the one `init` writes: it has only run
   in tests and in the eval suite.

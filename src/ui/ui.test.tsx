@@ -9,7 +9,7 @@ import { Diagram } from "./Diagram.tsx";
 import { Problems } from "./Inspector.tsx";
 import { statusOf } from "./status.ts";
 
-const workflow = drawable(JSON.parse(readFileSync("workflows/alleo-loop.json", "utf8"))) as Workflow;
+const workflow = drawable(JSON.parse(readFileSync("workflows/full-loop.json", "utf8"))) as Workflow;
 const nothing = () => {};
 
 describe("the status line", () => {

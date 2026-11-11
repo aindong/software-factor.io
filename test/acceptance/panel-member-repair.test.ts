@@ -65,8 +65,8 @@ it("does not start a member again when the lane has no repair round, or when the
   expect(sessionRows(said)).toHaveLength(2);
 });
 
-it("the review lane of the shipped alleo-loop has that round, and the prompt says a lane is not a gate", () => {
-  const shipped = JSON.parse(readFileSync("workflows/alleo-loop.json", "utf8")) as {
+it("the review lane of the shipped full-loop has that round, and the prompt says a lane is not a gate", () => {
+  const shipped = JSON.parse(readFileSync("workflows/full-loop.json", "utf8")) as {
     lanes: { id: string; limits?: { repairRounds?: number } }[];
   };
   expect(shipped.lanes.find((l) => l.id === "review")?.limits?.repairRounds).toBe(1);

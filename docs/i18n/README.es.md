@@ -107,11 +107,11 @@ Escribe las tareas como casillas sin marcar en `.factor/tasks.md`, o recógelas 
 
 | Flujo de trabajo | Qué es |
 | --- | --- |
-| `alleo-loop` | Planificar con un contrato de verificación, construir empezando por las pruebas, exponer el impacto, revisar con un panel de otro proveedor, comprobar la interfaz en un navegador y entregar. Una persona aprueba el plan y la entrega. |
+| `full-loop` | Planificar con un contrato de verificación, construir empezando por las pruebas, exponer el impacto, revisar con un panel de otro proveedor, comprobar la interfaz en un navegador y entregar. Una persona aprueba el plan y la entrega. |
 | `bugfix-fast` | Recoger informes de errores etiquetados, corregir cada uno con una prueba que falla sin la corrección y abrir una pull request. |
 | `research-only` | Responder una pregunta con un informe que cita sus fuentes. Un segundo agente intenta derribarlo. No se cambia ningún código. |
 
-Para usar uno, cópialo de `workflows/` a `.factor/workflows/`, nómbralo en `.factor/factory.json` (`"workflow": "bugfix-fast"`), define allí los comandos que pide y ejecuta `softwarefactor check`. `alleo-loop` es el proceso propio de su autor: su primera compuerta llama a `alleo-plan-check`, una herramienta de su entorno. Sustituye el comando de esa compuerta por tu propia comprobación de un plan, o quita la compuerta.
+Para usar uno, cópialo de `workflows/` a `.factor/workflows/`, nómbralo en `.factor/factory.json` (`"workflow": "bugfix-fast"`), define allí los comandos que pide y ejecuta `softwarefactor check`. `full-loop` no necesita nada del entorno de su autor: su primera compuerta, `core/plan-contract@1`, está incluida y comprueba que el plan nombre una comprobación para cada criterio de aceptación, y su carril `verify-ui` usa la skill pública `playwright-cli`.
 
 ## Guías
 
@@ -135,15 +135,15 @@ Esta es la versión 0.0.0. Casi todo lo descrito arriba solo se ha ejecutado con
 Ejecutado con agentes reales, con las sesiones de la suscripción del propio autor:
 
 - Una tarea en un proyecto de prueba, construida con Claude Code y revisada en Codex, con el carril de Codex leyendo una nota de memoria que escribió el carril de Claude (2026-11-10).
-- La fábrica sobre su propio repositorio con `alleo-loop`: siete ejecuciones, de las cuales cinco tareas se integraron (una de ellas después de que su revisión devolviera el trabajo al carril de build) y dos se detuvieron por fallos de la fábrica que luego se corrigieron. Consulta [lo que la fábrica ha hecho sobre sí misma](../dogfood.md) para ver cada tarea, sus rondas y su coste. Los puntos de control de esas ejecuciones los aprobó el agente de IA que el autor puso a construir este proyecto, actuando como operador. Ninguna persona leyó esos planes antes de que se aprobaran.
+- La fábrica sobre su propio repositorio con el flujo que ahora se llama `full-loop` (en esas ejecuciones tenía otro nombre, las skills de su autor y su propia comprobación del plan): siete ejecuciones, de las cuales cinco tareas se integraron (una de ellas después de que su revisión devolviera el trabajo al carril de build) y dos se detuvieron por fallos de la fábrica que luego se corrigieron. Consulta [lo que la fábrica ha hecho sobre sí misma](../dogfood.md) para ver cada tarea, sus rondas y su coste. Los puntos de control de esas ejecuciones los aprobó el agente de IA que el autor puso a construir este proyecto, actuando como operador. Ninguna persona leyó esos planes antes de que se aprobaran.
 - El recolector de issues de GitHub contra el `gh` real (solo lectura), y `softwarefactor add` desde un repositorio de GitHub.
 
 Solo con el agente con guion o con un sustituto:
 
 - La suite de evaluación, por diseño: no arranca ningún agente real.
 - Dos ejecuciones a la vez en ranuras (slots) separadas.
-- `bugfix-fast` y `research-only` de principio a fin, con sustitutos de `gh` y del comando que abre una pull request. `alleo-loop` también se ejecuta de principio a fin con el agente con guion, con un sustituto de `alleo-plan-check`.
-- Una parte de `alleo-loop` que las ejecuciones reales no alcanzaron: su carril `verify-ui`, la comprobación de un cambio en la interfaz en un navegador. Ninguna tarea real tocó la interfaz.
+- `bugfix-fast` y `research-only` de principio a fin, con sustitutos de `gh` y del comando que abre una pull request. `full-loop` también se ejecuta de principio a fin con el agente con guion, con su propia compuerta `core/plan-contract@1`; ningún agente real ha escrito todavía un plan para esa compuerta.
+- Una parte de `full-loop` que las ejecuciones reales no alcanzaron: su carril `verify-ui`, la comprobación de un cambio en la interfaz en un navegador. Ninguna tarea real tocó la interfaz.
 - La compuerta `core/no-secrets@1` no está en ningún flujo de trabajo incluido ni en el que escribe `init`: solo se ha ejecutado en pruebas y en la suite de evaluación.
 - El adaptador de Kimi: escrito a partir de su documentación, probado contra un binario sustituto, nunca con la CLI real.
 - El adaptador `command` (cualquier comando tuyo como agente): solo comandos con guion en las pruebas.

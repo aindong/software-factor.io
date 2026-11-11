@@ -31,9 +31,9 @@ mkdir -p "$work/demo-shop" && cd "$work/demo-shop" || fail "no work folder"
 git init -q -b main && git config user.email t@example.com && git config user.name T
 echo "# demo" > README.md && git add -A && git commit -q -m initial
 sf init > /dev/null || fail "init"
-cp "$here/workflows/alleo-loop.json" .factor/workflows/
-node -e 'const fs = require("fs"); const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.workflow = "alleo-loop"; fs.writeFileSync(".factor/factory.json", JSON.stringify(f, null, 2));'
-file=.factor/workflows/alleo-loop.json
+cp "$here/workflows/full-loop.json" .factor/workflows/
+node -e 'const fs = require("fs"); const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.workflow = "full-loop"; fs.writeFileSync(".factor/factory.json", JSON.stringify(f, null, 2));'
+file=.factor/workflows/full-loop.json
 
 start_ui 0
 pw open "$address" || fail "the browser did not open"
@@ -140,12 +140,12 @@ pw press ArrowDown && pw press ArrowDown && pw press ArrowDown
 pw press "$line_end"
 pw press Backspace && pw press Backspace
 pw type 'x",'
-expect "the name was changed in the text" "$(json '"name": "alleo-loopx",')" '^true$'
+expect "the name was changed in the text" "$(json '"name": "full-loopx",')" '^true$'
 pw press Control+s
-wait_for "a refused save says why" "() => document.querySelector('.topbar .status').textContent" '^Not saved: .*alleo-loopx'
+wait_for "a refused save says why" "() => document.querySelector('.topbar .status').textContent" '^Not saved: .*full-loopx'
 pw press Backspace && pw press Backspace && pw press Backspace
 pw type '",'
-expect "the name is back" "$(json '"name": "alleo-loop",')" '^true$'
+expect "the name is back" "$(json '"name": "full-loop",')" '^true$'
 
 # 6. save by keyboard: the file is written, and the checker accepts it
 pw press Control+s

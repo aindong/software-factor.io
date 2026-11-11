@@ -60,12 +60,12 @@ function toTheEnd(repo: Repo): { status: string; lanes: string[] } {
   return { status: run.status, lanes };
 }
 
-/** `alleo-loop` on a small project. With `ui`, the change holds a page, so the task is routed through the browser check. */
-function alleoLoop(ui: boolean): Repo {
+/** `full-loop` on a small project. With `ui`, the change holds a page, so the task is routed through the browser check. */
+function fullLoop(ui: boolean): Repo {
   const plan = "docs/plans/double.md";
   const page = ui ? [write("pages/double.html", "<p>double</p>\n")] : [];
   const repo = workspace(
-    "alleo-loop",
+    "full-loop",
     { verify: "node --test", ship: "true" },
     {
       author: {
@@ -74,7 +74,8 @@ function alleoLoop(ui: boolean): Repo {
             plan,
             "# Plan\n\n## Acceptance criteria\n\n1. double(4) is 8.\n\n## Verification contract\n\n- 1: test:double.test.js\n",
           ),
-          { commit: "The plan" },
+          write("double.test.js", TEST("double", "double(4)", "8")),
+          { commit: "The plan, with its acceptance test" },
           pass({ plan }),
         ],
         build: [...page, ...change, pass()],
@@ -84,25 +85,23 @@ function alleoLoop(ui: boolean): Repo {
     },
   );
   repo.write(".factor/tasks.md", "- [ ] Add a double function\n");
-  // the owner's own plan check is a tool of their machine: here a stand-in that reads the same sections
-  standIn(repo, "alleo-plan-check", 'grep -q "^## Acceptance criteria" "$1" && grep -q "^- 1: test:" "$1"');
   return repo;
 }
 const unchanged = (repo: Repo, name: string) =>
   expect(repo.read(`.factor/workflows/${name}.json`)).toBe(readFileSync(`workflows/${name}.json`, "utf8"));
 
-it("alleo-loop runs to the end: plan, build, impact, a review panel, ship", () => {
-  const repo = alleoLoop(false);
+it("full-loop runs to the end: plan, build, impact, a review panel, ship", () => {
+  const repo = fullLoop(false);
   expect(toTheEnd(repo)).toEqual({
     status: "done",
     lanes: ["plan:pass", "build:pass", "impact:pass", "review:pass", "ship:pass"],
   });
   expect(repo.rows("select gate from gate_results where status <> 'pass'")).toEqual([]);
-  unchanged(repo, "alleo-loop");
+  unchanged(repo, "full-loop");
 }, 120_000);
 
-it("alleo-loop sends a change to the interface through its browser check, so every one of its six lanes has run", () => {
-  const repo = alleoLoop(true);
+it("full-loop sends a change to the interface through its browser check, so every one of its six lanes has run", () => {
+  const repo = fullLoop(true);
   expect(toTheEnd(repo).lanes).toEqual([
     "plan:pass",
     "build:pass",
@@ -111,11 +110,11 @@ it("alleo-loop sends a change to the interface through its browser check, so eve
     "verify-ui:pass",
     "ship:pass",
   ]);
-  const shipped = JSON.parse(readFileSync("workflows/alleo-loop.json", "utf8")) as {
+  const shipped = JSON.parse(readFileSync("workflows/full-loop.json", "utf8")) as {
     lanes: { id: string }[];
   };
   expect(shipped.lanes.map((l) => l.id)).toEqual(["plan", "build", "impact", "review", "verify-ui", "ship"]);
-  unchanged(repo, "alleo-loop");
+  unchanged(repo, "full-loop");
 }, 120_000);
 
 it("bugfix-fast runs to the end: an issue collected through gh, a fix with a test that fails without it, a pull request", () => {

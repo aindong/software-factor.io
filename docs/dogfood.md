@@ -1,6 +1,6 @@
 # What the factory has done on itself
 
-Software Factor.io works on its own repository with the `alleo-loop` workflow: `.factor/` holds the workflow,
+Software Factor.io works on its own repository with the `full-loop` workflow (in the runs below it had another name, its author's own skills and its own plan check): `.factor/` holds the workflow,
 the commands that check and ship a change here, and a backlog (`.factor/tasks.md`). This page is the honest
 record of those runs: what landed, what did not, and what each run showed to be wrong with the factory.
 

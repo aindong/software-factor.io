@@ -212,7 +212,7 @@ shot costs-light-1440
 # ---- 9. plugins: what is built in, by its real names
 section Plugins
 wait_for "what is built in" "() => document.querySelector('.page')?.innerText ?? ''" 'core/agent@1'
-for name in core/command@1 core/wait@1 core/test-floor@1 core/file@1 claude codex kimi fake alleo-loop bugfix-fast research-only; do
+for name in core/command@1 core/wait@1 core/test-floor@1 core/file@1 claude codex kimi fake full-loop bugfix-fast research-only; do
   expect "$name is listed" "$(js "() => document.querySelector('.page').innerText.includes('$name')")" '^true$'
 done
 expect "the first lead line says what a person can do" "$(js "() => document.querySelector('.page .quiet').innerText")" '^The kinds of lane you can add'
