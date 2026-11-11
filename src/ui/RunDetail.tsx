@@ -63,16 +63,24 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
     [row.own, kept, workflow],
   );
   const floor = useMemo(() => (drawn ? layout(drawn) : undefined), [drawn]);
-  // On a narrow screen the map is wider than the window: show where the run is, or where it ended
+  // On a narrow screen the map is wider than the window: show where the run is, or where it ended.
+  // The run's page is not shown while the list is, so this is done again when the map gets a size.
   // biome-ignore lint/correctness/useExhaustiveDependencies: when the run moves or its map is drawn
   useEffect(() => {
     const view = scroller.current;
+    if (!view) return;
     const end = { done: "done", stopped: "stop", dropped: "drop" }[row.status as string];
-    const mark = view?.querySelector(end ? `.station.end.${end}` : '.station[aria-label*=" is here"]');
-    if (!view || !mark) return;
-    const at = mark.getBoundingClientRect();
-    const box = view.getBoundingClientRect();
-    view.scrollLeft += at.left - box.left - (box.width - at.width) / 2;
+    const place = () => {
+      const mark = view.querySelector(end ? `.station.end.${end}` : '.station[aria-label*=" is here"]');
+      const box = view.getBoundingClientRect();
+      if (!mark || box.width === 0) return;
+      const at = mark.getBoundingClientRect();
+      view.scrollLeft += at.left - box.left - (box.width - at.width) / 2;
+    };
+    place();
+    const watch = new ResizeObserver(place);
+    watch.observe(view);
+    return () => watch.disconnect();
   }, [row.status, row.at, floor]);
   const names = new Map(row.stops.map((l) => [l.id, l.name]));
   const nameOf = (id: string) => names.get(id) ?? id;
