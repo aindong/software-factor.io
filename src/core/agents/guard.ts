@@ -80,7 +80,7 @@ const TEXT_ONLY = new Set(["git", "echo", "printf", "grep", "rg"]);
 const SUPERUSER = new Set(["sudo", "doas"]);
 const FACTORY = "softwarefactor";
 const FACTORY_COMMANDS = new Set([
-  ...["init", "collect", "run", "stop", "approve", "reject", "send-back", "answer"],
+  ...["init", "collect", "run", "stop", "requeue", "approve", "reject", "send-back", "answer"],
   ...[
     "account",
     "role",
