@@ -3,7 +3,7 @@
 // approved the ship can read what happened without opening a log.
 import { expect, it } from "vitest";
 import { sentenceOf } from "../../src/core/runs/sentence.ts";
-import { commandLane, flowRepo, passingScript, type Repo, readyRepo } from "../helpers/repo.ts";
+import { commandLane, flowRepo, makeRepo, type Repo } from "../helpers/repo.ts";
 
 const done = (repo: Repo) => {
   const run = repo.sf("run");
