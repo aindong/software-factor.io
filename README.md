@@ -172,4 +172,4 @@ The tests start no real agent and need no network.
 
 ## License
 
-MIT, as `package.json` says. A LICENSE file has not been added yet.
+MIT. See [LICENSE](LICENSE).
