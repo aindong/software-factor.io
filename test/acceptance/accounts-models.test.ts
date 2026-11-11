@@ -1,5 +1,7 @@
 // The models a role can be bound to: the accounts view lists each account's, the session record
 // says which model a lane asked for, and `role list` prints the model of each tier.
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { op, tool } from "../helpers/operator.ts";
 import { agentLane, bind, flowRepo, standinAccount, startUi, type Ui } from "../helpers/repo.ts";
@@ -77,6 +79,28 @@ describe("role list", () => {
     const reviewer = list.stdout.split("\n").find((l) => l.startsWith("reviewer"));
     expect(reviewer).toContain("the scripted agent");
     expect(reviewer).not.toContain("medium");
+  });
+});
+
+describe("sessions that finish out of order", () => {
+  it("say the version of the session that started last, not the one recorded last", () => {
+    // a session that started before the run's own but finished, and was recorded, after it
+    const db = new DatabaseSync(join(repo.dir, ".factor/state.db"));
+    try {
+      db.exec(`insert into sessions (run_id, lane_run_id, lane, try, account, agent, model, asked_model,
+        input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, tokens, usd_source,
+        started_at, duration_ms)
+        select run_id, lane_run_id, lane, try, account, agent, 'claude-sonnet-5', asked_model,
+        0, 0, 0, 0, 0, usd_source, '2000-01-01T00:00:00.000Z', 0 from sessions`);
+    } finally {
+      db.close();
+    }
+    const answer = tool<View>(repo, "accounts_list");
+    if (answer.refused) throw new Error(answer.text);
+    expect(accountOf(answer.data, "claude-main")?.models).toContainEqual({
+      value: "sonnet",
+      label: "sonnet (last ran as claude-sonnet-5-5)",
+    });
   });
 });
 

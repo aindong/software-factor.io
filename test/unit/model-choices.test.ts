@@ -82,6 +82,19 @@ describe("what the account has run on this machine", () => {
     expect(values(list).at(-1)).toBe("sonnet");
   });
 
+  it("says the version an alias last ran as, when a later session of it said none", () => {
+    const list = modelChoices("claude", known, [
+      { asked: null, model: "sonnet" },
+      { asked: "sonnet", model: "sonnet" },
+      { asked: "sonnet", model: null },
+      { asked: "sonnet", model: "claude-sonnet-5-5" },
+      { asked: "sonnet", model: "claude-sonnet-5" },
+    ]);
+    expect(list.filter((c) => c.value === "sonnet")).toEqual([
+      { value: "sonnet", label: "sonnet (last ran as claude-sonnet-5-5)" },
+    ]);
+  });
+
   it("adds a model it ran that the list does not know, and an asked model with no version said", () => {
     const list = modelChoices("claude", known, [
       { asked: null, model: "claude-next" },
