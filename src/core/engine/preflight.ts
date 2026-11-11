@@ -73,8 +73,8 @@ export function preflight(ws: Workspace): void {
     const problem = skillProblem(ws, skill);
     if (problem) throw problem;
   }
-  for (const [key, name] of serversNeeded(ws)) {
-    const problem = serverProblem(ws, key, name);
+  for (const [key, need] of serversNeeded(ws)) {
+    const problem = serverProblem(ws, key, need);
     if (problem) throw problem;
   }
 }

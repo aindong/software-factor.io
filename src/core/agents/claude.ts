@@ -1,21 +1,40 @@
 // Claude Code, run for one lane: print mode with a JSON stream, the account's profile folder, and
 // the factory's guard as a hook before every tool call (docs/research/agent-clis.md).
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { Account } from "../accounts.ts";
 import { claudeArgs } from "./claude-args.ts";
 import { discoverServers } from "./claude-discover.ts";
 import { type Choice, count, handoffFromText, LIMIT, profileEnv, runCli } from "./cli.ts";
 import type { AgentAdapter } from "./types.ts";
 
-/** The settings files of a profile folder, as one text. */
+/** What a config file holds about servers. The CLI rewrites the rest (history, counters) all the time. */
+function serversIn(file: string): string {
+  if (!existsSync(file)) return "";
+  const text = readFileSync(file, "utf8");
+  try {
+    const config = JSON.parse(text) as Record<string, unknown>;
+    const projects = Object.entries((config.projects ?? {}) as Record<string, Record<string, unknown>>);
+    const pick = (o: Record<string, unknown> | undefined) => [o?.mcpServers, o?.enabledMcpjsonServers];
+    return JSON.stringify([pick(config), projects.map(([path, p]) => [path, pick(p)])]);
+  } catch {
+    return text; // not JSON: any change counts
+  }
+}
+
+/**
+ * The files that decide what the CLI runs, as one text: the profile's settings, and the servers
+ * in the CLI's config file (.claude.json), which the CLI starts without the guard. That file is in
+ * the profile folder, and for the default folder beside it.
+ */
 function settingsOf(profile: string | undefined): string {
-  return ["settings.json", "settings.local.json"]
-    .map((name) => {
-      const file = join(profile ?? "", name);
-      return existsSync(file) ? readFileSync(file, "utf8") : "";
-    })
-    .join("\0");
+  const dir = profile ?? "";
+  const settings = ["settings.json", "settings.local.json"].map((name) => {
+    const file = join(dir, name);
+    return existsSync(file) ? readFileSync(file, "utf8") : "";
+  });
+  const configs = [join(dir, ".claude.json"), join(dirname(dir), ".claude.json")].map(serversIn);
+  return [...settings, ...configs].join("\0");
 }
 
 export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
@@ -34,7 +53,7 @@ export function claudeAgent(account: Account, choice: Choice): AgentAdapter {
           ? 'the other servers of the profile could not be listed ("claude mcp list" failed or printed nothing readable), so they could not be shut out: the guard still denies their tools'
           : undefined;
       const self = ["/usr/bin/env", "-i", process.execPath, process.argv[1] ?? "", "guard"];
-      const args = claudeArgs(job, choice, self, others);
+      const args = claudeArgs(job, choice, self, others, account.profile);
       const settingsBefore = settingsOf(account.profile);
       const out = await runCli(job, bin, args, env, true);
       // the profile's settings are loaded by every later lane, and can turn hooks off

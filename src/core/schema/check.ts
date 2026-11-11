@@ -318,6 +318,15 @@ export function checkWorkflow(w: Workflow): Problem[] {
   });
 
   const named = new Set(w.lanes.flatMap((l) => [...(l.agent?.mcp ?? []), ...(l.agent?.servers ?? [])]));
+  for (const [name, skill] of Object.entries(w.skills ?? {})) {
+    if (name === "*" || (skill.from === "repo" && skill.skill === "*")) {
+      add(
+        `skills.${name}`,
+        'A skill called "*" would be the wildcard.',
+        'Name the skill, or leave "skill" out.',
+      );
+    }
+  }
   const segments = new Map<string, string>();
   for (const [name, server] of Object.entries(w.mcp ?? {})) {
     if (server.from !== "profile") continue;
@@ -331,6 +340,15 @@ export function checkWorkflow(w: Workflow): Problem[] {
     // Claude Code names a tool mcp__<server>__<tool> with every odd character turned into _, so
     // two names can meet in one prefix, and the factory's own server is called factor
     const segment = serverSegment(server.name ?? name);
+    if (server.name === "*" || segment.endsWith("_") || segment.includes("__")) {
+      add(
+        `mcp.${name}`,
+        server.name === "*"
+          ? 'The profile name "*" would be the wildcard.'
+          : `The profile server "${server.name ?? name}" would be called "${segment}" in tool names, which ends in _ or holds __: its tools cannot be told from another server's.`,
+        "Rename the server in the profile and here.",
+      );
+    }
     const clash = segments.get(segment);
     segments.set(segment, name);
     if (segment === "factor" || clash !== undefined) {

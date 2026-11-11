@@ -292,15 +292,18 @@ export function allowCommand(
 ): number {
   if (flags.skill !== undefined) return allowSkill(ws, flags.skill, say);
   const name = args[0] ?? "";
-  const profile = serversNeeded(ws).get(name);
-  if (profile !== undefined) {
-    const local = { ...ws.local, servers: { ...ws.local.servers, [name]: printOfProfile(profile) } };
+  const need = serversNeeded(ws).get(name);
+  if (need !== undefined) {
+    const local = {
+      ...ws.local,
+      servers: { ...ws.local.servers, [name]: printOfProfile(need.name, need.accounts) },
+    };
     writeFileSync(join(ws.factorDir, "local.json"), `${JSON.stringify(local, null, 2)}\n`);
+    const who = need.accounts.length > 0 ? need.accounts.join(", ") : "the account that works the lane";
+    const what = name === "*" ? "every server" : `"${need.name}"`;
+    say(`The server "${name}" is ${what} in the profile of: ${who}.`);
     say(
-      `The server "${name}" is ${name === "*" ? "every server" : `"${profile}"`} in the profile of the account that works the lane.`,
-    );
-    say(
-      `allowed: a lane may use ${name === "*" ? "every server of its account" : `"${profile}"`} on this machine, until the workflow names another`,
+      `allowed: a lane may use ${what} on this machine, with ${who}, until the workflow or the binding changes`,
     );
     say("A server reaches outside the worktree: the gates do not see what it does, and cannot undo it.");
     return 0;

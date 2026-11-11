@@ -34,7 +34,7 @@ export function judgeReach(
   const at = rest.indexOf("__");
   const server = rest.slice(0, at);
   const name = rest.slice(at + 2);
-  if (at < 1 || name === "" || name.includes("__"))
+  if (at < 1 || name === "" || name.startsWith("_") || name.includes("__"))
     return deny(`The guard could not read the tool "${tool}", so it is denied.`);
   // the factory's own tools were judged before this: any other tool of "factor" does not exist
   if (server === "factor") return deny(`The guard has no such tool of the factory's server: "${tool}".`);

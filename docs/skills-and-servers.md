@@ -69,9 +69,18 @@ The guard allows a `Skill` call only when the skill's name is exactly one the la
 in it: it could belong to another server. The factory's own tools stay allowed on every lane. The prompt tells
 the agent which skills and servers it may use.
 
-When `claude mcp list` fails or prints nothing readable, the lane still starts with its named servers, and
-its session record carries a notice that the other servers could not be shut out. The guard still denies
-their tools.
+When `claude mcp list` fails or prints nothing readable, the factory cannot see the other servers, nor whether
+two names would clash. The profile then cannot be listed, and the lane only starts if every server it names has a
+name made of letters, digits, `-` and `_` (so its name in tool names is itself). A lane that names `*`, or a
+server such as `my db`, does not start and says why. When it does start, its session record carries a notice that
+the other servers could not be shut out; the guard still denies their tools. A server whose name, with odd
+characters turned into `_`, ends in `_` or holds `__` is refused in the workflow check and at the start of the
+lane, and so is a profile that lists a server called `factor`: rename or remove it there.
+
+The guard also keeps the agent out of the CLI's own files: `.claude.json` and any `.claude*`, `.codex*`,
+`.kimi-code*` or `.agents` folder at any depth, and the account's profile folder. The run stops if the servers in
+the profile's `.claude.json` change while a lane works. The approval of a server is tied to the account the
+lane's role is bound to here: bind the role to another account and the run asks again.
 
 ## What is not held
 
@@ -80,10 +89,12 @@ their tools.
   is the label on the issue, the workflow file, your approval on this machine, and the person at the
   checkpoint.
 - A skill may ask for tools the lane does not have, such as subagents. It then works in part.
-- Without `--strict-mcp-config`, a server could load under the same name as a named one from a file of the
-  worktree (`.mcp.json`) or from the profile's settings for that path. The lane keeps `--setting-sources
-  user`, but whether Claude Code then still reads a project `.mcp.json` was not checked. The guard denies a
-  write to `.mcp.json` by the agent, and does not know which file a server came from.
+- A lane that names a server starts every server of the profile, in the worktree's folder, and only hides the
+  tools of the others (by name, and with the guard). A server started from a command may read files in that folder, whatever the lane may do.
+- Without `--strict-mcp-config` the CLI could load a server from a project's own `.mcp.json`. It was checked on
+  Claude Code 2.1.311 that a project's own `.mcp.json` is not loaded when the session reads only the user's
+  settings, as these lanes do. It was not checked on a profile that turns on loading every project server.
+- Whether a project's own skills load in that mode: TO BE FILLED IN after it is checked.
 - Codex and the other agents are unchanged: what their lanes load from their own profiles is not checked here.
 
 ## Not tried with a real agent

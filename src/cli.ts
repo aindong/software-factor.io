@@ -64,6 +64,7 @@ function guard(args: string[]): number {
       protect: [],
       skill: [],
       server: [],
+      profile: [],
     };
     for (let i = 0; i < args.length; i += 2) {
       const list = named[(args[i] ?? "").replace(/^--/, "")];
@@ -91,6 +92,7 @@ function guard(args: string[]): number {
         self: process.argv[1],
         skills: named.skill,
         servers: named.server,
+        profile: named.profile?.[0],
       },
     );
   } catch (error) {

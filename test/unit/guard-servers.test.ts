@@ -129,7 +129,7 @@ describe("a server whose name ends in an odd character", () => {
 });
 
 describe("a profile that cannot be listed", () => {
-  const build = (servers: string[]) => () => hookFor({ servers }, undefined);
+  const build = (servers: string[]) => () => hookFor({ servers }, null);
   it("starts a lane only when every server it names maps to itself", () => {
     expect(build(["docs", "my-db_2"])).not.toThrow();
     expect(build(["my db"])).toThrow(/could not be listed/);

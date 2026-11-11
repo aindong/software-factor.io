@@ -8,6 +8,7 @@ import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { FACTOR_TOOLS, mcpName } from "./factor-tools.ts";
 import {
   DOWNLOAD_AS_COMMAND,
+  isCliOwned,
   OWNED_IN_SHELL,
   PIPE_TO_SHELL,
   SECRET_FILE,
@@ -32,6 +33,8 @@ export interface Where {
   /** The skills and the MCP servers the lane names (reach.ts). */
   skills?: string[];
   servers?: string[];
+  /** The account's profile folder, for a lane that starts the profile's servers. */
+  profile?: string;
 }
 export interface Verdict {
   allow: boolean;
@@ -71,9 +74,6 @@ const PATH_KEY: Record<string, string> = {
   NotebookEdit: "notebook_path",
 };
 const READS = new Set(["Read", "Grep", "Glob"]);
-// Folders and files an agent CLI reads its own settings, hooks and servers from.
-const CLI_OWNED = new Set([".claude", ".codex", ".kimi-code", ".agents", ".mcp.json"]);
-
 // Words that only start another command: what follows them is judged as the command.
 const WRAPPERS = new Set([
   ...["command", "exec", "env", "time", "nohup", "nice", "then", "do", "else", "{", "(", "!"],
@@ -195,6 +195,8 @@ function judgeWrite(path: unknown, where: Where): Verdict {
   const worktree = real(where.worktree);
   const target = real(resolve(worktree, path));
   if (within(real(where.laneDir), target)) return ALLOW;
+  if (where.profile && within(real(where.profile), target))
+    return deny("The account's profile folder is the CLI's own.");
   if (!within(worktree, target)) {
     return deny(`"${path}" is outside the worktree. Write only inside ${worktree} or the lane's folder.`);
   }
@@ -206,9 +208,8 @@ function judgeWrite(path: unknown, where: Where): Verdict {
   if (parts[0] === ".factor") {
     return deny("The .factor folder holds the factory's own process. An agent may not change it.");
   }
-  if (CLI_OWNED.has(parts[0] ?? "")) {
-    return deny(`"${parts[0]}" holds an agent CLI's own settings. An agent may not change them.`);
-  }
+  const owned = parts.find(isCliOwned);
+  if (owned) return deny(`"${owned}" holds an agent CLI's own settings. An agent may not change them.`);
   return ALLOW;
 }
 
@@ -342,6 +343,8 @@ function judgeShell(command: unknown, where: Where): Verdict {
       "This command names something that git, the factory or an agent CLI owns, such as .git or CLI settings. Use git commands, and leave the rest alone.",
     );
   }
+  if (where.profile && command.includes(where.profile))
+    return deny("The account's profile folder is the CLI's own.");
   if (where.self && command.includes(where.self)) {
     return deny("The factory's own program may not be run, moved or changed by an agent.");
   }

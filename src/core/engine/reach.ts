@@ -49,32 +49,46 @@ export function reachSection(w: Workflow, lane: Lane): string {
   return lines.length === 0 ? "" : `# What you may use\n\n${lines.join("\n")}`;
 }
 
-/** What a machine approves for a profile server: its name in the profile. A change asks again. */
-export const printOfProfile = (name: string) =>
+/** What a machine approves for a profile server: its name in the profile, for the accounts that work the lanes naming it. A change of either asks again. */
+export const printOfProfile = (name: string, accounts: string[]) =>
   createHash("sha256")
-    .update(JSON.stringify(["profile", name]))
+    .update(JSON.stringify(["profile", name, accounts]))
     .digest("hex");
 
-/** The profile servers the lanes name, by the workflow's key (or "*"), each with the name to approve. */
-export function serversNeeded(ws: Workspace): Map<string, string> {
-  const needed = new Map<string, string>();
+export interface ServerNeed {
+  /** The name in the profile, or "*". */
+  name: string;
+  /** The accounts bound, on this machine, to the roles of the lanes that name it. */
+  accounts: string[];
+}
+
+/** The profile servers the lanes name, by the workflow's key (or "*"). */
+export function serversNeeded(ws: Workspace): Map<string, ServerNeed> {
+  const needed = new Map<string, ServerNeed>();
   for (const lane of ws.workflow.lanes) {
+    const binding = own(ws.local.roles, lane.agent?.role ?? "");
+    const account = binding && "account" in binding ? binding.account : undefined;
     for (const key of lane.agent?.servers ?? []) {
       const decl = own(ws.workflow.mcp, key);
-      if (key === "*") needed.set(key, "*");
-      else if (decl?.from === "profile") needed.set(key, decl.name ?? key);
+      if (key !== "*" && decl?.from !== "profile") continue;
+      const name = decl?.from === "profile" ? (decl.name ?? key) : "*";
+      const need = needed.get(key) ?? { name, accounts: [] };
+      if (account !== undefined && !need.accounts.includes(account)) need.accounts.push(account);
+      need.accounts.sort();
+      needed.set(key, need);
     }
   }
   return needed;
 }
 
 /** What stands in the way of a lane using a profile server on this machine, or nothing. */
-export function serverProblem(ws: Workspace, key: string, name: string): UserError | undefined {
+export function serverProblem(ws: Workspace, key: string, need: ServerNeed): UserError | undefined {
   const allowed = own(ws.local.servers, key);
-  if (allowed === printOfProfile(name)) return undefined;
-  const what = key === "*" ? "every server of the account" : `the profile server "${name}"`;
+  if (allowed === printOfProfile(need.name, need.accounts)) return undefined;
+  const what = key === "*" ? "every server of the account" : `the profile server "${need.name}"`;
+  const who = need.accounts.length > 0 ? ` for ${need.accounts.join(", ")}` : "";
   return new UserError(
-    `The server "${key}" (${what}) ${allowed ? "has changed since it was allowed" : "is not allowed on this machine"}.`,
-    `A server reaches outside the worktree, and the gates do not see what it does. Allow it with: softwarefactor allow ${key === "*" ? "'*'" : key}`,
+    `The server "${key}" (${what}) ${allowed ? "has changed since it was allowed (its name in the profile, or the account that works the lane)" : `is not allowed on this machine${who}`}.`,
+    `A server reaches outside the worktree, and the gates do not see what it does. Allow it${who} with: softwarefactor allow ${key === "*" ? "'*'" : key}`,
   );
 }

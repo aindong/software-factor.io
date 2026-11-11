@@ -32,9 +32,16 @@ export const SECRET_IN_SHELL = [
 export const OWNED_IN_SHELL = [
   new RegExp(`${BEFORE}\\.git(/|${AFTER})`), // .git itself or anything in it, not .gitignore or .github
   /--git-common-dir|--git-dir|--absolute-git-dir/,
-  new RegExp(`${BEFORE}(\\.claude|\\.codex|\\.kimi-code)(/|${AFTER})|\\.mcp\\.json\\b`),
+  // a CLI's folder or config file, also with a suffix: .claude.json, .claude-work/
+  new RegExp(
+    `${BEFORE}(\\.claude|\\.codex|\\.kimi-code|\\.agents)[\\w.-]*(/|${AFTER})|\\.mcp\\.json\\b|\\.claude\\.json`,
+  ),
   /\b(CLAUDE_CONFIG_DIR|CODEX_HOME|KIMI_CODE_HOME)\b/, // the CLI's profile folder, by its variable
 ];
 
 export const PIPE_TO_SHELL = /\b(curl|wget)\b[^;&\n]*\|\s*(sudo\s+)?(env\s+)?(ba|z|da|k)?sh\b/;
 export const DOWNLOAD_AS_COMMAND = /(\$\(|`|<\()\s*(curl|wget)\b/;
+
+// Folders and files an agent CLI reads its own settings, hooks, servers and skills from, at any depth.
+const CLI_OWNED = new Set([".claude", ".codex", ".kimi-code", ".agents", ".mcp.json"]);
+export const isCliOwned = (part: string) => CLI_OWNED.has(part) || part.startsWith(".claude.json");

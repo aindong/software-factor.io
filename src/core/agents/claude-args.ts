@@ -19,6 +19,8 @@ export function claudeArgs(
   choice: Choice,
   self: string[],
   others: string[] | undefined,
+  /** The account's profile folder, which the guard keeps the agent out of. */
+  profile?: string,
 ): string[] {
   const canWrite = job.lane.agent?.access === "write";
   const skills = job.skills ?? [];
@@ -32,6 +34,7 @@ export function claudeArgs(
     ...(job.protect ?? []).flatMap((branch) => ["--protect", branch]),
     ...skills.flatMap((name) => ["--skill", name]),
     ...servers.flatMap((name) => ["--server", name]),
+    ...(servers.length > 0 && profile ? ["--profile", profile] : []),
   ];
   const guard = `${[...self, ...lane].map(quote).join(" ")} || exit 2`;
   const hooks = { PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: guard }] }] };
@@ -45,6 +48,30 @@ export function claudeArgs(
   const all = servers.includes("*");
   const named = new Set(servers.filter((s) => s !== "*").map(serverSegment));
   // two names with one tool prefix cannot be told apart by the guard: the run is refused
+  const listed = servers.length > 0 ? servers.filter((s) => s !== "*") : [];
+  // a name that ends in _ or holds __ cannot be told from the tool part of a tool name
+  for (const name of [...listed, ...(servers.length > 0 ? (others ?? []) : [])]) {
+    const segment = serverSegment(name);
+    if (segment.endsWith("_") || segment.includes("__")) {
+      throw new Error(
+        `the server "${name}" would be called "${segment}" in tool names, which ends in _ or holds __: its tools cannot be told from another server's. Rename it in the profile`,
+      );
+    }
+  }
+  if (servers.length > 0 && others === undefined) {
+    // without the list a clash cannot be seen: only a name that is its own segment is safe
+    const odd = servers.find((s) => s === "*" || serverSegment(s) !== s);
+    if (odd !== undefined) {
+      throw new Error(
+        `the servers of the profile could not be listed ("claude mcp list"), so the lane may only name servers whose names hold letters, digits, - and _ (not "${odd}")`,
+      );
+    }
+  }
+  if ((others ?? []).some((name) => serverSegment(name) === "factor")) {
+    throw new Error(
+      'the profile lists a server called "factor", the name of the factory\'s own: rename or remove it there',
+    );
+  }
   const raw = new Map(servers.map((s) => [serverSegment(s), s]));
   for (const name of [...servers, ...(others ?? [])]) {
     const other = raw.get(serverSegment(name));
@@ -56,9 +83,9 @@ export function claudeArgs(
   }
   if (named.has("factor"))
     throw new Error('a profile server called "factor" would stand in for the factory\'s own');
-  const profile = (others ?? []).map((name) => serverSegment(name)).filter((s) => s !== "factor");
-  const allowed = [...named, ...(all ? profile.filter((s) => !named.has(s)) : [])];
-  const shut = all || servers.length === 0 ? [] : [...new Set(profile.filter((s) => !named.has(s)))];
+  const inProfile = (others ?? []).map((name) => serverSegment(name));
+  const allowed = [...named, ...(all ? inProfile.filter((s) => !named.has(s)) : [])];
+  const shut = all || servers.length === 0 ? [] : [...new Set(inProfile.filter((s) => !named.has(s)))];
   const server = job.server ?? [];
   return [
     ...["-p", "--output-format", "stream-json", "--verbose"],
