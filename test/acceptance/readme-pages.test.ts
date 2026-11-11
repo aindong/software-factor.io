@@ -23,10 +23,12 @@ function targets(page: string): string[] {
 }
 const blocks = (text: string) => [...text.matchAll(/^```[a-z]*\n[\s\S]*?^```$/gm)].map((m) => m[0]);
 const headings = (text: string) => text.match(/^## /gm)?.length ?? 0;
-/** The list items of the section on real agents: it is the last but two, in every language. */
+/** The list items of the section on real agents: found by its English heading, and by that same place in a translation. */
 function honest(text: string): number {
-  const parts = text.split(/^## /m);
-  return (parts.at(-3) ?? "").match(/^- /gm)?.length ?? 0;
+  const at = read(ENGLISH)
+    .split(/^## /m)
+    .findIndex((part) => part.startsWith("What has run with real agents"));
+  return (text.split(/^## /m)[at] ?? "").match(/^- /gm)?.length ?? 0;
 }
 
 it("opens with the demo in both themes and shows the real interface", () => {
