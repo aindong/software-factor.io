@@ -70,7 +70,7 @@ first=$(sf runs 2> /dev/null | awk 'NR == 1 { print $1 }')
 [ -n "$first" ] || fail "no run id in: $(sf runs 2>&1)"
 sf approve "$first" > "$work/approve.log" 2>&1 || fail "approve: $(cat "$work/approve.log")"
 sf run > "$work/run2.log" 2>&1; [ $? -eq 3 ] || fail "the second run should wait for approval: $(cat "$work/run2.log")"
-script 45000
+script 120000 # long enough for a busy machine: the steps below must all happen while it works
 sf run > "$work/run3.log" 2>&1 &
 slow=$!
 
