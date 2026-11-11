@@ -3,7 +3,7 @@
 // every frame is the same on every run), shoots one loop of the script and assembles it with img2webp.
 // Writes docs/media/how-it-works-{light,dark}.webp and, beside the copy, one still of each.
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -42,8 +42,11 @@ const browser = await launch();
 try {
   for (const theme of themes) {
     const dir = join(copy, "frames", theme);
-    rmSync(dir, { recursive: true, force: true });
-    mkdirSync(dir, { recursive: true });
+    const raw = join(copy, "frames", `${theme}-raw`);
+    for (const d of [dir, raw]) {
+      rmSync(d, { recursive: true, force: true });
+      mkdirSync(d, { recursive: true });
+    }
     const context = await browser.newContext({
       viewport: { width: 800, height: 352 },
       deviceScaleFactor: scale,
@@ -60,20 +63,37 @@ try {
     });
     const mark = () => page.evaluate(() => document.querySelector(".ss-stage")?.getAttribute("data-mark"));
     let frames = 0;
+    const says = []; // what the header says in each frame, to find the beats
     // one loop: from the first mark to just before the second
     for (let i = 0; i < fps * 40; i++) {
       await page.evaluate(() => window.__clock.step(1));
       const m = await mark();
       if (m === "cycle2" && frames > 0) break;
       if (m !== "cycle1") continue;
-      await page.screenshot({ path: join(dir, `f${String(frames++).padStart(4, "0")}.png`), clip });
+      says.push(
+        await page.evaluate(
+          () =>
+            `${document.querySelector(".fx .state b")?.textContent}|${document.querySelector(".fx-sentence[data-on]")?.textContent ?? ""}`,
+        ),
+      );
+      await page.screenshot({ path: join(raw, `f${String(frames++).padStart(4, "0")}.png`), clip });
     }
     if (!frames || (await mark()) !== "cycle2") throw new Error(`${theme}: did not find one whole loop`);
-    const files = readdirSync(dir)
-      .sort()
-      .map((f) => join(dir, f));
-    // the still is the loop's last frame: the run done
-    copyFileSync(files.at(-1), join(stills, `how-it-works-${theme}.png`));
+    // The file starts on the finished frame (the run Done), held, then the reset and the story, so a viewer
+    // that never animates sees the poster. Same loop, rotated.
+    // three frames past the first Done, so the poster is not caught in the 0.2 s fade of its words
+    const done = says.findIndex((t) => t.startsWith("Done|")) + 3;
+    const order = [...says.keys()].slice(done).concat([...says.keys()].slice(0, done));
+    const files = order.map((k, n) => {
+      const to = join(dir, `f${String(n).padStart(4, "0")}.png`);
+      copyFileSync(join(raw, `f${String(k).padStart(4, "0")}.png`), to);
+      return to;
+    });
+    copyFileSync(files[0], join(stills, `how-it-works-${theme}.png`));
+    const at = (test) => order.findIndex((k) => test(says[k]));
+    console.log(
+      `${theme} frames: poster 0, Done held to ${frames - done - 1}, gates run ${at((t) => t.includes("gates are running"))}, Ship waits ${at((t) => t.includes("Ship waits"))}`,
+    );
     const file = join(out, `how-it-works-${theme}.webp`);
     execFileSync(
       "img2webp",

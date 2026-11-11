@@ -15,7 +15,7 @@ const LANES = [
 const GATES = ["protected", "tests kept", "verify"];
 const X = (i: number) => i * 124; // the product's spacing between stations
 const DONE = 5;
-const PARK = { x: 770, y: 332 }; // the pointer rests in the empty corner
+const PARK = { x: 830, y: 400 }; // the pointer waits past the corner of the stage
 
 type Step = {
   /** The lane the train is at, none once the run is done. */
@@ -92,7 +92,7 @@ const script = async (a: Act<S>) => {
   a.move(PARK, { duration: 800 });
   await a.wait(1100);
   a.put({ n: LAST }); // merged: the payoff holds
-  await a.wait(1800);
+  await a.wait(1300);
   a.put({ n: 0, g: 0, go: false }); // the next task is about to enter
   await a.wait(300);
 };
@@ -136,6 +136,7 @@ function LineMap({ s }: { s: S }) {
         return (
           <g
             key={l.id}
+            data-target={`st-${i}`}
             className={`station lane${ran !== "none" ? ` ran-${ran}` : ""}${working ? " working" : ""}`}
             transform={`translate(${X(i)} 0)`}
           >
@@ -173,6 +174,7 @@ function LineMap({ s }: { s: S }) {
         );
       })}
       <g
+        data-target={`st-${DONE}`}
         className={`station end done${step.passed === DONE ? " ran-pass" : " far"}`}
         transform={`translate(${X(DONE)} 0)`}
       >
@@ -185,6 +187,9 @@ function LineMap({ s }: { s: S }) {
     </svg>
   );
 }
+
+// each lane'"'"'s words stand on the axis of its own station, measured from the station (the guess is only for the first frame)
+const centre = (x: number, width: number, i: number) => (width > 0 ? x + width / 2 : 74 + X(i) * 1.053);
 
 function Gates({ s }: { s: S }) {
   return (
@@ -211,10 +216,10 @@ export default function Factory() {
       initial={{ n: 0, g: 0, go: false }}
       poster={{ n: LAST, g: 6, go: true }}
       script={script}
-      cursor={{ at: PARK, style: "arrow", ripple: true, idle: 1200 }}
+      cursor={{ at: PARK, style: "arrow", ripple: true, idle: 600 }}
       className="fx"
     >
-      {(s) => {
+      {(s, rect) => {
         const step = STEPS[s.n] as Step;
         const mark = step.word === "Working" ? "working" : step.word === "Done" ? "pass" : "asked";
         return (
@@ -253,7 +258,11 @@ export default function Factory() {
             </div>
             <div className="fx-cols">
               {LANES.map((l, i) => (
-                <div key={l.id} className="fx-col" style={{ left: 74 + X(i) * 1.053 }}>
+                <div
+                  key={l.id}
+                  className="fx-col"
+                  style={{ left: centre(rect(`st-${i}`).x, rect(`st-${i}`).width, i) }}
+                >
                   {i === 1 ? <Gates s={s} /> : null}
                   {i !== 1 ? (
                     <span className="fx-pass" data-on={i < step.passed || undefined}>

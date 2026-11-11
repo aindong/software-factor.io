@@ -95,6 +95,7 @@
   font: 500 1.1875rem / 1.3 var(--font-tight);
 }
 /* what comes up in the story eases in over a fifth of a second, so nothing pops */
+.fx .fx-pass .mark,
 .fx-word,
 .fx .state,
 .fx-sentence,
@@ -102,6 +103,7 @@
   opacity: 0;
   transition: opacity 0.1s ease-out;
 }
+.fx .fx-pass[data-on] .mark,
 .fx-pass[data-on] .fx-word,
 .fx .state[data-on],
 .fx-sentence[data-on],
@@ -130,7 +132,7 @@
 }
 .fx-gates .label {
   margin-bottom: 2px;
-  font-size: 1rem;
+  font-size: 0.9375rem;
   white-space: nowrap;
 }
 /* the lines not taken step back less at night, where 28% of a blue on near black is lost */
