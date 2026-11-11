@@ -13,6 +13,10 @@ export function standing(run: RunRow): { mark: string; word: string } {
   return run.status === "stopped" ? { mark: "fail", word: "Stopped" } : { mark: "none", word: "Dropped" };
 }
 
+/** A run's sentence, unless it only repeats the state that stands beside it ("Done."). */
+export const detail = (run: RunRow): string =>
+  run.sentence === `${standing(run).word}.` ? "" : run.sentence;
+
 const whole = new Intl.NumberFormat("en-US");
 /** "1,200 tokens". */
 export const tokens = (n: number) => `${whole.format(n)} ${n === 1 ? "token" : "tokens"}`;

@@ -10,6 +10,7 @@ import { getRun, type RunDetail, type RunRow } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
 import { DiffView, FileView, PairView, Proof } from "./Evidence.tsx";
 import { go } from "./route.ts";
+import { State } from "./State.tsx";
 import { STATE_WORD } from "./Strip.tsx";
 import { TranscriptView } from "./Transcript.tsx";
 import { ago, cost, span, standing, tokens } from "./words.ts";
@@ -138,10 +139,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
         {/* in the inbox the decision bar above says this already */}
         {deciding ? null : (
           <>
-            <p className="state">
-              <span className={`mark ${standing(row).mark}`} aria-hidden="true" />
-              <b>{standing(row).word}</b>
-            </p>
+            <State run={row} />
             <p className="sentence" role="status">
               {row.sentence}
             </p>

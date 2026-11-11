@@ -7,10 +7,12 @@ const tell = (change: () => void) => {
   return () => removeEventListener("popstate", change);
 };
 export const usePath = (): string => useSyncExternalStore(tell, () => location.pathname);
+/** The query of the address (`?show=working`): a view of the section that a reload and a link keep. */
+export const useSearch = (): string => useSyncExternalStore(tell, () => location.search);
 
 /** Go somewhere in the page. With `replace`, Back does not stop at where the page was. */
 export function go(to: string, replace = false): void {
-  if (to === location.pathname) return;
+  if (to === location.pathname + location.search) return;
   if (replace) history.replaceState(null, "", to);
   else history.pushState(null, "", to);
   dispatchEvent(new PopStateEvent("popstate"));

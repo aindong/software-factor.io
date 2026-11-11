@@ -1,0 +1,38 @@
+/* The filter of the Runs list: choices that wrap on a narrow top bar, the chosen one in ink. */
+.runfilter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.runfilter button {
+  min-height: calc(var(--row) - 2px);
+  padding: 0 var(--md);
+  border: 1px solid var(--edge);
+  border-radius: var(--control);
+  background: var(--ground);
+  cursor: pointer;
+}
+.runfilter button:hover {
+  background: var(--panel);
+}
+.runfilter button[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--ground);
+  font-weight: 600;
+}
+/* on the chosen button the ring would be ink on ink */
+.runfilter button[aria-pressed="true"]:focus-visible {
+  outline-color: var(--ground);
+  outline-offset: -4px;
+}
+.runlist .listnote {
+  margin: 0;
+  padding: var(--sm) var(--lg);
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-soft);
+}

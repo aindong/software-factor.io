@@ -65,6 +65,19 @@
   overflow-wrap: anywhere;
 }
 
+/* A row of the Runs list: its state is the first line, in the same place on every row (its mark and
+   its word, then the age); the task, the strip and the sentence are under it. */
+.run.lined {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.run.lined .task,
+.run.lined .sentence {
+  grid-column: 1 / -1;
+}
+.run.lined .strip {
+  grid-column: 1;
+}
+
 /* how a run, a lane or a gate stands: a shape and a colour, never the colour alone */
 .mark {
   flex: none;

@@ -108,7 +108,10 @@ passed, a vermilion diamond failed, a yellow square asked a person, a ring is no
 the lane the run is at) and one sentence about what is happening now. The list follows the record by itself:
 the server sends it again whenever it changes, so a run started in your terminal appears without a reload.
 
-A run that is working says "Working" in its row and at the head of its page, with a mark that is a ring with a
+Every row says its state in a word on its first line, in the same place on each row, with its mark: Working,
+Waits for you, Waits by itself, Done, Stopped or Dropped. The sentence under the strip is the detail, and is
+left out when it would only repeat the word. The same word and mark head a run's page. A run that is working
+has a mark that is a ring with a
 dot, unlike the disc of a done run, the diamond of a stopped one and the yellow square of one that waits for
 you. On its map the lane where the work is going on has a ring that breathes, and the line the task came along
 carries dashes that run the way it goes; the strip map's train breathes too, and the rail shows the same mark
@@ -117,6 +120,12 @@ system's settings nothing moves: the ring, the dashes and the mark stay as still
 
 The sentence comes from the record. For an agent at work it is read from the last lines of its CLI's output:
 "Build: the agent is running `npm test`." It holds no clock, so it changes only when something happens.
+
+The top bar has a filter by state: All and one button for each state that has a run, with its count. Tab to
+it and press Enter or Space; the chosen one is pressed. It is kept in the address (`/runs?show=working`), so a
+reload and a shared link keep it, and the heading says "1 working, 1 shown of 3". A filter that leaves nothing
+says "No run is working." with a button back to All. A run that is open stays open when it no longer matches:
+the list says that it is not among those shown.
 
 The arrow keys move through the list and Enter goes into a run. A run shows:
 
