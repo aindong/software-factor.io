@@ -1,15 +1,17 @@
 // One run: its sentence, the run drawn on the workflow's map with a control that steps through
 // it, what waits for a person, the diff, the files its agents attached, and each lane it went
 // through with its gates, claims and sessions. Every piece of evidence opens in place.
-import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { drawable, layout } from "../core/floor/layout.ts";
 import { groupEvidence, routeOf, stepOf, trackOf } from "../core/runs/track.ts";
+import { memberOf } from "../core/runs/transcript.ts";
 import type { Workflow } from "../core/schema/workflow.ts";
 import { getRun, type RunDetail, type RunRow } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
 import { DiffView, FileView, PairView, Proof } from "./Evidence.tsx";
 import { go } from "./route.ts";
 import { STATE_WORD } from "./Strip.tsx";
+import { TranscriptView } from "./Transcript.tsx";
 import { ago, cost, span, tokens } from "./words.ts";
 
 const OUTCOME = { pass: "pass", fail: "fail", needsPerson: "asked" } as const;
@@ -91,8 +93,12 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
     },
   });
 
-  // what agents attached, without the output of gates and commands: that is shown with its lane
-  const outputs = new Set(detail?.lanes.flatMap((l) => [...l.gates.map((g) => g.output), l.output]));
+  // what agents attached, without the output of gates and commands: that is shown with its lane.
+  // A gate that compares with the base commit keeps that run's output beside its own.
+  const baseOf = (output: string) => output.replace(/\.log$/, ".base.log");
+  const outputs = new Set(
+    detail?.lanes.flatMap((l) => [...l.gates.flatMap((g) => [g.output, baseOf(g.output)]), l.output]),
+  );
   // a lane entered twice attaches twice: each file then says which time it is from
   const times = new Map<number, string>();
   for (const lane of detail?.lanes ?? []) {
@@ -350,26 +356,32 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                     </ul>
                   ) : null}
                   {lane.gates.map((gate) => (
-                    <Proof
-                      key={gate.output}
-                      {...proof(gate.output)}
-                      mark={
-                        <span
-                          className={`mark ${gate.status === "pass" ? "pass" : "fail"}`}
-                          aria-hidden="true"
-                        />
-                      }
-                      label={`Gate ${gate.gate} ${gate.status === "pass" ? "passed" : "failed"}`}
-                      meta={[
-                        gate.exitCode === null ? "" : `exit ${gate.exitCode}`,
-                        span(gate.durationMs),
-                        gate.attempt > 1 ? `round ${gate.attempt}` : "",
-                      ]
-                        .filter(Boolean)
-                        .join(", ")}
-                    >
-                      <FileView runId={row.id} path={gate.output} name="output.log" />
-                    </Proof>
+                    <Fragment key={gate.output}>
+                      <Proof
+                        {...proof(gate.output)}
+                        mark={
+                          <span
+                            className={`mark ${gate.status === "pass" ? "pass" : "fail"}`}
+                            aria-hidden="true"
+                          />
+                        }
+                        label={`Gate ${gate.gate} ${gate.status === "pass" ? "passed" : "failed"}`}
+                        meta={[
+                          gate.exitCode === null ? "" : `exit ${gate.exitCode}`,
+                          span(gate.durationMs),
+                          gate.attempt > 1 ? `round ${gate.attempt}` : "",
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
+                      >
+                        <FileView runId={row.id} path={gate.output} name="output.log" />
+                      </Proof>
+                      {detail.files.some((f) => f.path === baseOf(gate.output)) ? (
+                        <Proof {...proof(baseOf(gate.output))} label={`Gate ${gate.gate} on the base commit`}>
+                          <FileView runId={row.id} path={baseOf(gate.output)} name="output.log" />
+                        </Proof>
+                      ) : null}
+                    </Fragment>
                   ))}
                   {lane.output ? (
                     <Proof {...proof(lane.output)} label="What its command printed">
@@ -386,7 +398,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                       <Proof
                         key={session.transcript}
                         {...proof(session.transcript)}
-                        label={`What the agent printed${lane.sessions.length > 1 ? `, try ${i + 1}` : ""}`}
+                        label={`What the agent printed${memberOf(session.transcript) ? `: ${memberOf(session.transcript)}` : lane.sessions.length > 1 ? `, try ${i + 1}` : ""}`}
                         meta={[
                           session.account ?? session.agent,
                           session.model ?? "",
@@ -396,7 +408,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                           .filter(Boolean)
                           .join(", ")}
                       >
-                        <FileView runId={row.id} path={session.transcript} name="transcript.jsonl" />
+                        <TranscriptView runId={row.id} path={session.transcript} />
                       </Proof>
                     ) : null,
                   )}

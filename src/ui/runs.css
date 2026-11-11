@@ -425,6 +425,7 @@ a.button {
 }
 .claims {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--xs);
   margin: 0;
   padding-left: var(--lg);
@@ -439,7 +440,9 @@ a.button {
   border: 1px solid var(--rule);
   border-radius: 3px;
   color: var(--ink-soft);
-  white-space: nowrap;
+  /* a long path wraps inside the line: on a phone it must not push the lane off the screen */
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 1000px) {
@@ -491,4 +494,96 @@ a.button {
   display: block;
   width: fit-content;
   max-width: 100%;
+}
+
+/* ---- what an agent did: its words, each tool as one line, the first lines of what came back */
+.views {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xs);
+}
+.views .button[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--panel);
+  font-weight: 600;
+}
+.account {
+  display: grid;
+  gap: var(--md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.account li,
+.account .call {
+  min-width: 0;
+}
+.account p {
+  margin: 0;
+}
+.account .said {
+  max-width: 80ch;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.account .plain-line {
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+.account .head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sm);
+  min-width: 0;
+}
+.account .tool {
+  flex: none;
+  padding: 0 var(--xs);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  color: var(--ink-soft);
+}
+.account .arg {
+  min-width: 0;
+  font-family: var(--font-code);
+  font-size: var(--text-data);
+  overflow-wrap: anywhere;
+}
+.account .failure {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xs);
+  font-weight: 600;
+}
+.account .out {
+  margin: var(--xs) 0 0;
+  padding: var(--xs) var(--sm);
+  background: var(--panel);
+  border-radius: var(--control);
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.account .failed .out {
+  color: var(--ink);
+  outline: 1px solid var(--return);
+  outline-offset: -1px;
+}
+.account .more {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.account .end {
+  padding-top: var(--sm);
+  border-top: 1px solid var(--rule);
 }

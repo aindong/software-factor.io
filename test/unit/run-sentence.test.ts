@@ -108,6 +108,13 @@ describe("what an agent's output says it is doing", () => {
     expect(activityOf(`${early}\n${long.slice(0, -40)}`)).toBe("running `npm test`");
   });
 
+  it("cuts a long reason after a whole word, not in the middle of one", () => {
+    const reason = Array.from({ length: 60 }, (_, i) => `reason${i}`).join(" ");
+    const said = sentenceOf({ status: "stopped", stopCode: "lane_failed", reason });
+    expect(said).toMatch(/ reason\d+\.\.\.$/);
+    expect(`${reason} `).toContain(`${said.slice("Stopped: ".length, -3)} `);
+  });
+
   it("never splits a character in two when it cuts", () => {
     for (let pad = 60; pad < 100; pad++) {
       const said =
