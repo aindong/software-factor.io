@@ -6,5 +6,10 @@ import { defineConfig } from "vitest/config";
 // The React plugin is for the interface's own tests, which render components to markup.
 export default defineConfig({
   plugins: [react()],
-  test: { testTimeout: 20_000, setupFiles: ["test/helpers/clean-env.ts"] },
+  test: {
+    testTimeout: 20_000,
+    setupFiles: ["test/helpers/clean-env.ts"],
+    // a working copy an agent session keeps inside the repository has its own tests: they are not this checkout's
+    exclude: ["**/node_modules/**", "**/dist/**", ".claude/**"],
+  },
 });

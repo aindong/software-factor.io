@@ -10,3 +10,5 @@ dist/
 docs/research/prior-art-own.md
 .impeccable/hook.cache.json
 .factor/local.json
+# working copies an agent session makes for itself
+.claude/worktrees/
