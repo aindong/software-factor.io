@@ -94,7 +94,7 @@ lane's role is bound to here: bind the role to another account and the run asks 
 - Without `--strict-mcp-config` the CLI could load a server from a project's own `.mcp.json`. It was checked on
   Claude Code 2.1.311 that a project's own `.mcp.json` is not loaded when the session reads only the user's
   settings, as these lanes do. It was not checked on a profile that turns on loading every project server.
-- Whether a project's own skills load in that mode: TO BE FILLED IN after it is checked.
+- Checked on Claude Code 2.1.311: a project's own skills, in `.claude/skills` at the top of the worktree or in a folder below it, are not listed to a session that reads only the user's settings.
 - Codex and the other agents are unchanged: what their lanes load from their own profiles is not checked here.
 
 ## Not tried with a real agent
