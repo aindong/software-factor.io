@@ -20,7 +20,7 @@ it("the guide's workflow passes the checker as it stands", () => {
   const r = repo.sf("check");
   expect(r.status, r.stdout + r.stderr).toBe(0);
   expect(r.stdout).toMatch(/^ok\s+\.factor\/workflows\/with-review\.json$/m);
-  expect((workflow?.lanes as Json[]).map((l) => l.id)).toEqual(["work", "review"]);
+  expect(((workflow as Json).lanes as Json[]).map((l) => l.id)).toEqual(["work", "review"]);
 });
 
 it("and still passes with the command lane it describes, and the workspace file it shows", () => {

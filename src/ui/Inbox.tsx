@@ -7,6 +7,7 @@ import { type KeyboardEvent as ReactKey, useEffect, useRef, useState } from "rea
 import type { Decision, InboxItem } from "../core/views.ts";
 import { op } from "./api.ts";
 import { useRuns } from "./live.ts";
+import { useDecidingKeyOutside } from "./outside.ts";
 import { RunView } from "./RunDetail.tsx";
 import { useWorkflows } from "./Runs.tsx";
 import { go, openIn, usePath } from "./route.ts";
@@ -53,6 +54,8 @@ export function Inbox() {
   const [said, setSaid] = useState<Said>(); // what the factory answered to the last decision
   const rows = useRef(new Map<number, HTMLDivElement>());
   const head = useRef<HTMLHeadingElement>(null);
+  const top = useRef<HTMLHeadingElement>(null);
+  useEffect(() => top.current?.focus(), []);
   const box = useRef<HTMLTextAreaElement>(null);
   const decided = useRef<number>(undefined); // the item this page just decided on
   const lost = useRef(false); // the item on show was decided elsewhere: nothing is chosen until the person chooses
@@ -218,6 +221,9 @@ export function Inbox() {
   };
   // A refusal is said in the decision bar of the item it is about. What went well is said above the
   // list, where the item was: inside the next item's bar it would read as being about that item.
+  useDecidingKeyOutside(current !== undefined, () =>
+    setSaid({ text: "Choose an item first: Tab moves to the list.", bad: true, item: current?.id }),
+  );
   const refusal = said?.bad && (said.item === undefined || said.item === current?.id);
   const answer =
     said && (said.bad ? refusal : true) ? (
@@ -232,7 +238,9 @@ export function Inbox() {
     <main className="work">
       <div className="topbar">
         <div className="where">
-          <h1>Inbox</h1>
+          <h1 tabIndex={-1} ref={top}>
+            Inbox
+          </h1>
           {items ? (
             <span>
               {items.length === 0

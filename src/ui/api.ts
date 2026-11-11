@@ -17,7 +17,9 @@ function readToken(): string {
     return given ?? ""; // storage is blocked: the key lasts until the page is reloaded
   }
 }
-const token = readToken();
+let token = readToken();
+// the key was refused and the page was kept, because it holds work a reload would lose
+let refused = false;
 /** Drop a key the server no longer takes (it was started again): the page then says how to get one. */
 export function forgetKey(): void {
   try {
@@ -27,11 +29,28 @@ export function forgetKey(): void {
   }
   // also out of the address: a key left there would be read again, refused again, and so on
   if (location.hash) history.replaceState(null, "", location.pathname);
-  location.reload();
+  // Whoever holds unsaved work answers the browser's own question before leaving: asked here, no
+  // dialog is shown. A page that holds work is kept, and takes the new key in place when it comes.
+  refused = !dispatchEvent(new Event("beforeunload", { cancelable: true }));
+  if (!refused) location.reload();
 }
 // the printed address opened in a tab that is already on this page changes only what is after
 // the "#", which loads nothing: load the page again, so that the key is read
-addEventListener("hashchange", () => /^#t=[0-9a-f]+$/.test(location.hash) && location.reload());
+addEventListener("hashchange", () => {
+  const given = /^#t=([0-9a-f]+)$/.exec(location.hash)?.[1];
+  if (!given) return;
+  if (!refused) return location.reload();
+  // the page was kept for its unsaved work: the new key is taken without loading it again
+  token = given;
+  refused = false;
+  try {
+    sessionStorage.setItem(KEY, given);
+  } catch {
+    // storage is blocked: the key lasts until the page is reloaded
+  }
+  history.replaceState(null, "", location.pathname);
+  dispatchEvent(new Event("factor:key"));
+});
 /** False when the page was opened without the session's key: the API will refuse it. */
 export const hasKey = token !== "";
 
@@ -135,7 +154,9 @@ export function listen(onRuns: (runs: RunRow[]) => void, onState: (live: boolean
       await stream().catch(() => {}); // the server went away, or the listening was stopped
       if (control.signal.aborted) return;
       onState(false);
-      await new Promise((again) => setTimeout(again, 2000));
+      // with a refused key there is nothing to ask again until the new one is here
+      if (refused) await new Promise((got) => addEventListener("factor:key", got, { once: true }));
+      else await new Promise((again) => setTimeout(again, 2000));
     }
   })();
   return () => control.abort();
