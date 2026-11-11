@@ -35,6 +35,9 @@ export function countTests(raw: string, pattern?: string): number | undefined {
   if (cargo !== undefined) return cargo;
   const tap = sum(output, /^# (?:pass|fail) (\d+)/gm);
   if (tap !== undefined) return tap;
+  // node's own runner, in the "spec" form it prints unless asked for another: "ℹ pass 3", "ℹ fail 0"
+  const node = sum(output, /^ℹ (?:pass|fail) (\d+)/gm);
+  if (node !== undefined) return node;
   const pytest = [...output.matchAll(/^=+ (.*) in [\d.]+s.*=+\s*$/gm)].map((m) => m[1] ?? "");
   if (pytest.length > 0)
     return pytest.reduce((n, line) => n + (sum(line, /(\d+) (?:passed|failed|errors?)\b/g) ?? 0), 0);

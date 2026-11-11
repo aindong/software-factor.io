@@ -60,8 +60,10 @@ function toTheEnd(repo: Repo): { status: string; lanes: string[] } {
   return { status: run.status, lanes };
 }
 
-it("alleo-loop runs to the end: plan, build, impact, a review panel, ship", () => {
+/** `alleo-loop` on a small project. With `ui`, the change holds a page, so the task is routed through the browser check. */
+function alleoLoop(ui: boolean): Repo {
   const plan = "docs/plans/double.md";
+  const page = ui ? [write("pages/double.html", "<p>double</p>\n")] : [];
   const repo = workspace(
     "alleo-loop",
     { verify: "node --test", ship: "true" },
@@ -75,20 +77,45 @@ it("alleo-loop runs to the end: plan, build, impact, a review panel, ship", () =
           { commit: "The plan" },
           pass({ plan }),
         ],
-        build: [...change, pass()],
+        build: [...page, ...change, pass()],
         impact: [pass({ fact: "Nothing imports double yet.", proof: "run" })],
       },
-      reviewer: { "*": [pass({ findings: [] })] },
+      reviewer: { review: [pass({ findings: [] })], "verify-ui": [pass()] },
     },
   );
   repo.write(".factor/tasks.md", "- [ ] Add a double function\n");
   // the owner's own plan check is a tool of their machine: here a stand-in that reads the same sections
   standIn(repo, "alleo-plan-check", 'grep -q "^## Acceptance criteria" "$1" && grep -q "^- 1: test:" "$1"');
+  return repo;
+}
+const unchanged = (repo: Repo, name: string) =>
+  expect(repo.read(`.factor/workflows/${name}.json`)).toBe(readFileSync(`workflows/${name}.json`, "utf8"));
+
+it("alleo-loop runs to the end: plan, build, impact, a review panel, ship", () => {
+  const repo = alleoLoop(false);
   expect(toTheEnd(repo)).toEqual({
     status: "done",
     lanes: ["plan:pass", "build:pass", "impact:pass", "review:pass", "ship:pass"],
   });
   expect(repo.rows("select gate from gate_results where status <> 'pass'")).toEqual([]);
+  unchanged(repo, "alleo-loop");
+}, 120_000);
+
+it("alleo-loop sends a change to the interface through its browser check, so every one of its six lanes has run", () => {
+  const repo = alleoLoop(true);
+  expect(toTheEnd(repo).lanes).toEqual([
+    "plan:pass",
+    "build:pass",
+    "impact:pass",
+    "review:pass",
+    "verify-ui:pass",
+    "ship:pass",
+  ]);
+  const shipped = JSON.parse(readFileSync("workflows/alleo-loop.json", "utf8")) as {
+    lanes: { id: string }[];
+  };
+  expect(shipped.lanes.map((l) => l.id)).toEqual(["plan", "build", "impact", "review", "verify-ui", "ship"]);
+  unchanged(repo, "alleo-loop");
 }, 120_000);
 
 it("bugfix-fast runs to the end: an issue collected through gh, a fix with a test that fails without it, a pull request", () => {
@@ -110,6 +137,7 @@ it("bugfix-fast runs to the end: an issue collected through gh, a fix with a tes
   standIn(repo, "gh", `cat << 'JSON'\n${JSON.stringify(issues)}\nJSON`);
   expect(toTheEnd(repo)).toEqual({ status: "done", lanes: ["fix:pass", "open-pr:pass"] });
   expect(repo.rows("select collector, key from tasks")).toEqual([{ collector: "bugs", key: "#7" }]);
+  unchanged(repo, "bugfix-fast");
 }, 120_000);
 
 it("research-only runs to the end: a report with its sources, and a critic who finds nothing unsupported", () => {
@@ -133,4 +161,5 @@ it("research-only runs to the end: a report with its sources, and a critic who f
   );
   repo.write(".factor/questions.md", "- [ ] Which dependencies had a breaking release this week?\n");
   expect(toTheEnd(repo)).toEqual({ status: "done", lanes: ["research:pass", "critique:pass"] });
+  unchanged(repo, "research-only");
 }, 120_000);
