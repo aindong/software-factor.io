@@ -36,6 +36,12 @@ before=$(node -e 'const l = require("./.factor/local.json"); console.log(JSON.st
 # no select of the roles is narrower than its longest option's text, its padding and 12 px for its arrow
 cut='() => { const pen = document.createElement("canvas").getContext("2d"); return [...document.querySelectorAll(".roles select")].filter((s) => { const c = getComputedStyle(s); pen.font = c.font; const text = Math.max(...[...s.options].map((o) => pen.measureText(o.text).width)); return text + parseFloat(c.paddingLeft) + parseFloat(c.paddingRight) + 12 > s.clientWidth + 0.5; }).map((s) => s.getAttribute("aria-label")).join(" | ") || "none"; }'
 uncut() { expect "no select cuts its text off: $1" "$(js "$cut")" '^none$'; }
+# a select is drawn by the page, as the fields are: no native look, one chevron of its own.
+drawn='() => [...document.querySelectorAll(".roles select")].filter((s) => { const c = getComputedStyle(s); return c.appearance !== "none" || !/url|gradient|svg/.test(c.backgroundImage); }).map((s) => s.getAttribute("aria-label")).join(" | ") || "none"'
+# a role's description reads on at most two lines, and nothing of a row is outside the screen or cut off
+lay='() => { const bad = [...document.querySelectorAll(".roles tbody th .sub:first-of-type")].filter((d) => { const c = getComputedStyle(d); return d.getBoundingClientRect().height > 2 * (parseFloat(c.lineHeight) || 1.5 * parseFloat(c.fontSize)) + 1; }).map((d) => "description of " + d.closest("th").childNodes[0].textContent); for (const e of document.querySelectorAll(".roles select, .roles input")) if (e.scrollWidth > e.clientWidth || e.getBoundingClientRect().right > innerWidth) bad.push(e.getAttribute("aria-label")); return bad.join(" | ") || "none"; }'
+look() { expect "the selects are drawn by the page: $1" "$(js "$drawn")" '^none$'; }
+laid() { expect "a role's row reads well: $1" "$(js "$lay")" '^none$'; }
 field='(e) => { const c = getComputedStyle(e); return [e.getBoundingClientRect().height, c.borderTopWidth, c.borderTopColor, c.borderRadius, c.backgroundColor, c.color, c.fontSize, c.fontFamily].join(" / "); }'
 model_of() { echo "() => document.querySelector('select[aria-label=\"Model for $1 lanes of author\"]')"; }
 row_text='() => document.querySelector("select[aria-label=\"Account for the role author\"]").closest("tr").innerText.replace(/\s+/g, " ")'
@@ -80,6 +86,8 @@ after=$(node -e 'const l = require("./.factor/local.json"); console.log(JSON.str
 [ "$after" = "$before" ] || fail "binding a role changed the rest of local.json: $before became $after"
 wait_for "a bound model the list does not know is shown and kept" "() => { const s = ($(model_of small))(); return s.value + ' ' + s.selectedOptions[0].text; }" '^claude-preview-6 claude-preview-6$'
 uncut "light 1440"
+laid "light 1440"
+look "light"
 shot accounts-light-1440
 
 # ---- 3. another agent's account: its list, and the models of the other agent cleared with a word
@@ -95,13 +103,17 @@ uncut "light 1440, Codex"
 # ---- 4. dark, and phone width
 theme Dark
 uncut "dark 1440"
+laid "dark 1440"
+look "dark"
 shot accounts-dark-1440
 pw resize 390 844
 fits "the accounts"
 uncut "dark 390"
+laid "dark 390"
 shot accounts-dark-390
 theme Light
 uncut "light 390"
+laid "light 390"
 shot accounts-light-390
 
 playwright-cli -s="$session" console error > "$work/console.log" 2>&1
