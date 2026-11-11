@@ -62,6 +62,16 @@ own in `prices.json` in the factor home (`~/.factor/prices.json`), which adds a 
 Two limits of the list: a cache write is priced as one kept for five minutes, and a price that rises past a
 context size is not modelled.
 
+## Reading the report from a script
+
+```
+$ softwarefactor cost --json
+```
+
+prints what the `costs` operation returns (the same report the operator MCP server gives), as one JSON document on
+stdout and nothing else. With no sessions it prints the same shape with empty lists. The shape grows with the
+operation. `--json` with `--check` is refused with exit 1: one prints the report, the other proves it.
+
 ## Checking the report
 
 ```
