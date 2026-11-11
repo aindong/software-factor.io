@@ -99,7 +99,9 @@ describe("the model of each tier", () => {
     expect(options(markup, "Model for medium lanes of author").filter((o) => o.chosen)).toEqual([
       { value: "+another", text: "Another model", chosen: true },
     ]);
-    expect(markup).toMatch(/<input[^>]*aria-label="Another model for medium lanes of author"[^>]*value="\+another"/);
+    expect(markup).toMatch(
+      /<input[^>]*aria-label="Another model for medium lanes of author"[^>]*value="\+another"/,
+    );
   });
 
   it("lists the models of a Codex account for a role bound to one", () => {
