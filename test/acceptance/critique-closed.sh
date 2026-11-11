@@ -120,7 +120,15 @@ if [ "${1:-}" = "--self-test" ]; then
   echo "- F1: fixed (package.json)" > "$t/findings.md"
   rm "$t/screens/floor-dark-1440.png"; bad "a screenshot that is not there"
   echo x > "$t/screens/floor-dark-1440.png"
-  sed -i '' -e "s/^commit: .*/commit: $(git -C "$here" rev-list --max-parents=0 HEAD | tail -1)/" "$t/critique-after.md"; bad "a second report older than the interface"
+  # a report made at the first commit is older than the interface, unless the history here is too
+  # short to hold a commit before the last change to src/ui (a shallow clone)
+  first=$(git -C "$here" rev-list --max-parents=0 HEAD | tail -1)
+  if git -C "$here" merge-base --is-ancestor "$(git -C "$here" log -1 --format=%H -- src/ui)" "$first" 2> /dev/null; then
+    echo "critique-closed self-test: the history here is too short to try a report older than the interface"
+  else
+    sed -e "s/^commit: .*/commit: $first/" "$t/critique-after.md" > "$t/older.md" && mv "$t/older.md" "$t/critique-after.md"
+    bad "a second report older than the interface"
+  fi
   echo "critique-closed self-test: ok"
   exit 0
 fi
