@@ -12,7 +12,7 @@ const whole = new Intl.NumberFormat("en-US");
 type Role = AccountsView["roles"][number];
 const EFFORTS = ["", "low", "medium", "high", "max"];
 const TIERS = ["small", "medium", "large"] as const;
-// the value of "Another model": no model is named so, and it is never sent
+// the value of "Another model": the page never sends it, and `role bind` takes no name starting so
 const ANOTHER = "+another";
 const AGENT_WORDS: Record<string, string> = {
   claude: "Claude Code",
@@ -37,8 +37,8 @@ export function RoleRow({
   const bound = typeof role.works === "object" && role.works ? role.works.account : "";
   const [account, setAccount] = useState(bound);
   const [models, setModels] = useState<Record<string, string>>(role.models);
-  // the tiers whose model is typed under "Another model"
-  const [typed, setTyped] = useState<string[]>([]);
+  // the tiers whose model is typed under "Another model"; a model bound under its value is shown typed, never twice
+  const [typed, setTyped] = useState<string[]>(TIERS.filter((tier) => role.models[tier] === ANOTHER));
   const [cleared, setCleared] = useState("");
   const [effort, setEffort] = useState(role.effort ?? "");
   const [busy, setBusy] = useState(false);
