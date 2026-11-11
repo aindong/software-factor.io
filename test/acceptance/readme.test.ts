@@ -22,6 +22,17 @@ it("shows only commands that the help lists", () => {
   for (const command of shown) expect(HELP, command).toMatch(new RegExp(`^  ${command}\\b`, "m"));
 });
 
+it("binds only a role the starter workflow has, and quotes the path of its alias", () => {
+  expect(readme).toContain('alias softwarefactor="node \\"$PWD/dist/cli.js\\""');
+  const real = readme.slice(
+    readme.indexOf("## Use a real agent"),
+    readme.indexOf("## The workflows that ship"),
+  );
+  const bound = [...real.matchAll(/softwarefactor role bind ([a-z]+)/g)].map((m) => m[1]);
+  expect(bound).toEqual(["author"]); // `init` writes one role: binding another fails
+  expect(real).toMatch(/reviewer/); // and the second role is named for the workflows that have one
+});
+
 it("has a quick start between its two markers, and holds no path of one machine", () => {
   const block =
     /<!-- quick-start:begin -->\n```sh\n([\s\S]*?)```\n<!-- quick-start:end -->/.exec(readme)?.[1] ?? "";
@@ -56,6 +67,9 @@ it("says what has run with real agents and what only on the scripted agent, by n
       expect((ran ? standIn : real).includes(name), `${name} in the other list`).toBe(false);
   }
   for (const said of ["eval", "slots", "bugfix-fast", "research-only", "alleo-plan-check"])
+    expect(standIn, said).toContain(said);
+  // from the review: parts of alleo-loop that no real agent has run, and a gate no shipped workflow uses
+  for (const said of ["verify-ui", "sent work back", "core/no-secrets@1"])
     expect(standIn, said).toContain(said);
   // who approved the checkpoints of the real runs is said in so many words
   expect(real).toContain("approved by the AI agent");
