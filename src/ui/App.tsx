@@ -1,7 +1,7 @@
 // The shell: the navy rail with the six sections, and the section that is open.
 import { useEffect, useState } from "react";
 import { Accounts } from "./Accounts.tsx";
-import { hasKey } from "./api.ts";
+import { hasKey, keyRefused, takeKey } from "./api.ts";
 import { Costs } from "./Costs.tsx";
 import { Floor } from "./Floor.tsx";
 import { Inbox } from "./Inbox.tsx";
@@ -89,6 +89,18 @@ export function App() {
     }
   }, [theme]);
 
+  // a tab kept with a key the server no longer takes says so on every section, and takes the new one there
+  const [refused, setRefused] = useState(keyRefused);
+  useEffect(() => {
+    const heard = () => setRefused(keyRefused());
+    addEventListener("factor:refused", heard);
+    addEventListener("factor:key", heard);
+    return () => {
+      removeEventListener("factor:refused", heard);
+      removeEventListener("factor:key", heard);
+    };
+  }, []);
+
   // a section owns its address and what is open under it
   const section =
     SECTIONS.find((s) => s.path === path || (s.path !== "/" && path.startsWith(`${s.path}/`))) ?? SECTIONS[0];
@@ -137,6 +149,19 @@ export function App() {
           {theme === "auto" ? "Auto" : theme === "light" ? "Light" : "Dark"}
         </button>
       </nav>
+      {refused ? (
+        <label className="keyless" role="alert">
+          <span>
+            The server was started again, so this tab's key is no longer good. The tab was kept because the
+            floor holds changes that are not saved. Paste the address the command printed here, then save.
+          </span>
+          <input
+            aria-label="The address the command printed"
+            spellCheck={false}
+            onChange={(event) => takeKey(event.target.value)}
+          />
+        </label>
+      ) : null}
       {!hasKey ? (
         <main className="work">
           <div className="topbar">

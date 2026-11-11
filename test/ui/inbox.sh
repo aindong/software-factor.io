@@ -96,7 +96,7 @@ shot inbox-light-1440
 # ---- the deciding keys are for the inbox only: from the rail they do nothing, and g takes the next key whatever it is
 pw press a
 sleep 0.5
-expect "a key pressed outside the inbox decides nothing" "$(js "$tasks") $(js "$said")" '^Add an export button \| Publish the release \| Pick a database $'
+expect "a key pressed outside the inbox decides nothing, and says what to do" "$(js "$tasks") $(js "$said")" '^Add an export button \| Publish the release \| Pick a database Choose an item first: Tab moves to the list\.$'
 tab_to '^[0-9]+ Add an export button'
 pw press g
 sleep 2
