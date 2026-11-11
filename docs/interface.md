@@ -87,6 +87,9 @@ other process on the machine, a coding agent included.
   terminal, after the `#`, where a browser never sends it. The page takes it from there, keeps it for the tab,
   and removes it from the address bar. The page itself holds no token, so asking the server for the page gives
   nothing that opens the API. A tab opened without the key says so.
+- When the server is started again it has a new key. A tab from before loads itself again and says it has no
+  key, unless the floor in it holds a change that is not saved: that tab is kept as it is. Open the new address
+  in the same tab and it takes the key in place, without loading again, so the change can be saved.
 - No other site can read the server's answers or put the page in a frame.
 - A save writes only a plain file in this repository's own workflows folder, never through a link, and only
   what the checker accepts.
@@ -149,6 +152,10 @@ the run's map and evidence beside the one that is chosen, so you decide with the
 | `s` | Sends the work back: a box for what should change, Enter sends. Nothing is sent while it is empty. Not offered for a lane that has not run yet. |
 | Enter, on a question | Puts the keyboard in the answer. Type it, Enter sends. Letters typed there are letters. |
 
+The keys work while the keyboard is in the inbox: on an item, or in its decision and proof. On arrival the
+keyboard is on the section's name, one Tab before the list, and nothing is chosen for you. A deciding key
+pressed there says "Choose an item first" and decides nothing: no key decides on an item you did not choose.
+
 A decision is the command line's own command, started by the server in a process of its own (docs/operations.md).
 It is made on the item that is on show and on nothing the run waits on later. After your decision the page
 moves to the next item and the keys rest for a moment. When the item you were reading is decided elsewhere,
@@ -196,6 +203,8 @@ Give it a folder as its argument and it leaves screenshots there in both themes.
 `bash test/ui/runs.sh` does the same for Runs: it makes three runs with the scripted agent (one done, one
 stopped, one waiting), and by key presses alone moves through the list, steps a run back and forth on its map,
 and opens the diff, a screenshot pair, a recording, a gate's output and a hand-off.
+`bash test/ui/ladder.sh` does the ladder at a lane, and `bash test/ui/restart.sh` a server started again under
+a floor that holds a change, and the arrival in the inbox. `bash test/ui/all.sh <folder>` runs them all.
 `bash test/ui/inbox.sh` does the inbox, accounts, costs and plugins: it approves, sends work back with a note,
 answers a question, has a decision refused, and binds a role, all by key presses.
 `bash test/ui/all.sh <folder>` runs the three and leaves a screenshot of every main screen in both themes at
