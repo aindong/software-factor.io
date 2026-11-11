@@ -6,9 +6,10 @@ import { fileURLToPath } from "node:url";
 import { AGENTS, DEFAULT_HEADROOM, heldUntil, readAccounts, usedIn } from "./accounts.ts";
 import type { Db } from "./db.ts";
 import type { RunState } from "./engine/state.ts";
+import { UserError } from "./errors.ts";
 import { type ModelChoice, modelChoices } from "./models.ts";
 import { installedPlugins } from "./plugins/use.ts";
-import { readPrices } from "./prices.ts";
+import { LIST, readPrices } from "./prices.ts";
 import { BUILTINS, own } from "./schema/builtins.ts";
 import { openInbox } from "./store.ts";
 import { loadWorkspace, type Workspace } from "./workspace.ts";
@@ -78,10 +79,20 @@ export interface AccountsView {
   }[];
 }
 
+/** The prices, or the built-in list when prices.json cannot be read: the page that rebinds roles must still open. */
+function pricesOrList() {
+  try {
+    return readPrices();
+  } catch (error) {
+    if (error instanceof UserError) return LIST;
+    throw error;
+  }
+}
+
 /** The logins on this machine and who works each role. Never where a login is kept, or a command. */
 export function accountsView(ws: Workspace, db: Db): AccountsView {
   const accounts = readAccounts();
-  const known = Object.keys(readPrices());
+  const known = Object.keys(pricesOrList());
   const ran = db.prepare(
     "select asked_model as asked, model from sessions where account = ? order by started_at desc, id desc",
   );
