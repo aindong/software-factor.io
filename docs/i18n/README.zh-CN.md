@@ -1,5 +1,7 @@
 <h1><img src="../media/banner.webp" alt="Software Factor.io"></h1>
 
+[![CI](https://github.com/aindong/software-factor.io/actions/workflows/ci.yml/badge.svg)](https://github.com/aindong/software-factor.io/actions/workflows/ci.yml)
+
 简体中文 · [English](../../README.md) · [日本語](README.ja.md) · [Español](README.es.md)
 
 本页是英文 README 的译文。英文页是准绳，两者不一致时，以英文页为准。
@@ -10,10 +12,10 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../media/how-it-works-dark.webp">
-  <img src="../media/how-it-works-light.webp" width="800" alt="一项任务沿着由五条泳道组成的流水线前进。Plan 完成工作后等待，直到有人批准。Build 完成工作，关卡全部通过。Review 和 Test 通过。Ship 等待第二次批准，合并变更，运行结束。">
+  <img src="../media/how-it-works-light.webp" width="940" alt="界面在首次运行时的录屏。Floor 显示由五条泳道组成的线路，一项任务先在 Plan 中处理，随后等待。在收件箱里，一个人按下 a 批准计划。Build、Review 和 Test 依次在 Floor 上工作，运行在 Ship 处等待。第二次批准之后，运行页面显示每条泳道都已通过，运行为 Done。">
 </picture>
 
-<sub>`softwarefactor init` 所写入的工作流上的一项任务。这是示意图，不是录屏：
+<sub>`softwarefactor init` 所写入的工作流上的第一次运行，在脚本化的智能体上从真实界面录制：
 [制作方式](../demo.md)。</sub>
 
 当前版本为 0.0.0，尚处早期。哪些部分已经用真实智能体跑过、哪些还没有，列在接近末尾的位置。
@@ -163,7 +165,9 @@ softwarefactor eval
 
 测试不启动任何真实智能体，也不需要网络。
 
-本页顶部的动画由 `pnpm run demo:film` 制作。[演示说明](../demo.md)写明了它需要什么，以及什么时候该重新拍摄。
+本页顶部的录屏由 `pnpm run demo:film` 制作。[演示说明](../demo.md)写明了它需要什么，以及什么时候该重新录制。
+
+想提交改动，请先读 [CONTRIBUTING.md](../../CONTRIBUTING.md)。
 
 ## 许可证
 

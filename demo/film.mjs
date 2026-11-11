@@ -1,111 +1,198 @@
-// Films the README animation: node demo/film.mjs [--light] [--dark] [--scale 2] [--fps 12]
-// It serves demo/ with the stageshow copy's vite, steps the stage's virtual clock one frame at a time (so
-// every frame is the same on every run), shoots one loop of the script and assembles it with img2webp.
-// Writes docs/media/how-it-works-{light,dark}.webp and, beside the copy, one still of each.
-import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+// Films the README picture: a real recording of the interface, a first run on the scripted agent.
+//   node demo/film.mjs [--light] [--dark] [--lossy]     (pnpm run demo:film)
+// For each theme it makes a scratch project in a temporary folder with its own FACTOR_HOME, starts
+// `softwarefactor ui` on a free port, and has `playwright-cli run-code` (demo/capture.js) press the keys of the
+// first run while it shoots frames. The frames are put together with `img2webp`, each one held for as long as
+// it was on screen. Frames are left in demo/frames/<theme>/ (ignored by git). Needs a build.
+import { execFile, execFileSync, spawn } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const copy = join(here, ".stageshow");
-if (!existsSync(join(copy, "node_modules"))) {
-  console.error("Run `node demo/setup.mjs` first: it copies the stageshow kit here and installs it.");
-  process.exit(2);
-}
+const root = join(here, "..");
+const cli = join(root, "dist", "cli.js");
 const args = process.argv.slice(2);
-const opt = (name, fallback) =>
-  args.includes(`--${name}`) ? Number(args[args.indexOf(`--${name}`) + 1]) : fallback;
-const scale = opt("scale", 2);
-const fps = opt("fps", 12);
 const themes = ["light", "dark"].filter(
   (t) => args.includes(`--${t}`) || !args.some((a) => a === "--light" || a === "--dark"),
 );
-const out = join(here, "..", "docs", "media");
-const stills = join(copy, "stills");
-mkdirSync(out, { recursive: true });
-mkdirSync(stills, { recursive: true });
+const size = { width: 940, height: 540 }; // below 1000 px the Floor's side panel folds away, so Done fits
+const lane = 1000; // how long each scripted lane works, in milliseconds
+const hold = 1500; // the last frame stays this long
 
-const { createServer } = await import(
-  pathToFileURL(join(copy, "node_modules", "vite", "dist", "node", "index.js")).href
-);
-const { launch } = await import(pathToFileURL(join(copy, "scripts", "browser.mjs")).href);
-const server = await createServer({
-  configFile: join(here, "vite.config.mjs"),
-  server: { port: 0 },
-  logLevel: "error",
-});
-await server.listen();
-const base = server.resolvedUrls.local[0];
-const browser = await launch();
+const have = (cmd) => {
+  try {
+    execFileSync("which", [cmd], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+};
+if (!existsSync(cli) || !existsSync(join(root, "dist", "ui", "index.html"))) {
+  console.error("Build first: pnpm run build");
+  process.exit(2);
+}
+for (const [cmd, how] of [
+  ["playwright-cli", "the Playwright CLI (npm i -g @playwright/cli)"],
+  ["img2webp", "brew install webp"],
+]) {
+  if (!have(cmd)) {
+    console.error(`${cmd} is needed: ${how}`);
+    process.exit(2);
+  }
+}
+
+const temp = mkdtempSync(join(tmpdir(), "softwarefactor-film-"));
+const children = new Set();
+const sessions = new Set();
+const cleanup = () => {
+  for (const c of children) c.kill();
+  for (const s of sessions) {
+    try {
+      execFileSync("playwright-cli", [`-s=${s}`, "close"], { stdio: "ignore" });
+    } catch {}
+  }
+  rmSync(temp, { recursive: true, force: true });
+};
+for (const sig of ["SIGINT", "SIGTERM"]) {
+  process.on(sig, () => {
+    cleanup();
+    process.exit(130);
+  });
+}
+
+const pw = (session, ...a) => {
+  try {
+    return execFileSync("playwright-cli", [`-s=${session}`, ...a], { encoding: "utf8" });
+  } catch (e) {
+    throw new Error(`playwright-cli ${a[0]} failed: ${e.stdout || e.message}`);
+  }
+};
+
+async function film(theme) {
+  const dir = join(temp, theme);
+  const project = join(dir, "hello-factory");
+  const env = { ...process.env, FACTOR_HOME: join(dir, "home") };
+  mkdirSync(project, { recursive: true });
+  const run = (cmd, a) => execFileSync(cmd, a, { cwd: project, env, encoding: "utf8", stdio: "pipe" });
+  const git = (...a) => run("git", ["-c", "user.email=film@example.com", "-c", "user.name=Film", ...a]);
+  git("init", "-q", "-b", "main");
+  writeFileSync(
+    join(project, "package.json"),
+    '{ "name": "hello", "private": true, "scripts": { "test": "node --test" } }\n',
+  );
+  git("add", "-A");
+  git("commit", "-q", "-m", "start");
+  run("node", [cli, "init"]);
+  // the scripted agent works for a while in every lane, so that each lane's working state can be seen
+  const localPath = join(project, ".factor", "local.json");
+  const local = JSON.parse(readFileSync(localPath, "utf8"));
+  for (const role of Object.values(local.roles))
+    for (const steps of Object.values(role.script)) steps.unshift({ sleep: lane });
+  writeFileSync(localPath, JSON.stringify(local, null, 2));
+  git("add", "-A");
+  git("commit", "-q", "-m", "a factory");
+
+  const ui = spawn("node", [cli, "ui", "--port", "0"], { cwd: project, env });
+  children.add(ui);
+  let log = "";
+  for (const stream of [ui.stdout, ui.stderr])
+    stream.on("data", (d) => {
+      log += d;
+    });
+  let address;
+  for (let i = 0; i < 100 && !address; i++) {
+    address = /http:\/\/127\.0\.0\.1:\d+\/#t=[0-9a-f]+/.exec(log)?.[0];
+    if (!address) await new Promise((r) => setTimeout(r, 100));
+  }
+  if (!address) throw new Error(`the interface did not start: ${log}`);
+
+  const frames = join(here, "frames", theme);
+  rmSync(frames, { recursive: true, force: true });
+  mkdirSync(frames, { recursive: true });
+  const session = `film-${process.pid}-${theme}`;
+  sessions.add(session);
+  pw(session, "open", address);
+  pw(session, "resize", String(size.width), String(size.height));
+  pw(session, "set-color-scheme", theme);
+  const code = join(dir, "capture.js");
+  // run-code wants a function expression: the formatter's closing semicolon is cut off
+  const snippet = readFileSync(join(here, "capture.js"), "utf8").trim().replace(/;$/, "");
+  writeFileSync(code, snippet.replaceAll("__FRAMES__", frames));
+
+  // the first run starts a moment after the first frame, so the film opens on the Floor with nothing on it yet
+  const starter = setInterval(() => {
+    if (readdirSync(frames).length === 0) return;
+    clearInterval(starter);
+    setTimeout(() => {
+      children.add(spawn("node", [cli, "run"], { cwd: project, env, stdio: "ignore" }));
+    }, 600);
+  }, 50);
+  try {
+    // not execFileSync: the timer above must go on while the page is driven
+    const said = await new Promise((resolve, reject) =>
+      execFile("playwright-cli", [`-s=${session}`, "run-code", "--filename", code], (e, out) =>
+        e || /### Error/.test(out) ? reject(new Error(`run-code failed: ${out}`)) : resolve(out),
+      ),
+    );
+    console.log(`${theme}: ${said.split("\n")[1]}`);
+  } finally {
+    clearInterval(starter);
+  }
+  pw(session, "close");
+  sessions.delete(session);
+  ui.kill();
+  children.delete(ui);
+  return frames;
+}
+
+function assemble(theme, frames) {
+  // each file is <number>-<ms>.png: it is held until the next one was shot, and a frame the same as the one
+  // before is not stored twice but held longer
+  const shots = readdirSync(frames)
+    .filter((f) => f.endsWith(".png"))
+    .sort()
+    .map((f) => ({ file: join(frames, f), at: Number(/-(\d+)\.png$/.exec(f)[1]) }));
+  const parts = [];
+  let previous;
+  shots.forEach((s, i) => {
+    const ms = i + 1 < shots.length ? shots[i + 1].at - s.at : hold;
+    const bytes = readFileSync(s.file);
+    if (previous?.bytes.equals(bytes)) previous.ms += ms;
+    else {
+      previous = { file: s.file, bytes, ms };
+      parts.push(previous);
+    }
+  });
+  parts[parts.length - 1].ms = Math.max(parts[parts.length - 1].ms, hold);
+  const out = join(root, "docs", "media", `how-it-works-${theme}.webp`);
+  const quality = args.includes("--lossy") ? ["-lossy", "-q", "90"] : ["-lossless"];
+  execFileSync(
+    "img2webp",
+    ["-loop", "0", ...quality, ...parts.flatMap((p) => ["-d", String(p.ms), p.file]), "-o", out],
+    { stdio: "pipe" },
+  );
+  const total = parts.reduce((t, p) => t + p.ms, 0);
+  console.log(
+    `${theme}: ${shots.length} frames shot, ${parts.length} kept, ${(total / 1000).toFixed(1)} s, ${(statSync(out).size / 1024).toFixed(0)} KB`,
+  );
+}
 
 try {
-  for (const theme of themes) {
-    const dir = join(copy, "frames", theme);
-    const raw = join(copy, "frames", `${theme}-raw`);
-    for (const d of [dir, raw]) {
-      rmSync(d, { recursive: true, force: true });
-      mkdirSync(d, { recursive: true });
-    }
-    const context = await browser.newContext({
-      viewport: { width: 800, height: 352 },
-      deviceScaleFactor: scale,
-    });
-    const page = await context.newPage();
-    page.on("pageerror", (e) => console.error("page error:", e.message));
-    await page.goto(`${base}?capture=1&theme=${theme}`);
-    await page.waitForSelector(".ss-stage");
-    const box = await page.locator("#example").boundingBox();
-    const clip = { x: box.x, y: box.y, width: 800, height: 352 };
-    await page.evaluate(async () => {
-      await window.__clock.settle();
-      await window.__clock.flushLayout();
-    });
-    const mark = () => page.evaluate(() => document.querySelector(".ss-stage")?.getAttribute("data-mark"));
-    let frames = 0;
-    const says = []; // what the header says in each frame, to find the beats
-    // one loop: from the first mark to just before the second
-    for (let i = 0; i < fps * 40; i++) {
-      await page.evaluate(() => window.__clock.step(1));
-      const m = await mark();
-      if (m === "cycle2" && frames > 0) break;
-      if (m !== "cycle1") continue;
-      says.push(
-        await page.evaluate(
-          () =>
-            `${document.querySelector(".fx .state b")?.textContent}|${document.querySelector(".fx-sentence[data-on]")?.textContent ?? ""}`,
-        ),
-      );
-      await page.screenshot({ path: join(raw, `f${String(frames++).padStart(4, "0")}.png`), clip });
-    }
-    if (!frames || (await mark()) !== "cycle2") throw new Error(`${theme}: did not find one whole loop`);
-    // The file starts on the finished frame (the run Done), held, then the reset and the story, so a viewer
-    // that never animates sees the poster. Same loop, rotated.
-    // three frames past the first Done, so the poster is not caught in the 0.2 s fade of its words
-    const done = says.findIndex((t) => t.startsWith("Done|")) + 3;
-    const order = [...says.keys()].slice(done).concat([...says.keys()].slice(0, done));
-    const files = order.map((k, n) => {
-      const to = join(dir, `f${String(n).padStart(4, "0")}.png`);
-      copyFileSync(join(raw, `f${String(k).padStart(4, "0")}.png`), to);
-      return to;
-    });
-    copyFileSync(files[0], join(stills, `how-it-works-${theme}.png`));
-    const at = (test) => order.findIndex((k) => test(says[k]));
-    console.log(
-      `${theme} frames: poster 0, Done held to ${frames - done - 1}, gates run ${at((t) => t.includes("gates are running"))}, Ship waits ${at((t) => t.includes("Ship waits"))}`,
-    );
-    const file = join(out, `how-it-works-${theme}.webp`);
-    execFileSync(
-      "img2webp",
-      ["-loop", "0", "-lossless", "-m", "6", "-d", String(Math.round(1000 / fps)), ...files, "-o", file],
-      { stdio: "inherit" },
-    );
-    console.log(
-      `${theme}: ${frames} frames, ${(frames / fps).toFixed(1)} s, ${(statSync(file).size / 1024).toFixed(0)} KB -> ${file}`,
-    );
-    await context.close();
-  }
+  for (const theme of themes) assemble(theme, await film(theme));
+} catch (e) {
+  console.error(e.message);
+  process.exitCode = 1;
 } finally {
-  await browser.close();
-  await server.close();
+  cleanup();
 }
