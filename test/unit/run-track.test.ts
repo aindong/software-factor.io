@@ -1,6 +1,6 @@
 // Where a run has been, as the strip map, the big map and the scrubber all draw it.
 import { describe, expect, it } from "vitest";
-import { routeOf, travelledOf, trackOf, type Visit } from "../../src/core/runs/track.ts";
+import { routeOf, trackOf, travelledOf, type Visit } from "../../src/core/runs/track.ts";
 
 const order = ["plan", "build", "review", "merge"];
 const v = (lane: string, outcome: Visit["outcome"] = "pass"): Visit => ({ lane, outcome });

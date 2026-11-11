@@ -9,6 +9,7 @@ import "@fontsource/barlow-semi-condensed/latin-600.css";
 import "./tokens.css";
 import "./app.css";
 import "./floor.css";
+import "./working.css";
 import { App } from "./App.tsx";
 
 const root = document.getElementById("root");

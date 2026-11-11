@@ -3,7 +3,7 @@ import type { RunRow } from "../core/runs/view.ts";
 
 /** How a run stands, as the shape and the word of its row. */
 export function standing(run: RunRow): { mark: string; word: string } {
-  if (run.status === "running") return { mark: "moving", word: "Moving" };
+  if (run.status === "running") return { mark: "working", word: "Working" };
   if (run.status === "waiting") {
     return run.stopCode === "awaiting_approval" || run.stopCode === "needs_person"
       ? { mark: "asked", word: "Waits for you" }

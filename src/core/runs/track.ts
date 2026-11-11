@@ -71,6 +71,15 @@ export function routeOf(lines: Leg[], visits: Visit[], n?: number, end?: string)
   return taken;
 }
 
+/**
+ * The line a working run is travelling: the one it took from its last lane to the lane that is
+ * open now. Nothing at the first lane, or when the map has no such line.
+ */
+export function travelledOf(lines: Leg[], visits: Visit[]): string | undefined {
+  const [from, to] = [visits.at(-2), visits.at(-1)];
+  return lines.find((l) => l.from === from?.lane && l.outcome === from.outcome && l.to === to?.lane)?.key;
+}
+
 export type Kind = "image" | "recording" | "text" | "other";
 const KINDS: Record<Exclude<Kind, "other">, string[]> = {
   image: ["png", "jpg", "jpeg", "gif", "webp", "avif"],

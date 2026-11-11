@@ -1,0 +1,112 @@
+/*
+ * Work in progress, and nothing else, moves: a lane an agent or a gate is working in. All of
+ * it moves only inside the no-preference block below; with reduced motion the same marks stand
+ * still (a ring with a dot, a ring round the station, dashes that do not travel).
+ */
+.mark.working {
+  position: relative;
+  border-color: currentColor;
+}
+.mark.working::before,
+.mark.working::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+.mark.working::before {
+  inset: 1px;
+  background: currentColor;
+}
+.mark.working::after {
+  inset: -4px;
+  border: 1.5px solid currentColor;
+  opacity: 0.4;
+}
+.rail .mark.live {
+  position: absolute;
+  top: 9px;
+  right: 16px;
+}
+.run .now {
+  margin-right: 0.5ch;
+}
+.rundetail .state {
+  display: flex;
+  align-items: center;
+  gap: var(--sm);
+  margin: 0;
+}
+.strip .train.working {
+  stroke-width: 2;
+}
+.map .station .pulse {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+.legend .work {
+  position: relative;
+  background: var(--through);
+}
+.legend .work::after {
+  content: "";
+  position: absolute;
+  inset: 2px 3px;
+  border-top: 2px dashed var(--ground);
+}
+.map .flow {
+  fill: none;
+  stroke: var(--ground);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 5 11;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes at-work-ring {
+    from {
+      transform: scale(0.7);
+      opacity: 0.5;
+    }
+    to {
+      transform: scale(1.2);
+      opacity: 0;
+    }
+  }
+  @keyframes at-work-halo {
+    from {
+      transform: scale(1);
+      opacity: 0.8;
+    }
+    to {
+      transform: scale(1.3);
+      opacity: 0;
+    }
+  }
+  @keyframes at-work-flow {
+    to {
+      stroke-dashoffset: -16;
+    }
+  }
+  @keyframes at-work-train {
+    50% {
+      opacity: 0.45;
+    }
+  }
+  .mark.working::after {
+    animation: at-work-ring 2.4s ease-out infinite;
+  }
+  .map .station .pulse {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: at-work-halo 2.4s ease-out infinite;
+  }
+  .map .flow {
+    animation: at-work-flow 1.6s linear infinite;
+  }
+  .strip .train.working {
+    animation: at-work-train 2.4s ease-in-out infinite;
+  }
+}
