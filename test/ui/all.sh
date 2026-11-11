@@ -10,12 +10,12 @@ shots=${1:?give a folder for the screenshots}
 
 # the checks drive the page with keys (and, where a pointer's bug is guarded, a real mouse press):
 # none of them clicks, focuses, dispatches an event or sets an attribute by script
-scripted=$(grep -nE '\.click\(|\.focus\(|dispatchEvent|setAttribute' "$here"/test/ui/floor.sh "$here"/test/ui/runs.sh "$here"/test/ui/inbox.sh "$here"/test/ui/ladder.sh "$here"/test/ui/keys.sh)
+scripted=$(grep -nE '\.click\(|\.focus\(|dispatchEvent|setAttribute' "$here"/test/ui/floor.sh "$here"/test/ui/runs.sh "$here"/test/ui/inbox.sh "$here"/test/ui/ladder.sh "$here"/test/ui/restart.sh "$here"/test/ui/keys.sh)
 [ -z "$scripted" ] || { echo "FAIL: a check acts on the page by script: $scripted"; exit 1; }
 
 mkdir -p "$shots"
 rm -f "$shots"/*.png # what is in the folder afterwards was taken by this run
-for check in floor runs inbox ladder; do
+for check in floor runs inbox ladder restart; do
   bash "$here/test/ui/$check.sh" "$shots" || { echo "FAIL: $check.sh"; exit 1; }
 done
 for screen in floor runs run inbox accounts costs plugins; do
@@ -30,7 +30,7 @@ for screen in floor runs run inbox accounts costs plugins; do
   done
 done
 # a run's detail with a piece of evidence open, in both themes, and the ladder at a lane
-for file in run-pair-light-1440 run-dark-1440 ladder-moved-back-light-1440 ladder-moved-back-dark-1440; do
+for file in run-pair-light-1440 run-dark-1440 ladder-moved-back-light-1440 ladder-moved-back-dark-1440 restart-key-refused-light-1440 restart-inbox-choose-light-1440; do
   [ -s "$shots/$file.png" ] || { echo "FAIL: no screenshot $file.png"; exit 1; }
 done
 echo "all: ok"
