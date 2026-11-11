@@ -606,3 +606,8 @@ a.button {
   padding-top: var(--sm);
   border-top: 1px solid var(--rule);
 }
+
+/* "N more lines" under a result: a target of at least 24 px */
+button.more {
+  min-height: 24px;
+}
