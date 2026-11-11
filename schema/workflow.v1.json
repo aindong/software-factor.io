@@ -87,6 +87,11 @@
               "from": {
                 "type": "string",
                 "const": "profile"
+              },
+              "name": {
+                "description": "The profile's name for it. Defaults to the key.",
+                "type": "string",
+                "minLength": 1
               }
             },
             "required": [
@@ -408,7 +413,7 @@
                 ]
               },
               "skills": {
-                "description": "Names declared in `skills`.",
+                "description": "Names declared in `skills`, or \"*\" for every skill of the account.",
                 "type": "array",
                 "items": {
                   "type": "string",
@@ -423,6 +428,24 @@
                   "maxLength": 40,
                   "pattern": "^[a-z][a-z0-9-]*$",
                   "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+                }
+              },
+              "servers": {
+                "description": "Profile servers (declared in `mcp` with \"from\": \"profile\") the agent may use, or \"*\" for every server of the account.",
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40,
+                      "pattern": "^[a-z][a-z0-9-]*$",
+                      "description": "Lowercase letters, digits and dashes. Stable: transitions point at ids, never names."
+                    },
+                    {
+                      "type": "string",
+                      "const": "*"
+                    }
+                  ]
                 }
               },
               "session": {

@@ -58,7 +58,7 @@ it("shows what the server runs and which variables it gets, and then starts it",
 it("refuses to allow a server the workflow does not have, or one it cannot start", () => {
   const repo = flowRepo({ lanes: [commandLane("build", "true")] });
   edit(repo, (w) => {
-    w.mcp = { atlassian: { from: "profile" } };
+    w.mcp = { atlassian: { from: "url", url: "https://mcp.example.com/sse" } };
   });
   for (const name of ["nothing", "atlassian"]) {
     const r = repo.sf("allow", name);

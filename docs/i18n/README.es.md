@@ -118,7 +118,7 @@ Para usar uno, cópialo de `workflows/` a `.factor/workflows/`, nómbralo en `.f
 - [El archivo de flujo de trabajo](../workflow-schema.md): carriles, compuertas, transiciones, puntos de control.
 - [Escribir un carril](../write-a-lane.md), y [escribir un plugin](../plugins.md) para un tipo propio de carril, compuerta o recolector.
 - [Recolectores](../collectors.md): de dónde vienen las tareas.
-- [Cuentas, roles y la guarda](../accounts.md).
+- [Cuentas, roles y la guarda](../accounts.md), y [skills y servidores en un carril](../skills-and-servers.md).
 - [El traspaso](../handoff.md) y [los paneles](../panels.md).
 - [La memoria y el servidor factor](../memory.md).
 - [La interfaz](../interface.md).
@@ -147,7 +147,7 @@ Solo con el agente con guion o con un sustituto:
 - La compuerta `core/no-secrets@1` no está en ningún flujo de trabajo incluido ni en el que escribe `init`: solo se ha ejecutado en pruebas y en la suite de evaluación.
 - El adaptador de Kimi: escrito a partir de su documentación, probado contra un binario sustituto, nunca con la CLI real.
 - El adaptador `command` (cualquier comando tuyo como agente): solo comandos con guion en las pruebas.
-- Un recolector sobre un servidor MCP (el caso de Jira) y la instalación de una skill para una ejecución: solo sustitutos.
+- Un recolector sobre un servidor MCP (el caso de Jira) y la instalación de una skill para una ejecución: solo sustitutos. Igual las skills y los servidores del perfil que puede usar un carril: ningún agente real ha llamado a una skill ni a un servidor por esa vía.
 - La escalera de autonomía y las retrospectivas: ejecuciones con guion. Ningún carril ha ganado todavía un peldaño con trabajo real.
 - La interfaz se comprueba en un navegador real, manejado con el teclado, sobre ejecuciones del agente con guion.
 

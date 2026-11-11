@@ -87,8 +87,18 @@ const Agent = z.strictObject({
   prompt: Prompt.meta({ description: "The instructions, inline or as a file path beside the workflow." }),
   tier: Tier.optional().meta({ description: "Model size, resolved to a real model by the role's binding." }),
   effort: Effort.optional(),
-  skills: z.array(z.string().min(1)).optional().meta({ description: "Names declared in `skills`." }),
+  skills: z
+    .array(z.string().min(1))
+    .optional()
+    .meta({ description: 'Names declared in `skills`, or "*" for every skill of the account.' }),
   mcp: z.array(id).optional().meta({ description: "Names declared in `mcp`." }),
+  servers: z
+    .array(z.union([id, z.literal("*")]))
+    .optional()
+    .meta({
+      description:
+        'Profile servers (declared in `mcp` with "from": "profile") the agent may use, or "*" for every server of the account.',
+    }),
   session: z
     .union([z.literal("new"), z.strictObject({ continue: id })])
     .optional()
@@ -187,7 +197,14 @@ const Collector = z.strictObject({
 
 const McpServer = z.discriminatedUnion("from", [
   z
-    .strictObject({ from: z.literal("profile") })
+    .strictObject({
+      from: z.literal("profile"),
+      name: z
+        .string()
+        .min(1)
+        .optional()
+        .meta({ description: "The profile's name for it. Defaults to the key." }),
+    })
     .meta({ description: "Already set up in the agent's profile." }),
   z.strictObject({
     from: z.literal("command"),

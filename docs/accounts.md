@@ -20,7 +20,7 @@ softwarefactor account remove client-a
 
 | Agent | How it is started | Profile folder | What holds it back |
 | --- | --- | --- | --- |
-| `claude` | `claude -p --output-format stream-json --verbose`, the prompt on stdin | `CLAUDE_CONFIG_DIR` | The guard, as a hook before every tool call. Only the tools the lane's access allows. The worktree's own settings, hooks and MCP servers are not loaded. |
+| `claude` | `claude -p --output-format stream-json --verbose`, the prompt on stdin | `CLAUDE_CONFIG_DIR` | The guard, as a hook before every tool call. Only the tools the lane's access allows. The worktree's own settings and hooks are not loaded; neither are MCP servers, unless the lane names some ([skills and servers](skills-and-servers.md)). |
 | `codex` | `codex exec --json -C <worktree> -`, the prompt on stdin | `CODEX_HOME` | The CLI's own sandbox: `read-only` or `workspace-write`, no approval prompts. |
 | `kimi` | `kimi -p "<prompt>" --output-format stream-json` | `KIMI_CODE_HOME` | Nothing but the gates. The run says so. Not yet tried with the real CLI. |
 | `command` | The account's shell command, in the worktree | none | Nothing but the gates. The run says so. |

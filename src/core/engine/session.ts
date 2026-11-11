@@ -74,7 +74,9 @@ export function recordSession(
     account: bound.account ?? null,
     agent: bound.agent,
     sessionId: exit.sessionId ?? null,
+    ...(exit.notice ? { notice: exit.notice } : {}),
   });
+  if (exit.notice) ctx.log.push(`  ${at.lane}: ${exit.notice}`);
   store.addSession(db, {
     run_id: run.id,
     lane_run_id: at.laneRun,

@@ -1,0 +1,177 @@
+// A run whose lane names a profile server that this machine has not allowed stops before the lane
+// starts and says how to allow it; after `allow` the lane starts, held to what it names.
+import { createHash } from "node:crypto";
+import { writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { expect, it } from "vitest";
+import { edit } from "../helpers/collect.ts";
+import { runsOf } from "../helpers/plugin.ts";
+import { agentLane, bind, flowRepo, hooksOf, pass, standinAccount } from "../helpers/repo.ts";
+
+const LIST = "docs: npx docs-mcp - ✓ Connected\nother: https://example.com/mcp (HTTP) - ✓ Connected\n";
+
+function setup(servers = ["docs"]) {
+  const repo = flowRepo({
+    lanes: [agentLane("look", { agent: { servers, skills: ["my-plugin:plan"] }, checkpoint: "out" })],
+  });
+  edit(repo, (w) => {
+    w.mcp = { docs: { from: "profile" } };
+    w.skills = { "my-plugin:plan": { from: "profile" } };
+  });
+  repo.git("add", "-A");
+  repo.git("commit", "-q", "-m", "name a server");
+  const tool = (name: string, input: unknown = {}) => ({ tool: { name, input } });
+  const profile = standinAccount(repo, "claude-a", "claude", {
+    actions: [
+      tool("mcp__docs__search"),
+      tool("mcp__other__search"),
+      tool("Skill", { skill: "my-plugin:plan" }),
+      tool("Skill", { skill: "other:skill" }),
+      pass(),
+    ],
+    mcpList: { out: LIST },
+  });
+  bind(repo, "author", "claude-a");
+  return { repo, profile };
+}
+
+it("stops before the lane starts, and says to run softwarefactor allow docs", () => {
+  const { repo, profile } = setup();
+  const r = repo.sf("run");
+  expect(r.status).toBe(1);
+  expect(r.stderr).toMatch(/server "docs" .*is not allowed on this machine/);
+  expect(r.stderr).toContain("softwarefactor allow docs");
+  expect(profile.calls()).toEqual([]);
+  expect(runsOf(repo)).toEqual([]);
+});
+
+it("records the approval in local.json, and then starts the lane with the server allowed", () => {
+  const { repo, profile } = setup();
+  const allowed = repo.sf("allow", "docs");
+  expect(allowed.status, allowed.stderr).toBe(0);
+  expect(typeof repo.json<{ servers: Record<string, string> }>(".factor/local.json").servers.docs).toBe(
+    "string",
+  );
+  expect(repo.json<{ roles: unknown }>(".factor/local.json").roles).toBeTruthy(); // the rest is kept
+  const r = repo.sf("run");
+  expect(repo.rows("select status from runs"), r.stdout + r.stderr).toEqual([{ status: "done" }]);
+  const [first] = profile.calls();
+  const argv: string[] = first?.argv ?? [];
+  expect(argv).not.toContain("--strict-mcp-config");
+  expect(argv[argv.indexOf("--allowedTools") + 1]).toContain("mcp__docs");
+  expect(argv[argv.indexOf("--disallowedTools") + 1]).toBe("mcp__other");
+  // the guard, as the stand-in asks it: the named server and skill pass, the others do not
+  expect(hooksOf(profile).map((h) => [h.tool, h.status])).toEqual([
+    ["mcp__docs__search", 0],
+    ["mcp__other__search", 2],
+    ["Skill", 0],
+    ["Skill", 2],
+  ]);
+  // and the prompt says what the lane may use
+  expect(first?.stdin).toContain("my-plugin:plan");
+  expect(first?.stdin).toContain("docs");
+});
+
+it("asks again when the workflow names another profile name for the server", () => {
+  const { repo } = setup();
+  expect(repo.sf("allow", "docs").status).toBe(0);
+  edit(repo, (w) => {
+    w.mcp = { docs: { from: "profile", name: "docs-two" } };
+  });
+  const r = repo.sf("run");
+  expect(r.status).toBe(1);
+  expect(r.stderr).toMatch(/server "docs" .*has changed since it was allowed/);
+});
+
+it("asks for its own approval when a lane names *", () => {
+  const { repo } = setup(["*"]);
+  const r = repo.sf("run");
+  expect(r.status).toBe(1);
+  expect(r.stderr).toContain("softwarefactor allow '*'");
+  expect(repo.sf("allow", "*").status).toBe(0);
+  const again = repo.sf("run");
+  expect(repo.rows("select status from runs"), again.stdout + again.stderr).toEqual([{ status: "done" }]);
+});
+
+it("refuses to allow a server that no lane names or the workflow does not declare", () => {
+  const { repo } = setup();
+  const r = repo.sf("allow", "nothing");
+  expect(r.status).toBe(1);
+  expect(r.stderr).toMatch(/no MCP server "nothing"/);
+});
+
+it("records exactly the print of the profile's name in local.json, and keeps what else is there", () => {
+  const { repo } = setup();
+  const before = repo.json<Record<string, unknown>>(".factor/local.json");
+  expect(repo.sf("allow", "docs").status).toBe(0);
+  const print = createHash("sha256")
+    .update(JSON.stringify(["profile", "docs", ["claude-a"]]))
+    .digest("hex");
+  expect(repo.json(".factor/local.json")).toEqual({ ...before, servers: { docs: print } });
+});
+
+it("does not let the approval of a server of one lane open a server of another lane", () => {
+  const repo = flowRepo({
+    lanes: [
+      agentLane("one", { agent: { servers: ["docs"] }, on: { pass: "two", fail: "@stop" } }),
+      agentLane("two", { agent: { servers: ["other"] } }),
+    ],
+  });
+  edit(repo, (w) => {
+    w.mcp = { docs: { from: "profile" }, other: { from: "profile" } };
+  });
+  repo.git("add", "-A");
+  repo.git("commit", "-q", "-m", "two servers");
+  const profile = standinAccount(repo, "claude-a", "claude", { actions: [pass()], mcpList: { out: LIST } });
+  bind(repo, "author", "claude-a");
+  expect(repo.sf("allow", "docs").status).toBe(0);
+  const r = repo.sf("run");
+  expect(r.status).toBe(1);
+  expect(r.stderr).toContain("softwarefactor allow other");
+  expect(r.stderr).not.toContain("softwarefactor allow docs");
+  expect(profile.calls()).toEqual([]);
+});
+
+it("refuses a server whose name in tool names would be the factory's own", () => {
+  const { repo } = setup();
+  edit(repo, (w) => {
+    w.mcp = { docs: { from: "profile", name: "factor" } };
+  });
+  const r = repo.sf("run");
+  expect(r.status).toBe(1);
+  expect(r.stderr + r.stdout).toMatch(/factor/);
+});
+
+it("ties the approval to the account: rebinding the role to another account asks again", () => {
+  const { repo } = setup();
+  standinAccount(repo, "claude-b", "claude", { actions: [pass()], mcpList: { out: LIST } });
+  const allowed = repo.sf("allow", "docs");
+  expect(allowed.status, allowed.stderr).toBe(0);
+  expect(allowed.stdout).toContain("claude-a");
+  expect(repo.sf("run").status).toBe(0);
+  bind(repo, "author", "claude-b");
+  const r = repo.sf("run");
+  expect(r.status).toBe(1);
+  expect(r.stderr).toContain("softwarefactor allow docs");
+  expect(r.stderr).toContain("claude-b");
+  const again = repo.sf("allow", "docs");
+  expect(again.stdout).toContain("claude-b");
+  expect(repo.sf("run").status).toBe(0);
+});
+
+it.each(["in", "beside"])(
+  "stops the run when the config file %s the profile changed while the lane worked",
+  (where) => {
+    const { repo } = setup();
+    expect(repo.sf("allow", "docs").status).toBe(0);
+    const dir = join(repo.home, "profiles", "claude-a");
+    const file = join(where === "in" ? dir : dirname(dir), ".claude.json");
+    writeFileSync(
+      join(dir, "standin.json"),
+      JSON.stringify({ actions: [{ sh: `echo '{}' > '${file}'` }, pass()], mcpList: { out: LIST } }),
+    );
+    const r = repo.sf("run");
+    expect(r.status).toBe(1);
+    expect(r.stdout + r.stderr).toMatch(/profile folder of this account changed/);
+  },
+);

@@ -35,9 +35,10 @@ function detectVerify(root: string): string {
 }
 
 // Delivers the run's branch into the branch the workspace is on, here on this machine. The title
-// comes from the environment, so no value is pasted into the line. Nothing is pushed.
+// comes from the environment, so no value is pasted into the line. Nothing is pushed, and its last
+// line says so: that line is what the run shows when it is done.
 const SHIP =
-  'root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)") && branch=$(git rev-parse --abbrev-ref HEAD) && git -C "$root" merge --no-ff "$branch" -m "Merge $branch: $FACTOR_TASK_TITLE"';
+  'root=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)") && branch=$(git rev-parse --abbrev-ref HEAD) && git -C "$root" merge -q --no-ff "$branch" -m "Merge $branch: $FACTOR_TASK_TITLE" && echo "Merged $branch into $(git -C "$root" rev-parse --abbrev-ref HEAD) as $(git -C "$root" rev-parse --short HEAD), on this machine. Nothing was pushed."';
 
 const plan = { plan: "plan.outputs.plan" };
 
