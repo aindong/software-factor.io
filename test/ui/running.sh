@@ -78,12 +78,12 @@ start_ui 0
 pw open "$address" || fail "the browser did not open"
 pw resize 1440 900
 section Runs
-rows='() => [...document.querySelectorAll(".run .mark")].map((m) => m.getAttribute("aria-label")).join(" | ")'
+rows='() => [...document.querySelectorAll(".run .state")].map((m) => m.textContent).join(" | ")'
 wait_for "the list shows the run that works beside the one that waits and the one that is done" "$rows" '^Working \| Waits for you \| Done$'
 
 # ---- 1. the list and the head of the page
-expect "the row says Working in words" "$(js "() => document.querySelector('.run .now')?.textContent ?? 'no word'")" '^Working$'
-expect "only that row has the word and the mark of work" "$(js "() => document.querySelectorAll('.run .now').length + ' ' + document.querySelectorAll('.run .mark.working').length")" '^1 1$'
+expect "the row says Working in words, on its first line" "$(js "() => document.querySelector('.run .state')?.textContent ?? 'no word'")" '^Working$'
+expect "only that row has the word and the mark of work" "$(js "() => [...document.querySelectorAll('.run .state')].filter((s) => s.textContent === 'Working').length + ' ' + document.querySelectorAll('.run .mark.working').length")" '^1 1$'
 expect "the top bar counts it" "$(js "() => document.querySelector('.topbar .where span').textContent")" 'working'
 expect "its mark pulses" "$(js "() => getComputedStyle(document.querySelector('.run .mark.working'), '::after').animationName")" '^at-work-ring$'
 expect "the strip's train is the one that works" "$(js "() => document.querySelectorAll('.run .strip .train.working').length + ' ' + getComputedStyle(document.querySelector('.run .strip .train.working')).animationName")" '^1 at-work-train$'
@@ -104,7 +104,7 @@ expect "the train there is not yellow" "$(js "() => document.querySelectorAll('.
 [ -n "$shots" ] && pw screenshot --filename="$shots/running-light-1440.png"
 
 # ---- 3. the run that waits for a person does not move
-tab_to '^[0-9]+ Show the cost of each lane'
+tab_to '^Waits for you.*[0-9]+ Show the cost of each lane'
 pw press ArrowDown
 wait_for "the run beside the list follows" "() => document.querySelector('.rundetail h2').textContent" '^Fix the date format$'
 expect "its head says it waits" "$(js "() => document.querySelector('.rundetail .state').textContent")" '^Waits for you$'

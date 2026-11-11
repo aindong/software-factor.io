@@ -123,15 +123,34 @@ first=$(js "() => document.querySelector('.rundetail .facts .code').textContent"
 sf approve "$first" > "$work/approve.log" 2>&1 || fail "approve: $(cat "$work/approve.log")"
 sf run > "$work/run2.log" 2>&1; [ $? -eq 1 ] || fail "the second run should stop at the check: $(cat "$work/run2.log")"
 sf run > "$work/run3.log" 2>&1; [ $? -eq 3 ] || fail "the third run should wait for approval: $(cat "$work/run3.log")"
-wait_for "the list follows the record" "() => [...document.querySelectorAll('.run .mark')].map((m) => m.getAttribute('aria-label')).join(' | ') + ' ' + window.stayed" '^Waits for you \| Stopped \| Done yes$'
+wait_for "the list follows the record" "() => [...document.querySelectorAll('.run .state')].map((m) => m.textContent).join(' | ') + ' ' + window.stayed" '^Waits for you \| Stopped \| Done yes$'
 expect "the top bar counts what waits" "$(js "() => document.querySelector('.topbar .where span').textContent")" '^1 waits for you, 3 shown$'
-expect "each row has its sentence" "$(js "() => [...document.querySelectorAll('.run .sentence')].map((s) => s.textContent).join(' | ')")" '^Ship it waits for your approval before it runs\. \| Stopped: .*check.* \| Done\.$'
+expect "each row has its sentence" "$(js "() => [...document.querySelectorAll('.run .sentence')].map((s) => s.textContent).join(' | ')")" '^Ship it waits for your approval before it runs\. \| Stopped: .*check.* \| $'
 expect "each row has its strip map" "$(js "() => document.querySelector('.run .strip').getAttribute('aria-label')")" '^Build passed; Review passed; Check passed; Ship it at work, the run is here$'
 expect "the run that was shown is still the one shown" "$(js "() => document.querySelector('.rundetail h2').textContent")" '^Add an export button$'
 shot runs-light-1440
 
+# ---- 0. the state of a row, and the filter, by keyboard only
+expect "each row's first line is its state, in a word" "$(js "() => [...document.querySelectorAll('.run')].map((r) => r.firstElementChild.className + ':' + r.firstElementChild.textContent).join(' | ')")" '^state:Waits for you \| state:Stopped \| state:Done$'
+expect "the filter offers All and each state that has a run, with counts" "$(js "() => [...document.querySelectorAll('.runfilter button')].map((b) => b.textContent + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')).join(' | ')")" '^All 3\* \| Waits for you 1 \| Done 1 \| Stopped 1$'
+tab_to '^Stopped 1$'
+pw press Enter
+wait_for "the list shows only what stopped" "$tasks" '^Fix the date format$'
+expect "the heading's count stays true" "$(js "() => document.querySelector('.topbar .where span').textContent")" '^1 waits for you, 1 shown of 3$'
+expect "the chosen filter is the pressed one" "$(js "() => [...document.querySelectorAll('.runfilter [aria-pressed=true]')].map((b) => b.textContent).join('|')")" '^Stopped 1$'
+expect "the filter is in the address" "$(js "() => location.pathname + location.search")" '^/runs\?show=stopped$'
+pw reload
+wait_for "after a reload the filter is kept" "() => [...document.querySelectorAll('.runfilter [aria-pressed=true]')].map((b) => b.textContent).join('|') + ' ' + document.querySelectorAll('.run').length" '^Stopped 1 1$'
+tab_to '^Waits for you 1$'
+pw press Enter
+wait_for "another state" "$tasks" '^Show the cost of each lane$'
+tab_to '^All 3$'
+pw press Enter
+wait_for "back to All, with nothing in the address" "() => document.querySelectorAll('.run').length + ' ' + location.search + '.'" '^3 \.$'
+expect "the heading is as before" "$(js "() => document.querySelector('.topbar .where span').textContent")" '^1 waits for you, 3 shown$'
+
 # ---- 1. through the list by keyboard
-tab_to '^[0-9]+ Add an export button.*Done\.$'
+tab_to '^Done.*[0-9]+ Add an export button'
 expect "the keyboard is on the run that is shown" "$(js "() => document.activeElement.getAttribute('aria-selected')")" '^true$'
 pw press Home
 expect "Home goes to the newest" "$(js "$focused")" 'Show the cost of each lane'
@@ -201,7 +220,7 @@ wait_for "a hand-off" "$(shown 'Hand-off')" 'Added the export button'
 shot run-lanes-light-1440
 
 # ---- 4. the run that waits says what to do
-back_to '^[0-9]+ Add an export button.*Done\.$'
+back_to '^Done.*[0-9]+ Add an export button'
 pw press Home
 expect "back on the newest run" "$(js "$focused")" 'Show the cost of each lane'
 expect "what waits names the command too" "$(js "() => document.querySelector('.waits')?.textContent.replace(/\\s+/g, ' ') ?? ''")" 'Ship it waits for your approval\..*Decide in the inbox.*softwarefactor approve [0-9a-f]+'

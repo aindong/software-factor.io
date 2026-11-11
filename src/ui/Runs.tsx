@@ -169,7 +169,7 @@ export function Runs() {
                         else rows.current.delete(run.id);
                       }}
                       role="option"
-                      className="run"
+                      className="run lined"
                       aria-selected={run.id === current?.id}
                       tabIndex={
                         run.id === (current && kept(current, show) ? current.id : list[0]?.id) ? 0 : -1
