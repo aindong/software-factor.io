@@ -404,6 +404,15 @@ export const OPERATIONS: Operation[] = [
     run: decide,
   }),
   op({
+    name: "runs_requeue",
+    description:
+      "Put the task of a stopped or dropped run back in the queue, so the next run takes it on a new branch. The old run and its record stay. It refuses a run that is working, waiting or done, and a task that is already queued.",
+    input: z.strictObject({ run: runId }),
+    changes: true,
+    cli: [["requeue", "<run>"]],
+    run: (at, input) => command(at.root, ["requeue", input.run]),
+  }),
+  op({
     name: "accounts_list",
     description:
       "The agent logins on this machine with their limits and what they have used, and which one works each role of the workflow. Never where a login is kept.",
