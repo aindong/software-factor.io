@@ -10,7 +10,7 @@ severities: P0 P1 P2 P3
 major: P0 P1
 screens: accounts-limits-light-1440.png accounts-limits-dark-1440.png accounts-limits-light-390.png accounts-limits-dark-390.png
 counts: P0=0 P1=0 P2=0 P3=5
-commit: c8aa1aa0a6b4bd7e67b3cc6fbe8842b83d8bd0b0
+commit: cf9587f5439335e570865ef7f0b63de5cd0cbf7a
 
 The screenshots were taken by `test/ui/accounts-limits.sh` from the build of the commit above, with stand-in CLIs:
 `work` (two weeks reported, the session not, 92% of the Fable week, a factory limit of 1,000 tokens in 5 h with 400
@@ -101,3 +101,62 @@ fix: Give it a key named in its key cap, as the inbox does for its decisions.
   its headroom)? Options: say the source; keep the time and the consequence only, as now.
 - Should the age be said once for the page when every login was read together (F1)? Options: once by the button;
   on each login, as now.
+
+---
+
+# Part two: a reviewer who did not build the page
+
+Made after the build, by a reviewer who did not write `src/ui/Logins.tsx` or `accounts.css` and did not start from
+part one's verdicts. The `commit:` line above names the commit this part was made on; part one's screenshots were
+taken just before the one change below (the hold's day), which touched only the hold sentence.
+
+⚠️ DEGRADED: single-context (the reviewer is itself a sub-agent and has none to start). `impeccable context` and
+`impeccable detect src/ui/Logins.tsx` did run: the detector found nothing. The live overlay did not run.
+
+Looked at: `real-*` (a real Claude Code login and a Codex login, light and dark, 1440 and 390) and the stand-in
+states (`accounts-limits-*`, same four), kept in the run's evidence, not in the repository. The real login's
+screenshots show real usage and stay there.
+
+Findings are listed with `R` numbers so that part one's counts stay its own.
+
+counts (part two): P0=0 P1=1 P2=4 P3=2
+
+### R1 [P1] A hold is said as a time of day alone (fixed)
+where: the "On hold until ..." line in `Logins.tsx`
+what: a hold that ends on another day (a weekly window) read "until 6:59 AM", which a person takes as this morning or
+this evening. The glance this page is for would be wrong by days.
+fix: the line says the weekday and date when the end is not today. `src/ui/logins-hold.test.tsx` failed first.
+
+### R2 [P2] A meter at 92% is drawn the same as one at 41% (open)
+where: `.window meter`
+what: only a small diamond and "Near a limit" in the head tell a full window from an easy one; the fill does not
+change. In two seconds the eye finds the meter, not the diamond.
+fix: none made. A different fill would need a colour with a meaning (DESIGN.md allows five); a longer fill is
+already there. Decide with the owner.
+
+### R3 [P2] "Near a limit" does not say which window
+where: the login head
+what: with three windows and a count it makes the person look down the rows for the diamond.
+fix: name it in the head ("Near a limit: Current week (Fable)").
+
+### R4 [P2] Logins are listed in the order they were added, not worst first
+where: `Logins`
+what: a login on hold or near a limit can sit under three calm ones.
+fix: sort the marked ones first.
+
+### R5 [P2] A reading is never called old
+where: "Read 3 days ago"
+what: the age is said, but a stale reading looks like a fresh one except for that line.
+fix: say "old" in words past some age, or read again at once (the page already does when it opens).
+
+### R6 [P3] "Current week (one model)" is a name the CLI never prints
+where: `parseUsage` placeholder, shown on a login with no named-model week
+what: it reads as a window that exists and was not reported. Honest, but vague.
+fix: "Current week (a named model)".
+
+### R7 [P3] "None set. It is set with --limit when the login is added." repeats on every login
+where: the factory's own count
+what: four logins, four copies of the same instruction.
+fix: say it once under the list, leave "None set" on each.
+
+No P0 is open and the P1 is fixed.
