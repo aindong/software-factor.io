@@ -77,12 +77,16 @@ describe("a lane whose agent handed off and then did not end", () => {
   it.each([
     ["malformed", { outcome: "pass" }],
     ["naming evidence that is not there", { ...ok, claims: [{ text: "x", evidence: ["file:nope.txt"] }] }],
-  ])("is still rejected when the hand-off is %s", (_, handoff) => {
-    const { repo } = lingering([{ handoff }, { sleep: 20_000 }]);
-    expect(repo.sf("run").status).toBe(1);
-    expect(noteOf(repo)).toMatch(/hand-off was rejected/);
-    expect(trail(repo)).toEqual(["build:fail"]);
-  }, 30_000);
+  ])(
+    "is still rejected when the hand-off is %s",
+    (_, handoff) => {
+      const { repo } = lingering([{ handoff }, { sleep: 20_000 }]);
+      expect(repo.sf("run").status).toBe(1);
+      expect(noteOf(repo)).toMatch(/hand-off was rejected/);
+      expect(trail(repo)).toEqual(["build:fail"]);
+    },
+    30_000,
+  );
 
   it("takes no hand-off from a process that is not the agent: a leftover that writes it after the cut", () => {
     // the agent leaves a child of its own process group that writes the file late; it is ended first
@@ -109,7 +113,11 @@ describe("what a lane left running", () => {
 
   it("is ended after a pass even when it left its process group", () => {
     const nap = uniqueNap(60);
-    const { repo } = lingering([{ handoff: ok }, { spawn: nap, inherit: true, detached: true }, { sleep: 20_000 }]);
+    const { repo } = lingering([
+      { handoff: ok },
+      { spawn: nap, inherit: true, detached: true },
+      { sleep: 20_000 },
+    ]);
     expect(repo.sf("run").status).toBe(0);
     expect(alive(nap)).toBe(false);
   }, 30_000);

@@ -129,7 +129,10 @@ export async function standin(kind) {
     } else if (a.spawn) {
       // something the agent started and left running. "inherit" keeps the CLI's own output open, as a
       // server started from a shell does; "detached" puts it in a process group of its own.
-      spawn("sh", ["-c", a.spawn], { stdio: a.inherit ? "inherit" : "ignore", detached: a.detached === true });
+      spawn("sh", ["-c", a.spawn], {
+        stdio: a.inherit ? "inherit" : "ignore",
+        detached: a.detached === true,
+      });
     } else if (a.tool) {
       // ask the hooks given for this run, as the real CLI does before each tool call
       const at = argv.indexOf("--settings");
