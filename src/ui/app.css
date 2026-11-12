@@ -12,7 +12,7 @@ body {
   margin: 0;
   background: var(--ground);
   color: var(--ink);
-  font: 400 var(--text-body) / 1.5 var(--font);
+  font: var(--w-text) var(--text-body) / var(--lh-body) var(--font);
   /* Barlow joins two hyphens into one dash: a flag like --compare in a task must read as typed */
   font-variant-ligatures: none;
   -webkit-font-smoothing: antialiased;
@@ -32,13 +32,13 @@ p {
 }
 h1 {
   font-size: var(--text-title);
-  font-weight: 600;
-  line-height: 1.2;
+  font-weight: var(--w-heading);
+  line-height: var(--lh-label);
 }
 h2 {
   font-size: var(--text-section);
-  font-weight: 600;
-  line-height: 1.2;
+  font-weight: var(--w-heading);
+  line-height: var(--lh-label);
 }
 a {
   color: inherit;
@@ -47,14 +47,14 @@ a {
 code,
 pre,
 .code {
-  font: 400 var(--text-data) / 1.5 var(--font-code);
+  font: var(--w-text) var(--text-code) / var(--lh-body) var(--font-code);
 }
 .label {
-  font: 600 var(--text-label) / 1.2 var(--font);
+  font: var(--w-strong) var(--text-label) / var(--lh-label) var(--font);
   color: var(--ink-soft);
 }
 .data {
-  font: 500 var(--text-data) / 1.3 var(--font);
+  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font);
   font-variant-numeric: tabular-nums;
 }
 :focus-visible {
@@ -94,7 +94,7 @@ textarea {
   background: var(--ink);
   border-color: var(--ink);
   color: var(--ground);
-  font-weight: 500;
+  font-weight: var(--w-medium);
 }
 .button.primary:hover {
   background: color-mix(in oklch, var(--ink) 86%, var(--ground));
@@ -138,7 +138,7 @@ textarea {
 .field textarea {
   min-height: 96px;
   resize: vertical;
-  line-height: 1.45;
+  line-height: var(--lh-note);
 }
 .field input:hover,
 .field select:hover,
@@ -232,7 +232,7 @@ textarea {
   border-left: 2px solid transparent;
   background: none;
   color: inherit;
-  font: 600 0.6875rem / 1.2 var(--font-tight);
+  font: var(--w-strong) var(--text-small) / var(--lh-label) var(--font-tight);
   text-decoration: none;
   cursor: pointer;
 }
@@ -270,7 +270,7 @@ textarea {
   border-radius: 3px;
   background: var(--rail);
   color: var(--rail-ink);
-  font: 600 0.6875rem / 14px var(--font-tight);
+  font: var(--w-strong) var(--text-small) / 14px var(--font-tight);
   text-align: center;
 }
 .rail .spacer {
@@ -325,7 +325,7 @@ textarea {
 }
 .status {
   color: var(--ink-soft);
-  font: 500 var(--text-data) / 1.3 var(--font-tight);
+  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font-tight);
 }
 .status.bad {
   color: var(--ink);
@@ -424,7 +424,7 @@ textarea {
   border-radius: var(--control);
   background: var(--panel);
   color: var(--ink);
-  font: 500 var(--text-body) / 1.4 var(--font);
+  font: var(--w-medium) var(--text-body) / var(--lh-ui) var(--font);
 }
 .skip:not(:focus) {
   width: 1px;
@@ -449,7 +449,7 @@ textarea {
   background: var(--panel);
   border-top: 2px solid var(--return);
   color: var(--ink);
-  font: 500 var(--text-body) / 1.4 var(--font);
+  font: var(--w-medium) var(--text-body) / var(--lh-ui) var(--font);
   box-shadow: var(--shadow);
 }
 .keyless.taken {
@@ -469,5 +469,9 @@ textarea {
   border-radius: var(--control);
   background: var(--ground);
   color: var(--ink);
-  font: var(--text-data) var(--font-code);
+  font: var(--text-code) var(--font-code);
+}
+body {
+  letter-spacing: var(--track);
+  font-variant-numeric: var(--num);
 }

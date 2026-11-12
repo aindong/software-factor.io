@@ -27,6 +27,21 @@
   --text-body: 0.9375rem;
   --text-data: 0.875rem;
   --text-label: 0.8125rem;
+  --text-small: 0.6875rem;
+  --text-code: 0.875rem;
+  --w-text: 400;
+  --w-medium: 500;
+  --w-strong: 600;
+  --w-heading: 600;
+  --lh-prose: 1.55;
+  --lh-body: 1.5;
+  --lh-note: 1.45;
+  --lh-ui: 1.4;
+  --lh-data: 1.3;
+  --lh-section: 1.25;
+  --lh-label: 1.2;
+  --track: normal;
+  --num: normal;
 
   --xs: 4px;
   --sm: 8px;
