@@ -169,7 +169,7 @@ bash test/acceptance/accounts-critique.sh
   The reading uses the account's own profile, as a lane would.
 - `account list` now starts each Claude Code CLI, so it is as slow as the slowest one, up to 20 s.
 - Two readings at once: the last one written wins. Nothing is lost that matters.
-- No skeptic subagent was available in this lane, so the plan was checked by `alleo-plan-check` only.
+- No skeptic subagent was available in this lane, so the plan's contract was checked by the plan gate only.
 - Not done, as the issue asks: no history or chart of usage, no reading in the background, no change to how
   a limit parks a run, no new setting. Codex's limits from its session files are not read either. Those
   files are not the CLI's own report, and they come from model calls.
