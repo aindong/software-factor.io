@@ -19,14 +19,14 @@
   --end: oklch(62% 0.012 250);
   --shadow: 0 6px 24px oklch(24% 0.035 255 / 0.18);
 
-  --font: "Barlow", system-ui, sans-serif;
-  --font-tight: "Barlow Semi Condensed", "Barlow", system-ui, sans-serif;
+  --font: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --font-tight: "Barlow Semi Condensed", system-ui, sans-serif;
   --font-code: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --text-title: 1.25rem;
-  --text-section: 1.0625rem;
-  --text-body: 0.875rem;
-  --text-data: 0.8125rem;
-  --text-label: 0.75rem;
+  --text-section: 1.125rem;
+  --text-body: 0.9375rem;
+  --text-data: 0.875rem;
+  --text-label: 0.8125rem;
 
   --xs: 4px;
   --sm: 8px;

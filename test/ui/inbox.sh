@@ -86,7 +86,7 @@ section Inbox
 wait_for "the inbox lists what waits" "$tasks" '^Add an export button \| Publish the release \| Pick a database$'
 expect "an approval and a question are told apart" "$(js "() => [...document.querySelectorAll('.run .mark')].map((m) => m.getAttribute('aria-label')).join(' | ')")" '^An approval \| An approval \| A question$'
 wait_for "the run's map is beside the item" "() => document.querySelectorAll('.deciding .runmap .station.lane').length" '^5$'
-wait_for "and its evidence" "() => [...document.querySelectorAll('.deciding .proof .what')].map((w) => w.textContent).join(' | ')" '^The diff of the whole run \| .*Gate verify passed \| Hand-off'
+wait_for "and its evidence: each lane's, and the diff" "() => [...document.querySelectorAll('.deciding .proof .what')].map((w) => w.textContent).join(' | ')" '^Evidence for .*\| The diff of the whole run'
 expect "the decisions the first item takes" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve a \| Reject r \| Send back s$'
 in_window "the inbox"
 expect "the tab says how many wait" "$(js "() => document.title")" '^\(3\) Inbox · Software Factor\.io$'

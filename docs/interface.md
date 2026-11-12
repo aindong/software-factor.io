@@ -140,24 +140,36 @@ The arrow keys move through the list and Enter goes into a run. A run shows:
   workflow the run ran on, kept with the run when it started (`workflow.json` in the run's folder), and drawn
   small enough to fit its box down to seven tenths of its size. Changing the workflow later does not redraw
   what past runs did. A run from before that record was kept is drawn on today's workflow, and says so.
-- **What waits for you**, with a yellow "Decide in the inbox" link and the command that does the same. The
-  page head does not repeat its sentence. On a narrow screen the map is scrolled to the lane the run is at, or to
-  where it ended, and a soft edge shows where it goes on.
-- **The diff** of the whole run, from its base commit to its head, with every changed file named above it. A
-  line put in stands on a band and a line taken out is outlined: blue and vermilion mean passed and failed, so
-  they are not used here.
-- **What its agents attached.** Two images of one lane whose names differ only in the word `before` or `after`
-  (`list-before.png`, `list-after.png`) are shown side by side. A `.webm`, `.mp4` or `.mov` plays as a
-  recording. Anything else is shown as text or offered as a download.
-- **Lane by lane**: the outcome, time, tokens and cost of each visit, its claims, each gate with its command,
-  exit code and output, the hand-off, and what the agent printed. Each reference of a claim says whether the
-  host checked it, and one that names a file opens that file. Several pieces of evidence can be open at once.
-  A station on the run's map leads to that lane's part.
+- **Its head, in plain words.** The title, the state, then one sentence for what it is doing or how it ended
+  ("At work in Build.", "Stopped before it finished.") and one for whether it needs a person ("This needs you."
+  or "Nothing is needed from you."). The record's own sentence, which can be a shell command, follows it
+  quietly. The facts are when it started, how long it took (in minutes and hours) and what it cost; the run's id
+  and branch come last and are quieter. Tokens are with each lane.
+- **What each lane did**, before anything else under the map: for each visit its name, how it ended, how long it
+  took and its cost, then what its agent said as whole sentences (the record keeps the first 500 characters and
+  adds dots; the page drops the unfinished last sentence) and one line on its gates ("5 gates passed", or which
+  one failed). Under that, one button, "Evidence for Build", opens in place the lane's claims with each
+  reference (it says whether the host checked it, and one that names a file opens that file), each gate with
+  its command, exit code and output, the hand-off, and what the agent printed, with its tokens. Nothing
+  technical is on the page until that button is pressed. A gate that also ran on the base commit shows that
+  output beside its own. Several pieces of evidence can be open at once. A station on the run's map leads to
+  that lane's part.
   What the agent printed opens as an account: what it said, each tool it used as one line with its main
   argument, the first lines of what came back (the rest one click away), a failed call marked, and the end with
   what the session used. Hook and bookkeeping events are left out, with a count. This reads the output of
   Claude Code and of Codex; a line in any other shape is shown as it is. "The lines as printed" shows the raw
-  output. A gate that also ran on the base commit shows that output beside its own.
+  output.
+- **The diff** of the whole run, from its base commit to its head, with every changed file named above it. A
+  line put in stands on a band and a line taken out is outlined: blue and vermilion mean passed and failed, so
+  they are not used here.
+- **Files the agents attached**, as one row ("18 files") that opens the list. Two images of one lane whose names
+  differ only in the word `before` or `after` (`list-before.png`, `list-after.png`) are shown side by side. A
+  `.webm`, `.mp4` or `.mov` plays as a recording. Anything else is shown as text or offered as a download.
+- **What waits for you**, under the head, with a yellow "Decide in the inbox" link and the command that does
+  the same. On a narrow screen the map is scrolled to the lane the run is at, or to where it ended, and a soft edge shows where it goes on.
+
+The type is Atkinson Hyperlegible Next at 400 to 700 (body 15px, data 14px, labels 13px) and, for the rail and
+the map only, Barlow Semi Condensed at 500 and 600. Nothing in a run's page is under 13px.
 
 On the floor, "Runs on map" puts a numbered train on the lane of each run that is moving or waiting. The
 number is the task's, the same as in the rows of Runs and Inbox. A train is a link to its run. One that waits

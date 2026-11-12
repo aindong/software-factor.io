@@ -30,32 +30,32 @@ colors:
   night-end: "oklch(55% 0.015 250)"
 typography:
   title:
-    fontFamily: "Barlow, system-ui, sans-serif"
+    fontFamily: "'Atkinson Hyperlegible Next', system-ui, sans-serif"
     fontSize: "1.25rem"
     fontWeight: 600
     lineHeight: 1.2
   section:
-    fontFamily: "Barlow, system-ui, sans-serif"
-    fontSize: "1.0625rem"
+    fontFamily: "'Atkinson Hyperlegible Next', system-ui, sans-serif"
+    fontSize: "1.125rem"
     fontWeight: 600
     lineHeight: 1.2
   body:
-    fontFamily: "Barlow, system-ui, sans-serif"
-    fontSize: "0.875rem"
+    fontFamily: "'Atkinson Hyperlegible Next', system-ui, sans-serif"
+    fontSize: "0.9375rem"
     fontWeight: 400
-    lineHeight: 1.45
+    lineHeight: 1.5
   data:
-    fontFamily: "'Barlow Semi Condensed', Barlow, system-ui, sans-serif"
-    fontSize: "0.8125rem"
+    fontFamily: "'Atkinson Hyperlegible Next', system-ui, sans-serif"
+    fontSize: "0.875rem"
     fontWeight: 500
     lineHeight: 1.3
   label:
-    fontFamily: "'Barlow Semi Condensed', Barlow, system-ui, sans-serif"
-    fontSize: "0.75rem"
+    fontFamily: "'Atkinson Hyperlegible Next', system-ui, sans-serif"
+    fontSize: "0.8125rem"
     fontWeight: 600
     lineHeight: 1.2
   rail-label:
-    fontFamily: "'Barlow Semi Condensed', Barlow, system-ui, sans-serif"
+    fontFamily: "'Barlow Semi Condensed', system-ui, sans-serif"
     fontSize: "0.6875rem"
     fontWeight: 600
     lineHeight: 1.2
@@ -199,24 +199,22 @@ and the lines and end marks that step back to opacity 0.28 while a run is drawn 
 
 ## Typography
 
-**Display Font:** Barlow
-**Body Font:** Barlow
-**Label/Mono Font:** Barlow Semi Condensed for labels and data, the system monospace for output
+**Display and Body Font:** Atkinson Hyperlegible Next
+**Label/Mono Font:** Barlow Semi Condensed for the rail and map, system monospace for output
 
-**Character:** One family in two widths. Barlow comes from signage lettering: plain, even, good numerals.
-Barlow Semi Condensed carries what is short of width. The fonts are bundled and load from no network: Barlow
-at 400, 500 and 600, Semi Condensed at 500 and 600, Latin only.
+**Character:** Atkinson Hyperlegible Next was drawn for low vision: open shapes, tall x-height. Barlow Semi Condensed stays for the rail and the map, which are short of width. Both are bundled and
+load from no network: Latin only.
 
 | Token | Value | What it is for |
 | --- | --- | --- |
-| `--font` | `"Barlow", system-ui, sans-serif` | Body text, headings, controls. |
-| `--font-tight` | `"Barlow Semi Condensed", "Barlow", system-ui, sans-serif` | Labels, data, the rail, everything on the map. |
+| `--font` | `"Atkinson Hyperlegible Next", system-ui, sans-serif` | Text, labels and data. |
+| `--font-tight` | `"Barlow Semi Condensed", system-ui, sans-serif` | The rail and everything on the map. |
 | `--font-code` | `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace` | Output, the diff, the JSON view, names typed into a file. |
 | `--text-title` | `1.25rem` | Title (600, line 1.2): one per screen, in the top bar. |
-| `--text-section` | `1.0625rem` | Section (600, line 1.2): the heading of the inspector, a run, a block of a page. |
-| `--text-body` | `0.875rem` | Body (400, line 1.45): text and controls. Running text is held to 62ch to 90ch. |
-| `--text-data` | `0.8125rem` | Data (Semi Condensed 500, line 1.3, tabular numerals), station names (600), code (400, line 1.5). |
-| `--text-label` | `0.75rem` | Label (Semi Condensed 600, line 1.2, ink soft): field labels, table heads, the headings of a run's parts, tags on lines. |
+| `--text-section` | `1.125rem` | Section (600, line 1.2): the heading of the inspector, a run, a block of a page. |
+| `--text-body` | `0.9375rem` | Body (400, line 1.5): text and controls. Running text: 62ch to 70ch. |
+| `--text-data` | `0.875rem` | Data (500, line 1.3, tabular numerals), station names (Semi Condensed 600), code (400, line 1.5). |
+| `--text-label` | `0.8125rem` | Label (600, line 1.2, ink soft): field labels, table heads, tags on lines. |
 
 The rail's labels and count are Semi Condensed 600 at 0.6875rem, with no token.
 Labels are in sentence case, not letter-spaced.

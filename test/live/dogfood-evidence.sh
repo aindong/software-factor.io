@@ -28,10 +28,18 @@ for run in $runs; do
   pw goto "${base}runs/$run#${address#*#}" || fail "the run's page did not open"
   wait_for "run $run is on the page" "() => location.pathname" "^/runs/$run\$"
   wait_for "each of its $lanes lane visits is listed" "() => document.querySelectorAll('.visits > li').length" "^$lanes\$"
-  wait_for "it says the run is done" "() => document.querySelector('.rundetail')?.textContent ?? ''" 'Done\.'
+  wait_for "it says the run is done" "() => document.querySelector('.rundetail')?.textContent ?? ''" 'Done.*Finished: every lane passed'
   pw screenshot --filename="$shots/run-$run.png"
   # the record of a gate that passed, opened in place by keyboard
-  tab_to '^Gate verify passed'
+  # a lane's gates are inside its evidence: open each lane's by keyboard until the gate shows
+  for _ in $(seq 1 200); do
+    pw press Tab
+    now=$(js "$focused")
+    expanded=$(js "() => document.activeElement.getAttribute('aria-expanded') ?? ''")
+    echo "$now" | grep -Eq '^Gate verify passed' && break
+    if echo "$now" | grep -Eq '^Evidence for' && [ "$expanded" = "false" ]; then pw press Enter; fi
+  done
+  echo "$(js "$focused")" | grep -Eq '^Gate verify passed' || fail "Tab never reached the gate's record"
   pw press Enter
   wait_for "a gate's record is open, with the command the gate ran" "() => [...document.querySelectorAll('.proof button[aria-expanded=true]')].map((b) => b.closest('.proof').textContent).join(' ').slice(0, 4000)" 'pnpm run typecheck'
   pw screenshot --filename="$shots/run-$run-evidence.png"

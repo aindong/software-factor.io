@@ -142,7 +142,7 @@ pw press End
 expect "End goes to the oldest" "$(js "$focused")" 'Add an export button'
 pw press Enter
 expect "Enter goes into the run" "$(js "$focused")" '^Add an export button$'
-expect "the run says how it stands" "$(js "() => document.querySelector('.rundetail .sentence').textContent")" '^Done\.$'
+expect "the run says how it ended, and that it needs no one" "$(js "() => document.querySelector('.rundetail .lede').textContent")" '^Finished: every lane passed\. Nothing is needed from you\.$'
 expect "the run that was entered is in the address" "$(js "() => location.pathname")" "^/runs/$first$"
 in_window "a run"
 shot run-light-1440
@@ -167,6 +167,9 @@ pw press End
 shown() { # what the open proof with that label shows (several can be open at once)
   echo "() => [...document.querySelectorAll('.proof')].find((p) => p.querySelector('.what').textContent.startsWith('$1'))?.querySelector('.shown .output')?.textContent ?? ''"
 }
+# a lane's claims, gates and hand-off are one button away: the lane's evidence
+tab_to '^Evidence for'
+pw press Enter
 tab_to '^The diff of the whole run'
 pw press Enter
 wait_for "the diff" "() => document.querySelector('.diff')?.textContent ?? ''" '\+\+\+ b/src/export\.ts'
@@ -183,10 +186,12 @@ pw press Enter
 wait_for "a recording that has decoded" "() => (document.querySelector('video.shot')?.videoWidth ?? 0) > 0" '^true$'
 in_window "a run with a pair and a recording open"
 shot run-recording-light-1440
+tab_to '^[0-9]+ files?$'
+pw press Enter
 tab_to '^File: notes\.txt'
 pw press Enter
 wait_for "an attached note" "$(shown 'File: notes.txt')" 'Checked at 1440 and 390 wide'
-tab_to '^Gate verify passed'
+back_to '^Gate verify passed'
 pw press Enter
 wait_for "a gate's output" "$(shown 'Gate verify passed')" '^\$ true'
 expect "its claims name their evidence" "$(js "() => [...document.querySelectorAll('.visits > li:first-child .ref')].map((r) => r.textContent).join(' ')")" '^file:src/export\.ts commit:HEAD attached:before\.png attached:after\.png attached:walkthrough\.webm attached:notes\.txt$'
@@ -280,6 +285,8 @@ expect "Enter shows the run in place of the list" "$(js "() => getComputedStyle(
 fits "a run"
 walk "a run"
 shot run-light-390
+tab_to '^[0-9]+ files?$'
+pw press Enter
 tab_to '^Before and after'
 pw press Enter
 wait_for "the pair, one above the other" "() => { const s = [...document.querySelectorAll('.pair-shots img')]; if (s.length < 2 || !s.every((i) => i.naturalWidth > 0)) return 'not yet'; const [a, b] = s.map((i) => i.getBoundingClientRect()); return String(a.bottom <= b.top && document.documentElement.scrollWidth <= 390); }" '^true$'

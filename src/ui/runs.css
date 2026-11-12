@@ -160,13 +160,26 @@
 .rundetail h2:focus {
   outline: none;
 }
+.rundetail h2 {
+  font-size: 1.375rem;
+  line-height: 1.25;
+  max-width: 40ch;
+}
 .rundetail h3 {
   margin: 0;
-  font: 600 var(--text-label) / 1.2 var(--font-tight);
-  color: var(--ink-soft);
+  font: 600 var(--text-section) / 1.25 var(--font);
+}
+.rundetail .lede {
+  max-width: 60ch;
+  font-size: 1.0625rem;
+  line-height: 1.45;
+}
+.rundetail .lede .needs {
+  font-weight: 600;
 }
 .rundetail .sentence {
-  max-width: 70ch;
+  max-width: 62ch;
+  overflow-wrap: anywhere;
 }
 .rundetail .back {
   display: none;
@@ -174,7 +187,7 @@
 .facts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--xs) var(--lg);
+  gap: var(--xs) var(--xl);
   margin: 0;
   color: var(--ink-soft);
 }
@@ -187,6 +200,10 @@
   margin: 0;
   color: var(--ink);
   overflow-wrap: anywhere;
+}
+/* the run's id and branch: for a developer, so they step back */
+.facts .ids dd {
+  color: var(--ink-soft);
 }
 .quiet {
   color: var(--ink-soft);
@@ -327,6 +344,10 @@ a.button {
 .proof .what {
   font-weight: 500;
 }
+/* a lane's evidence holds rows of its own: they are shown a step in */
+.proof .shown .proof > button {
+  background: var(--panel);
+}
 .proof .meta {
   margin-left: auto;
   color: var(--ink-soft);
@@ -413,7 +434,7 @@ a.button {
 }
 .visits {
   display: grid;
-  gap: var(--lg);
+  gap: var(--xl);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -424,7 +445,7 @@ a.button {
   min-width: 0;
 }
 .visits > li + li {
-  padding-top: var(--lg);
+  padding-top: var(--xl);
   border-top: 1px solid var(--rule);
 }
 .visit {
@@ -433,22 +454,30 @@ a.button {
   flex-wrap: wrap;
   gap: var(--xs) var(--sm);
 }
+.visit h4 {
+  font-size: var(--text-section);
+  font-weight: 600;
+  line-height: 1.25;
+}
 .visit .spent {
   margin-left: auto;
   color: var(--ink-soft);
 }
 .visits .note {
-  color: var(--ink-soft);
-  max-width: 80ch;
+  max-width: 64ch;
+  line-height: 1.55;
   overflow-wrap: anywhere;
+}
+.visits .gates-line {
+  color: var(--ink-soft);
 }
 .claims {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--xs);
+  gap: var(--sm);
   margin: 0;
   padding-left: var(--lg);
-  max-width: 90ch;
+  max-width: 70ch;
 }
 .ref {
   display: inline-flex;
