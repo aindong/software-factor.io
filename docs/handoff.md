@@ -56,6 +56,16 @@ its evidence. The folder is emptied first, so nothing an earlier lane left there
 When a hand-off is passed to the next lane, it is quoted line by line under a heading that says another agent
 wrote it. The next agent can read it. It cannot be mistaken for the host or the person.
 
+## When time runs out
+
+A lane has a limit in minutes (see the limits in the workflow guide). When it runs out, the host ends the agent's
+process and everything that process started, then looks for a hand-off. If a valid one is there, the lane is
+judged by it exactly as if the process had ended by itself: its outcome, outputs and claims are taken and its gates
+run, and the lane's record says that the process did not end by itself and the host ended it. The hand-off gets
+every check above. If there is no hand-off, or it is rejected, nothing is different: the lane fails, as out of time
+or as rejected. The host does not cut the wait short when it sees a hand-off, because a live process may still be
+working.
+
 ## Risk
 
 The run's risk is the highest level any lane stated. The host raises `low` to `medium` when the door is one-way

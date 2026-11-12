@@ -1,6 +1,6 @@
 // Runs a shell command for a gate or a command lane: bounded in time and output, with a small
 // environment. Leaked environment variables were a main cause of false results in the first factory.
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { StringDecoder } from "node:string_decoder";
 
@@ -42,10 +42,38 @@ function killGroup(pid: number): void {
   }
 }
 
+/** Everything below a process, found while its parent is alive: a child that left the group is found too. */
+function below(pid: number): number[] {
+  const table = spawnSync("ps", ["-A", "-o", "pid=,ppid="], { encoding: "utf8" }).stdout ?? "";
+  const kids = new Map<number, number[]>();
+  for (const line of table.split("\n")) {
+    const [child, parent] = line.trim().split(/\s+/).map(Number);
+    if (child && parent) kids.set(parent, [...(kids.get(parent) ?? []), child]);
+  }
+  const found: number[] = [];
+  for (let todo = [pid]; todo.length > 0; ) {
+    todo = todo.flatMap((p) => kids.get(p) ?? []);
+    found.push(...todo);
+  }
+  return found;
+}
+
+function killTree(pid: number): void {
+  const found = below(pid);
+  killGroup(pid);
+  for (const p of found) {
+    try {
+      process.kill(p, "SIGKILL");
+    } catch {
+      // already gone
+    }
+  }
+}
+
 /** Stop every command that is running. The engine then ends its run as stopped. */
 export function interrupt(): void {
   interrupted = true;
-  for (const pid of running) killGroup(pid);
+  for (const pid of running) killTree(pid);
 }
 export const wasInterrupted = () => interrupted;
 
@@ -79,7 +107,7 @@ export function sh(
     });
     const pid = child.pid;
     const onAbort = () => {
-      if (pid) killGroup(pid);
+      if (pid) killTree(pid);
     };
     if (pid) {
       running.add(pid);
@@ -101,7 +129,7 @@ export function sh(
     const timer = setTimeout(
       () => {
         timedOut = true;
-        if (pid) killGroup(pid);
+        if (pid) killTree(pid);
       },
       Math.min(options.timeoutMs, MAX_TIMER),
     );
