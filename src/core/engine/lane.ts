@@ -20,6 +20,7 @@ import { servedFor } from "../served.ts";
 import * as store from "../store.ts";
 import { oneLine } from "../text.ts";
 import type { Workspace } from "../workspace.ts";
+import { ENDED_BY_HOST, handedOff } from "./overtime.ts";
 import { runPanel } from "./panel.ts";
 import { asText, HANDOFF, inputsOf, promptFor } from "./prompt.ts";
 import { startAgent } from "./start.ts";
@@ -234,7 +235,7 @@ export async function runLane(
           return done();
         }
       }
-      if (cutOff) {
+      if (cutOff && !handedOff(ctx, laneDir, agentHandoff)) {
         failWith(`out of time after ${lane.limits?.minutes ?? "the run's"} minutes`);
         return done();
       }
@@ -307,7 +308,7 @@ export async function runLane(
           }
         } else {
           const why = checked.problems.join("\n");
-          if (exit.exitCode === 0 && repairs < (lane.limits?.repairRounds ?? 0)) {
+          if (exit.exitCode === 0 && !cutOff && repairs < (lane.limits?.repairRounds ?? 0)) {
             repairs += 1;
             repair = { gate: HANDOFF, output: why };
             continue;
@@ -317,14 +318,16 @@ export async function runLane(
           state.open = (state.open ?? []).filter((o) => o.lane !== lane.id);
         }
       }
-      if (exit.error) failWith(oneLine(`the agent reported an error: ${exit.error}`));
-      else if (exit.exitCode !== 0) failWith(`the agent exited ${exit.exitCode}`);
+      // a process the host ended says nothing: the hand-off it left before that is what counts
+      if (exit.error && !cutOff) failWith(oneLine(`the agent reported an error: ${exit.error}`));
+      else if (exit.exitCode !== 0 && !cutOff) failWith(`the agent exited ${exit.exitCode}`);
       else if (inTheWay) failWith("a file was already where the host keeps this lane's hand-off");
       else if (!handoff) failWith("the agent left no hand-off");
       else if (!said) failWith("the hand-off was rejected");
       else if (said.outcome === "needsPerson") [outcome, note] = ["needsPerson", oneLine(said.summary)];
       else if (said.outcome !== "pass") failWith(oneLine(said.summary));
       else note = oneLine(said.summary);
+      if (cutOff && outcome !== "needsPerson") note = oneLine(note + ENDED_BY_HOST);
     }
     {
       const halt = halted(ctx);

@@ -50,7 +50,7 @@ describe("a lane whose agent handed off and then did not end", () => {
     expect(run.status, run.stdout + run.stderr).toBe(0);
     expect(Date.now() - started).toBeLessThan(15_000);
     expect(trail(repo)).toEqual(["build:pass"]);
-    expect(noteOf(repo)).toMatch(/^Built it\. .*process did not end by itself.*ended by the host/);
+    expect(noteOf(repo)).toMatch(/^Built it\. .*process did not end by itself.*the host ended it/);
     expect(gates(repo)).toBe(1);
     expect(repo.rows<{ n: number }>("select count(*) as n from claims")[0]?.n).toBe(1);
     expect(alive(nap)).toBe(false);
@@ -69,7 +69,7 @@ describe("a lane whose agent handed off and then did not end", () => {
     const { repo } = lingering([{ spawn: nap, inherit: true }, { sleep: 20_000 }, { handoff: ok }]);
     expect(repo.sf("run").status).toBe(1);
     expect(noteOf(repo)).toMatch(/^out of time after 1 minutes/);
-    expect(noteOf(repo)).not.toMatch(/ended by the host/);
+    expect(noteOf(repo)).not.toMatch(/did not end by itself.*the host ended it/);
     expect(gates(repo)).toBe(0);
     expect(alive(nap)).toBe(false);
   }, 30_000);
@@ -81,7 +81,7 @@ describe("a lane whose agent handed off and then did not end", () => {
     const { repo } = lingering([{ handoff }, { sleep: 20_000 }]);
     expect(repo.sf("run").status).toBe(1);
     expect(noteOf(repo)).toMatch(/hand-off was rejected/);
-    expect(gates(repo)).toBe(0);
+    expect(trail(repo)).toEqual(["build:fail"]);
   }, 30_000);
 
   it("takes no hand-off from a process that is not the agent: a leftover that writes it after the cut", () => {
@@ -141,7 +141,7 @@ describe("a panel whose members handed off and did not end", () => {
     const run = repo.sf("run");
     expect(run.status, run.stdout + run.stderr).toBe(0);
     expect(trail(repo)).toEqual(["review:pass"]);
-    expect(noteOf(repo)).toMatch(/ended by the host/);
+    expect(noteOf(repo)).toMatch(/did not end by itself.*the host ended it/);
     expect(alive(nap)).toBe(false);
   }, 30_000);
 
@@ -163,6 +163,6 @@ describe("a read-only lane", () => {
     repo.env.FACTOR_MINUTE_MS = "800";
     expect(repo.sf("run").status).toBe(0);
     expect(runRow(repo)?.status).toBe("done");
-    expect(noteOf(repo)).toMatch(/ended by the host/);
+    expect(noteOf(repo)).toMatch(/did not end by itself.*the host ended it/);
   }, 30_000);
 });

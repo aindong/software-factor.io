@@ -13,6 +13,7 @@ import { servedFor } from "../served.ts";
 import * as store from "../store.ts";
 import { oneLine } from "../text.ts";
 import { type Ctx, halted } from "./lane.ts";
+import { ENDED_BY_HOST, handedOff } from "./overtime.ts";
 import { type Started, startAgent } from "./start.ts";
 import type { LaneResult } from "./state.ts";
 import { holds } from "./transition.ts";
@@ -90,8 +91,9 @@ function verdictOf(ctx: Ctx, own: Lane, member: Member, started: Started, stem: 
     outputs: {},
   });
   const { exit } = started;
-  if (exit.error) return failed(`the agent reported an error: ${exit.error}`);
-  if (exit.exitCode !== 0) return failed(`the agent exited ${exit.exitCode}`);
+  // a process the host ended says nothing: the hand-off it left before that is what counts
+  if (exit.error && !started.cutOff) return failed(`the agent reported an error: ${exit.error}`);
+  if (exit.exitCode !== 0 && !started.cutOff) return failed(`the agent exited ${exit.exitCode}`);
   // What the agent gave the factor server comes first: a question asked there stands. Then what it
   // said in its last message. Members share the folder their lane folders sit in, so a file in a
   // member's folder may be another member's work: it is taken only from an agent that has no
@@ -233,7 +235,7 @@ export async function runPanel(
       return over({ note: oneLine(settled.fail), stop });
     }
   }
-  if (starts.some((s) => s.cutOff)) {
+  if (starts.some((s) => s.cutOff && !handedOff(ctx, s.laneDir, s.server ? undefined : s.agentHandoff))) {
     return over({ note: `out of time after ${lane.limits?.minutes ?? "the run's"} minutes` });
   }
   if (hold !== undefined) return over({ note: "an account of the panel reached its limit", hold });
@@ -309,6 +311,8 @@ export async function runPanel(
     ...verdicts.flatMap((v) => v.open.map((text) => ({ lane: lane.id, text: `${v.id}: ${text}` }))),
   ];
   const note =
-    outcome === "needsPerson" && asks ? `${asks.id} asks: ${asks.summary}` : oneLine(said.join("; "), 1000);
+    outcome === "needsPerson" && asks
+      ? `${asks.id} asks: ${asks.summary}`
+      : oneLine(said.join("; "), 1000) + (starts.some((s) => s.cutOff) ? ENDED_BY_HOST : "");
   return over({ outcome, note, outputs, final: false });
 }
