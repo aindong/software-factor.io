@@ -247,7 +247,8 @@ list, a detail, a plain page. The page never scrolls.
   one at a time: the list, or the run that was entered, with a button back to the list. The inbox's decision
   bar moves to the bottom, after the proof.
 - **Under 760px.** The rail is a bar along the bottom. Controls are 44px high. Tables fit the width: nothing scrolls
-  sideways but the map and a diff.
+  sideways but the map and a diff. The floor's view, "Runs on map", "Add a lane" and "Workflow settings" fold
+  behind a Tools button, so the map begins high on the screen.
 
 The map never reflows: it is laid out from the workflow (124px between stations, 28px between tracks) and
 scrolls both ways in its own box. A run's map, which is only read, is drawn smaller to fit its box, down to
