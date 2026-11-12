@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { agentLane, flowRepo, standinAccount } from "../helpers/repo.ts";
 
@@ -12,12 +12,14 @@ describe("accounts on this machine", () => {
   const repo = flowRepo({ lanes: lanes() });
   const profile = join(repo.home, "profiles", "main");
   mkdirSync(profile, { recursive: true });
+  // `account list` reads each login's limits: the stand-in answers, never the claude on PATH
+  const bin = resolve("test/fixtures/bin/claude");
 
   it("are added by naming an agent and its profile folder, and hold no secret", () => {
-    const r = repo.sf("account", "add", "claude-main", "--agent", "claude", "--profile", profile);
+    const r = repo.sf("account", "add", "claude-main", "--agent", "claude", "--profile", profile, "--bin", bin);
     expect(r.status, r.stdout + r.stderr).toBe(0);
     const file = JSON.parse(readFileSync(join(repo.home, "accounts.json"), "utf8"));
-    expect(file.accounts["claude-main"]).toEqual({ agent: "claude", profile });
+    expect(file.accounts["claude-main"]).toEqual({ agent: "claude", profile, bin });
     expect(repo.sf("account", "list").stdout).toMatch(/claude-main\s+claude\s/);
   });
 
