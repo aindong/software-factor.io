@@ -51,10 +51,11 @@ describe("DESIGN.md records what shipped", () => {
   it("names the fonts the build bundles", () => {
     ensureUi();
     const built = readdirSync("dist/ui/assets").join(" ");
-    expect(built).toMatch(/barlow-latin-400.*\.woff2/);
+    expect(built).toMatch(/atkinson-hyperlegible-next-latin-400.*\.woff2/);
     expect(built).toMatch(/barlow-semi-condensed-latin-600.*\.woff2/);
     expect(design).toContain("Barlow Semi Condensed");
-    expect(tokensCss).toMatch(/--font: "Barlow"/);
+    expect(design).toContain("Atkinson Hyperlegible Next");
+    expect(tokensCss).toMatch(/--font: "Atkinson Hyperlegible Next"/);
   });
 
   it("has a part for each screen that exists, and is no longer a direction written before any screen", () => {

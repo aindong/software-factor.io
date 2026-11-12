@@ -1,24 +1,16 @@
 // One run: its sentence, the run drawn on the workflow's map with a control that steps through
 // it, what waits for a person, the diff, the files its agents attached, and each lane it went
 // through with its gates, claims and sessions. Every piece of evidence opens in place.
-import { Fragment, type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { drawable, layout } from "../core/floor/layout.ts";
 import { groupEvidence, routeOf, stepOf, trackOf } from "../core/runs/track.ts";
-import { memberOf } from "../core/runs/transcript.ts";
 import type { Workflow } from "../core/schema/workflow.ts";
 import { getRun, type RunDetail, type RunRow } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
-import { Elapsed } from "./Elapsed.tsx";
 import { DiffView, FileView, PairView, Proof } from "./Evidence.tsx";
-import { go } from "./route.ts";
-import { State } from "./State.tsx";
+import { LaneVisit, stateOf } from "./LaneVisit.tsx";
+import { RunHeader, Waits } from "./RunHeader.tsx";
 import { STATE_WORD } from "./Strip.tsx";
-import { TranscriptView } from "./Transcript.tsx";
-import { Coded } from "./Words.tsx";
-import { ago, cost, dollars, span, standing, tokens } from "./words.ts";
-
-const OUTCOME = { pass: "pass", fail: "fail", needsPerson: "asked" } as const;
-const stateOf = (outcome: keyof typeof OUTCOME | null) => (outcome ? OUTCOME[outcome] : "here");
 
 export interface RunViewProps {
   row: RunRow;
@@ -140,7 +132,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
     for (const side of [pair.before, pair.after]) rowOf.set(side.path, pair.before.path);
   const show = (path: string) => {
     const key = rowOf.get(path) ?? path;
-    setOpen(new Set(open).add(key));
+    setOpen(new Set(open).add("attached").add(key));
     requestAnimationFrame(() => proofs.current.get(key)?.scrollIntoView({ block: "nearest" }));
   };
   const attached =
@@ -152,103 +144,17 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
 
   return (
     <section className="rundetail" aria-label={`Run of ${row.task}`}>
-      <header>
-        <button type="button" className="button back" onClick={onBack}>
-          {back}
-        </button>
-        <h2 ref={headRef} tabIndex={-1}>
-          <Coded sentence={row.task || row.id} />
-        </h2>
-        {/* in the inbox the decision bar above says this already */}
-        {deciding ? null : (
-          <>
-            <State run={row} />
-            {/* what waits says it in its own block below, with the way to decide */}
-            {asking ? null : (
-              <p className="sentence" role="status">
-                {row.sentence}
-              </p>
-            )}
-          </>
-        )}
-        <dl className="facts data">
-          <div>
-            <dt>Run</dt>
-            <dd className="code">{row.id}</dd>
-          </div>
-          <div>
-            <dt>Started</dt>
-            <dd>{ago(row.startedAt)}</dd>
-          </div>
-          {row.endedAt ? (
-            <div>
-              <dt>Took</dt>
-              <dd>{span(Date.parse(row.endedAt) - Date.parse(row.startedAt))}</dd>
-            </div>
-          ) : null}
-          {row.workingSince ? (
-            <div>
-              <dt>Working for</dt>
-              <dd className="elapsed">
-                <Elapsed since={row.workingSince} />
-              </dd>
-            </div>
-          ) : null}
-          {row.workingSince && row.lastAt ? (
-            <div>
-              <dt>Last output</dt>
-              <dd className="elapsed">
-                <Elapsed since={row.lastAt} /> ago
-              </dd>
-            </div>
-          ) : null}
-          <div>
-            <dt>{row.status === "running" ? "Used so far" : "Used"}</dt>
-            <dd>
-              {tokens(row.tokens)}, {cost(row.usd, row.usdUnknown)}
-            </dd>
-          </div>
-          {detail ? (
-            <div>
-              <dt>Branch</dt>
-              <dd className="code">{detail.branch}</dd>
-            </div>
-          ) : null}
-        </dl>
-      </header>
-
-      {(deciding ? [] : (detail?.inbox ?? [])).map((item) => (
-        <div key={item.id} className="waits">
-          <span className="mark asked" aria-hidden="true" />
-          <div>
-            <p>
-              {item.kind === "question"
-                ? `${nameOf(item.lane)} asks: ${item.body}`
-                : `${nameOf(item.lane)} waits for your approval.`}
-            </p>
-            <p>
-              <a
-                className="button approve"
-                href={`/inbox/${row.id}`}
-                onClick={(event) => {
-                  event.preventDefault();
-                  go(`/inbox/${row.id}`);
-                }}
-              >
-                Decide in the inbox
-              </a>{" "}
-              <span className="quiet">
-                or from your terminal:{" "}
-                <code>
-                  {item.kind === "question"
-                    ? `softwarefactor answer ${row.id} --note "..."`
-                    : `softwarefactor approve ${row.id}`}
-                </code>
-              </span>
-            </p>
-          </div>
-        </div>
-      ))}
+      <RunHeader
+        row={row}
+        detail={detail}
+        headRef={headRef}
+        onBack={onBack}
+        back={back}
+        deciding={deciding}
+        asking={asking}
+        laneName={nameOf(row.at ?? "")}
+      />
+      {detail && !deciding ? <Waits detail={detail} runId={row.id} nameOf={nameOf} /> : null}
 
       {floor ? (
         <div className="runmap">
@@ -318,40 +224,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
       {detail ? (
         <>
           <div className="block">
-            <h3>What it changed</h3>
-            <Proof {...proof("diff")} label="The diff of the whole run" meta={detail.branch}>
-              <DiffView runId={row.id} stamp={stamp} />
-            </Proof>
-          </div>
-
-          {attached > 0 ? (
-            <div className="block">
-              <h3>What its agents attached</h3>
-              {groups.pairs.map((pair) => (
-                <Proof
-                  key={pair.before.path}
-                  {...proof(pair.before.path)}
-                  label={`Before and after${pair.name ? `: ${pair.name}` : ""}`}
-                  meta={from(pair.before.visit)}
-                >
-                  <PairView runId={row.id} before={pair.before} after={pair.after} />
-                </Proof>
-              ))}
-              {[
-                ...groups.recordings.map((f) => ({ f, word: "Recording" })),
-                ...groups.images.map((f) => ({ f, word: "Screenshot" })),
-                ...groups.texts.map((f) => ({ f, word: "File" })),
-                ...groups.others.map((f) => ({ f, word: "File" })),
-              ].map(({ f, word }) => (
-                <Proof key={f.path} {...proof(f.path)} label={`${word}: ${f.name}`} meta={from(f.visit)}>
-                  <FileView runId={row.id} path={f.path} name={f.name} />
-                </Proof>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="block">
-            <h3>Lane by lane</h3>
+            <h3>What each lane did</h3>
             <ol className="visits">
               {detail.lanes.map((lane) => (
                 <li
@@ -360,112 +233,59 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                     if (node) blocks.current.set(lane.lane, node);
                   }}
                 >
-                  <div className="visit">
-                    <span className={`mark ${stateOf(lane.outcome)}`} aria-hidden="true" />
-                    <strong>{nameOf(lane.lane)}</strong>
-                    <span>{STATE_WORD[stateOf(lane.outcome)]}</span>
-                    <span className="data spent">
-                      {[
-                        lane.durationMs ? span(lane.durationMs) : "",
-                        lane.tokens ? tokens(lane.tokens) : "",
-                        lane.usd ? dollars(lane.usd) : "",
-                      ]
-                        .filter(Boolean)
-                        .join(", ")}
-                    </span>
-                  </div>
-                  {lane.note ? <p className="note">{lane.note}</p> : null}
-                  {lane.claims.length > 0 ? (
-                    <ul className="claims">
-                      {lane.claims.map((claim) => (
-                        <li key={claim.text}>
-                          {claim.text}{" "}
-                          {claim.evidence.length === 0 ? (
-                            <span className="quiet">no evidence given</span>
-                          ) : null}
-                          {claim.evidence.map((e) => (
-                            // each reference says whether the host found what it names, and opens it when it is a file
-                            <span key={e.ref} className="ref code">
-                              <span
-                                className={`mark ${e.ok ? "pass" : "fail"}`}
-                                role="img"
-                                aria-label={e.ok ? "The host checked this:" : "The host did not find this:"}
-                              />
-                              {e.path ? (
-                                <button type="button" onClick={() => show(e.path ?? "")}>
-                                  {e.ref}
-                                </button>
-                              ) : (
-                                e.ref
-                              )}
-                            </span>
-                          ))}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {lane.gates.map((gate) => (
-                    <Fragment key={gate.output}>
-                      <Proof
-                        {...proof(gate.output)}
-                        mark={
-                          <span
-                            className={`mark ${gate.status === "pass" ? "pass" : "fail"}`}
-                            aria-hidden="true"
-                          />
-                        }
-                        label={`Gate ${gate.gate} ${gate.status === "pass" ? "passed" : "failed"}`}
-                        meta={[
-                          gate.exitCode === null ? "" : `exit ${gate.exitCode}`,
-                          span(gate.durationMs),
-                          gate.attempt > 1 ? `round ${gate.attempt}` : "",
-                        ]
-                          .filter(Boolean)
-                          .join(", ")}
-                      >
-                        <FileView runId={row.id} path={gate.output} name="output.log" />
-                      </Proof>
-                      {detail.files.some((f) => f.path === baseOf(gate.output)) ? (
-                        <Proof {...proof(baseOf(gate.output))} label={`Gate ${gate.gate} on the base commit`}>
-                          <FileView runId={row.id} path={baseOf(gate.output)} name="output.log" />
-                        </Proof>
-                      ) : null}
-                    </Fragment>
-                  ))}
-                  {lane.output ? (
-                    <Proof {...proof(lane.output)} label="What its command printed">
-                      <FileView runId={row.id} path={lane.output} name="output.log" />
-                    </Proof>
-                  ) : null}
-                  {lane.handoff ? (
-                    <Proof {...proof(lane.handoff)} label="Hand-off">
-                      <FileView runId={row.id} path={lane.handoff} name="handoff.json" />
-                    </Proof>
-                  ) : null}
-                  {lane.sessions.map((session, i) =>
-                    session.transcript ? (
-                      <Proof
-                        key={session.transcript}
-                        {...proof(session.transcript)}
-                        label={`What the agent printed${memberOf(session.transcript) ? `: ${memberOf(session.transcript)}` : lane.sessions.length > 1 ? `, try ${i + 1}` : ""}`}
-                        meta={[
-                          session.account ?? session.agent,
-                          session.model ?? "",
-                          tokens(session.tokens),
-                          session.usd === null ? "cost not known" : dollars(session.usd),
-                        ]
-                          .filter(Boolean)
-                          .join(", ")}
-                      >
-                        <TranscriptView runId={row.id} path={session.transcript} />
-                      </Proof>
-                    ) : null,
-                  )}
+                  <LaneVisit
+                    lane={lane}
+                    name={nameOf(lane.lane)}
+                    round={
+                      detail.lanes.filter((l) => l.lane === lane.lane).length > 1
+                        ? detail.lanes.filter((l) => l.lane === lane.lane).indexOf(lane) + 1
+                        : undefined
+                    }
+                    runId={row.id}
+                    files={detail.files}
+                    proof={proof}
+                    show={show}
+                  />
                 </li>
               ))}
             </ol>
             {detail.lanes.length === 0 ? <p className="quiet">This run has not entered a lane yet.</p> : null}
           </div>
+
+          <div className="block">
+            <h3>What it changed</h3>
+            <Proof {...proof("diff")} label="The diff of the whole run" meta={detail.branch}>
+              <DiffView runId={row.id} stamp={stamp} />
+            </Proof>
+          </div>
+
+          {attached > 0 ? (
+            <div className="block">
+              <h3>Files the agents attached</h3>
+              <Proof {...proof("attached")} label={`${attached} ${attached === 1 ? "file" : "files"}`}>
+                {groups.pairs.map((pair) => (
+                  <Proof
+                    key={pair.before.path}
+                    {...proof(pair.before.path)}
+                    label={`Before and after${pair.name ? `: ${pair.name}` : ""}`}
+                    meta={from(pair.before.visit)}
+                  >
+                    <PairView runId={row.id} before={pair.before} after={pair.after} />
+                  </Proof>
+                ))}
+                {[
+                  ...groups.recordings.map((f) => ({ f, word: "Recording" })),
+                  ...groups.images.map((f) => ({ f, word: "Screenshot" })),
+                  ...groups.texts.map((f) => ({ f, word: "File" })),
+                  ...groups.others.map((f) => ({ f, word: "File" })),
+                ].map(({ f, word }) => (
+                  <Proof key={f.path} {...proof(f.path)} label={`${word}: ${f.name}`} meta={from(f.visit)}>
+                    <FileView runId={row.id} path={f.path} name={f.name} />
+                  </Proof>
+                ))}
+              </Proof>
+            </div>
+          ) : null}
         </>
       ) : problem ? null : (
         <p className="quiet">Reading the run.</p>

@@ -21,7 +21,7 @@ importers:
       '@biomejs/biome':
         specifier: ^2.6.6
         version: 2.6.6
-      '@fontsource/barlow':
+      '@fontsource/atkinson-hyperlegible-next':
         specifier: 5.3.0
         version: 5.3.0
       '@fontsource/barlow-semi-condensed':
@@ -129,11 +129,11 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@fontsource/atkinson-hyperlegible-next@5.3.0':
+    resolution: {integrity: sha512-8p1tHVoPDo6oYwSO3sMw5snGwFwSf3TmeSF9Gcj792GXdsg6oqvhoItbj6Hj/XZIk0Xs+Cwu6pkLBAl3Q5HrwA==}
+
   '@fontsource/barlow-semi-condensed@5.3.0':
     resolution: {integrity: sha512-EdpQ1GlLMofGqDsQhEw+g6DonNKmzt21p8y/oNbTl4BFzEkqYkFyE2fj25YGxmZBL/LZZGAxe74FlvEWcgc31w==}
-
-  '@fontsource/barlow@5.3.0':
-    resolution: {integrity: sha512-tGR0y6QObRtKv71MOth44222+mdNFM/ZWFWDV1VLzNbG4oK9PNRlyJzmkck4vHAi9ibHBXgt4SlY51amFP55CA==}
 
   '@hono/node-server@2.1.6':
     resolution: {integrity: sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ==}
@@ -760,9 +760,9 @@ snapshots:
   '@biomejs/cli-win32-x64@2.6.6':
     optional: true
 
-  '@fontsource/barlow-semi-condensed@5.3.0': {}
+  '@fontsource/atkinson-hyperlegible-next@5.3.0': {}
 
-  '@fontsource/barlow@5.3.0': {}
+  '@fontsource/barlow-semi-condensed@5.3.0': {}
 
   '@hono/node-server@2.1.6(hono@4.13.17)':
     dependencies:

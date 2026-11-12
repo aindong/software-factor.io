@@ -142,7 +142,7 @@ pw press End
 expect "End goes to the oldest" "$(js "$focused")" 'Add an export button'
 pw press Enter
 expect "Enter goes into the run" "$(js "$focused")" '^Add an export button$'
-expect "the run says how it stands" "$(js "() => document.querySelector('.rundetail .sentence').textContent")" '^Done\.$'
+expect "the run says how it ended, and that it needs no one" "$(js "() => document.querySelector('.rundetail .lede').textContent")" '^Finished: every lane passed\. Nothing is needed from you\.$'
 expect "the run that was entered is in the address" "$(js "() => location.pathname")" "^/runs/$first$"
 in_window "a run"
 shot run-light-1440
@@ -167,11 +167,16 @@ pw press End
 shown() { # what the open proof with that label shows (several can be open at once)
   echo "() => [...document.querySelectorAll('.proof')].find((p) => p.querySelector('.what').textContent.startsWith('$1'))?.querySelector('.shown .output')?.textContent ?? ''"
 }
+# a lane's gates and hand-off: behind its evidence
+tab_to '^Evidence for'
+pw press Enter
 tab_to '^The diff of the whole run'
 pw press Enter
 wait_for "the diff" "() => document.querySelector('.diff')?.textContent ?? ''" '\+\+\+ b/src/export\.ts'
 expect "a line taken out or put in is marked" "$(js "() => document.querySelectorAll('.diff .add').length > 0")" '^true$'
 shot run-diff-light-1440
+tab_to '^[0-9]+ files?$'
+pw press Enter
 tab_to '^Before and after'
 pw press Enter
 wait_for "a screenshot pair, both loaded" "() => [...document.querySelectorAll('.pair-shots img')].map((i) => i.complete && i.naturalWidth > 0).join(' ')" '^true true$'
@@ -186,7 +191,7 @@ shot run-recording-light-1440
 tab_to '^File: notes\.txt'
 pw press Enter
 wait_for "an attached note" "$(shown 'File: notes.txt')" 'Checked at 1440 and 390 wide'
-tab_to '^Gate verify passed'
+back_to '^Gate verify passed'
 pw press Enter
 wait_for "a gate's output" "$(shown 'Gate verify passed')" '^\$ true'
 expect "its claims name their evidence" "$(js "() => [...document.querySelectorAll('.visits > li:first-child .ref')].map((r) => r.textContent).join(' ')")" '^file:src/export\.ts commit:HEAD attached:before\.png attached:after\.png attached:walkthrough\.webm attached:notes\.txt$'
@@ -217,6 +222,8 @@ wait_for "g then r goes to Runs" "() => document.querySelector('h1').textContent
 # ---- 5. dark, then the floor with the run on its map
 theme Dark
 shot runs-dark-1440
+tab_to '^[0-9]+ files?$'
+pw press Enter
 tab_to '^Before and after'
 pw press Enter
 wait_for "the pair in the dark" "() => [...document.querySelectorAll('.pair-shots img')].map((i) => i.complete && i.naturalWidth > 0).join(' ')" '^true true$'
@@ -280,6 +287,8 @@ expect "Enter shows the run in place of the list" "$(js "() => getComputedStyle(
 fits "a run"
 walk "a run"
 shot run-light-390
+tab_to '^[0-9]+ files?$'
+pw press Enter
 tab_to '^Before and after'
 pw press Enter
 wait_for "the pair, one above the other" "() => { const s = [...document.querySelectorAll('.pair-shots img')]; if (s.length < 2 || !s.every((i) => i.naturalWidth > 0)) return 'not yet'; const [a, b] = s.map((i) => i.getBoundingClientRect()); return String(a.bottom <= b.top && document.documentElement.scrollWidth <= 390); }" '^true$'

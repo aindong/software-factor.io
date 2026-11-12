@@ -15,7 +15,7 @@ describe("the built interface, with no network", () => {
   it("carries its fonts in the package", () => {
     const fonts = files("dist/ui").filter((f) => f.endsWith(".woff2"));
     expect(fonts.some((f) => /barlow-semi-condensed/i.test(f))).toBe(true);
-    expect(fonts.some((f) => /barlow-(latin|\d)/i.test(f) && !/semi-condensed/i.test(f))).toBe(true);
+    expect(fonts.some((f) => /atkinson-hyperlegible-next/i.test(f))).toBe(true);
   });
 
   it("names no address outside this machine to load anything from", () => {
