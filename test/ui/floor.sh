@@ -210,11 +210,15 @@ pw mousemove ${at%% Lane*} && pw mousedown && pw mouseup
 expect "a single press opens the lane" "$(js "() => document.querySelector('.inspector').dataset.open + ' ' + document.querySelector('.inspector h2').textContent")" "^true $pressed$"
 tab_to '^Close$'
 pw press Enter
-# and the workflow's own settings have a way in
-back_to '^Workflow settings$'
+# and the workflow's own settings have a way in, from the fold the floor's tools sit in at this width
+back_to '^Tools$'
+pw press Enter
+tab_to '^Workflow settings$'
 pw press Enter
 expect "the workflow's settings open" "$(js "() => document.querySelector('.inspector').dataset.open + ' ' + document.activeElement.textContent")" '^true Workflow$'
 tab_to '^Close$'
+pw press Enter
+back_to '^Tools$'
 pw press Enter
 fits "the floor"
 walk "the floor"

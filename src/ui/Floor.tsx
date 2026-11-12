@@ -9,7 +9,7 @@ import { forgetKey, getWorkflow, getWorkspace, type Json, saveWorkflow, type Wor
 import { Diagram } from "./Diagram.tsx";
 import { Inspector } from "./Inspector.tsx";
 import { Ladder } from "./Ladder.tsx";
-import { AddLane, caretToLane, Legend, trainsOf } from "./Legend.tsx";
+import { AddLane, caretToLane, Fold, Legend, trainsOf } from "./Legend.tsx";
 import { useRuns } from "./live.ts";
 import { go } from "./route.ts";
 import { statusOf } from "./status.ts";
@@ -263,7 +263,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
     setSelected(id);
     if (id && view === "json" && area.current) caretToLane(area.current, text, id);
   };
-  const open = (id: string) => {
+  const open = (id: string | undefined) => {
     setSelected(id);
     setSheet(true);
     requestAnimationFrame(() => headRef.current?.focus());
@@ -302,33 +302,27 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
             <span className="code">{name}</span>
           )}
         </div>
-        <button
-          type="button"
-          className="button narrow-only"
-          onClick={() => {
-            setSelected(undefined);
-            setSheet(true);
-            requestAnimationFrame(() => headRef.current?.focus());
-          }}
-        >
-          Workflow settings
-        </button>
-        <fieldset className="segmented">
-          <legend className="sr">View</legend>
-          <button type="button" aria-pressed={view === "diagram"} onClick={() => setView("diagram")}>
-            Diagram
+        <Fold>
+          <button type="button" className="button narrow-only" onClick={() => open(undefined)}>
+            Workflow settings
           </button>
-          <button type="button" aria-pressed={view === "json"} onClick={() => setView("json")}>
-            JSON
-          </button>
-        </fieldset>
-        {view === "diagram" ? (
-          <label className="check">
-            <input type="checkbox" checked={onMap} onChange={(event) => setOnMap(event.target.checked)} />
-            Runs on map
-          </label>
-        ) : null}
-        {view === "diagram" ? <AddLane onAdd={add} /> : null}
+          <fieldset className="segmented">
+            <legend className="sr">View</legend>
+            <button type="button" aria-pressed={view === "diagram"} onClick={() => setView("diagram")}>
+              Diagram
+            </button>
+            <button type="button" aria-pressed={view === "json"} onClick={() => setView("json")}>
+              JSON
+            </button>
+          </fieldset>
+          {view === "diagram" ? (
+            <label className="check">
+              <input type="checkbox" checked={onMap} onChange={(event) => setOnMap(event.target.checked)} />
+              Runs on map
+            </label>
+          ) : null}
+          {view === "diagram" ? <AddLane onAdd={add} /> : null}
+        </Fold>
         <div className="group push">
           <span className={`status${status.bad ? " bad" : ""}`} role="status">
             {status.text}

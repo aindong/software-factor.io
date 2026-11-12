@@ -256,6 +256,8 @@ zoom) the map's labels crowd.
 `bash test/ui/floor.sh` (it needs `playwright-cli` and `pnpm run build`): by keyboard it opens a station, adds a
 lane, connects it, follows the change into the JSON view and back, has a save refused, saves, and reads the file.
 Give it a folder as its argument and it leaves screenshots there in both themes.
+`bash test/ui/floor-phone.sh` checks the floor at 390 wide: the map begins within 160 px of the top, and the
+Tools button that folds the floor's controls opens by keyboard.
 `bash test/ui/runs.sh` does the same for Runs: it makes three runs with the scripted agent (one done, one
 stopped, one waiting), and by key presses alone moves through the list, steps a run back and forth on its map,
 and opens the diff, a screenshot pair, a recording, a gate's output and a hand-off.
