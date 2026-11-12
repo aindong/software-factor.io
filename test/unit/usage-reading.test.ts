@@ -117,13 +117,15 @@ describe("reading a login's limits", () => {
     expect(reading.failed).not.toMatch(/\/Users|someone/);
   });
 
-  it("gives the CLI's words when it ends well but prints no window", async () => {
-    const reading = await readAccountLimits({
-      agent: "claude",
-      ...cli("Not logged in · Please run /login\n", "", 0),
-    });
-    expect(reading.failed).toMatch(/Not logged in/);
-    expect(reading.windows).toEqual([]);
+  it("gives the CLI's words when it ends well but prints no window, and every window as not reported", async () => {
+    for (const [stdout, said] of [
+      ["Not logged in · Please run /login\n", /Not logged in/],
+      ["", /printed no limits/],
+    ] as const) {
+      const reading = await readAccountLimits({ agent: "claude", ...cli(stdout, "", 0) });
+      expect(reading.failed).toMatch(said);
+      expect(reading.windows).toEqual(parseUsage(""));
+    }
   });
 
   it("gives the reason when the CLI cannot be started", async () => {
