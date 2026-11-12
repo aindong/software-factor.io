@@ -92,8 +92,8 @@ export function readAccountLimits(account: Pick<Account, "agent" | "profile" | "
         if (!error) {
           const windows = parseUsage(stdout);
           if (windows.some((w) => w.percent !== null)) return done(reading(windows, null));
-          // it ended well and printed no window: its own words, such as that it is not logged in
-          return done(reading([], plain(stdout) || "it printed no limits"));
+          // it ended well and printed no window: its own words, such as that it is not logged in, and each window not reported
+          return done(reading(windows, plain(stdout) || "it printed no limits"));
         }
         const code = (error as NodeJS.ErrnoException).code;
         if (code === "ENOENT" || code === "EACCES") return done(reading([], "the CLI could not be started"));
