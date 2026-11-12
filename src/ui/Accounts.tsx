@@ -1,25 +1,20 @@
-// Accounts: the agent logins on this machine, and which one works each role of the workflow.
-// A role is bound here as `softwarefactor role bind` binds it. Adding a login stays in the
-// terminal, where the login itself is made.
+// Accounts: the agent logins on this machine with their limits first, then which one works each
+// role of the workflow. A role is bound here as `softwarefactor role bind` binds it. Adding a login
+// stays in the terminal, where the login itself is made. The limits are read when the page opens
+// and when a person asks, never in the background.
 import { useCallback, useEffect, useState } from "react";
 import { withBound } from "../core/models.ts";
 import type { AccountsView } from "../core/views.ts";
 import { op } from "./api.ts";
+import { AGENT_WORDS, Logins } from "./Logins.tsx";
 import "./runs.css";
 import "./sections.css";
 
-const whole = new Intl.NumberFormat("en-US");
 type Role = AccountsView["roles"][number];
 const EFFORTS = ["", "low", "medium", "high", "max"];
 const TIERS = ["small", "medium", "large"] as const;
 // the value of "Another model": the page never sends it, and `role bind` takes no name starting so
 const ANOTHER = "+another";
-const AGENT_WORDS: Record<string, string> = {
-  claude: "Claude Code",
-  codex: "Codex",
-  kimi: "Kimi",
-  command: "a command",
-};
 const named = (models: Record<string, string>) =>
   Object.fromEntries(Object.entries(models).filter(([, model]) => model.trim() !== ""));
 const listed = (names: string[]) =>
@@ -176,17 +171,27 @@ export function RoleRow({
 export function Accounts() {
   const [view, setView] = useState<AccountsView>();
   const [notice, setNotice] = useState<{ text: string; bad: boolean }>();
-  const read = useCallback(() => {
-    op<AccountsView>("accounts_list").then(({ status, body }) => {
-      if (status === 200) setView(body);
-      else
-        setNotice({
-          text: `${body.error ?? "The accounts could not be read."}${body.fix ? ` ${body.fix}` : ""}`,
-          bad: true,
-        });
-    });
+  const [reading, setReading] = useState(false);
+  // what is kept, at once; with `read`, each login's CLI is asked for its limits first
+  const load = useCallback(async (read: boolean) => {
+    const { status, body } = await op<AccountsView>("accounts_list", read ? { read: true } : {});
+    if (status === 200) setView(body);
+    else {
+      const why = `${body.error ?? "no answer"}${body.fix ? ` ${body.fix}` : ""}`;
+      setNotice({
+        text: read ? `The limits could not be read: ${why}` : `The accounts could not be read: ${why}`,
+        bad: true,
+      });
+    }
   }, []);
-  useEffect(read, [read]);
+  const readLimits = useCallback(async () => {
+    setReading(true);
+    await load(true);
+    setReading(false);
+  }, [load]);
+  useEffect(() => {
+    load(false).then(readLimits);
+  }, [load, readLimits]);
   return (
     <main className="work">
       <div className="topbar">
@@ -210,47 +215,29 @@ export function Accounts() {
         ) : (
           <>
             <section className="block">
-              <h2>Logins</h2>
+              <div className="blockhead">
+                <h2>Logins</h2>
+                {view.accounts.length > 0 ? (
+                  <button type="button" className="button" disabled={reading} onClick={readLimits}>
+                    Read the limits again
+                  </button>
+                ) : null}
+                <span className="status" role="status">
+                  {reading ? "Asking each login's CLI for its limits." : ""}
+                </span>
+              </div>
+              {view.accounts.length > 0 ? (
+                <p className="quiet">
+                  Each login's limits as its CLI reports them, and apart from them the factory's own count,
+                  which holds only what the factory's runs used.
+                </p>
+              ) : null}
               {view.accounts.length === 0 ? (
                 <p className="quiet">
                   No login yet. Until there is one, roles are worked by the scripted agent.
                 </p>
               ) : (
-                <div className="scroll-x">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th scope="col">Account</th>
-                        <th scope="col">Agent</th>
-                        <th scope="col">Used</th>
-                        <th scope="col">On hold</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {view.accounts.map((a) => (
-                        <tr key={a.name}>
-                          <th scope="row">{a.name}</th>
-                          <td>{a.agent}</td>
-                          <td className="data">
-                            {a.limits.length === 0
-                              ? "no limit set"
-                              : a.limits.map((l) => (
-                                  <span key={l.hours} className="limit">
-                                    {whole.format(l.used)} of {whole.format(l.tokens)} tokens in {l.hours} h
-                                    {l.used >= l.tokens * a.headroom ? ", at its headroom" : ""}
-                                  </span>
-                                ))}
-                          </td>
-                          <td className="data">
-                            {a.heldUntil
-                              ? `until ${new Date(a.heldUntil).toLocaleTimeString()}, at its limit`
-                              : "no"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Logins accounts={view.accounts} />
               )}
               <p className="quiet">
                 A login is made in a terminal, in the agent's own CLI. Then name its folder here:{" "}
@@ -281,7 +268,7 @@ export function Accounts() {
                         accounts={view.accounts}
                         onBound={(text, bad) => {
                           setNotice({ text, bad });
-                          if (!bad) read();
+                          if (!bad) load(false);
                         }}
                       />
                     ))}

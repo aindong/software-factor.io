@@ -10,13 +10,13 @@ shots=${1:?give a folder for the screenshots}
 
 # the checks drive the page with keys (and, where a pointer's bug is guarded, a real mouse press):
 # none of them clicks, focuses, dispatches an event or sets an attribute by script
-scripted=$(grep -nE '\.click\(|\.focus\(|dispatchEvent|setAttribute' "$here"/test/ui/floor.sh "$here"/test/ui/runs.sh "$here"/test/ui/inbox.sh "$here"/test/ui/ladder.sh "$here"/test/ui/restart.sh "$here"/test/ui/running.sh "$here"/test/ui/filter.sh "$here"/test/ui/accounts.sh "$here"/test/ui/keys.sh)
+scripted=$(grep -nE '\.click\(|\.focus\(|dispatchEvent|setAttribute' "$here"/test/ui/floor.sh "$here"/test/ui/runs.sh "$here"/test/ui/inbox.sh "$here"/test/ui/ladder.sh "$here"/test/ui/restart.sh "$here"/test/ui/running.sh "$here"/test/ui/filter.sh "$here"/test/ui/accounts.sh "$here"/test/ui/accounts-limits.sh "$here"/test/ui/keys.sh)
 [ -z "$scripted" ] || { echo "FAIL: a check acts on the page by script: $scripted"; exit 1; }
 
 # each check works in a folder of its own: a relative folder here would be read from there, and the pictures lost
 mkdir -p "$shots" && shots=$(cd "$shots" && pwd) || { echo "FAIL: no folder $shots"; exit 1; }
 rm -f "$shots"/*.png # what is in the folder afterwards was taken by this run
-for check in floor runs inbox ladder restart running filter accounts; do
+for check in floor runs inbox ladder restart running filter accounts accounts-limits; do
   bash "$here/test/ui/$check.sh" "$shots" || { echo "FAIL: $check.sh"; exit 1; }
 done
 for screen in floor runs run inbox accounts costs plugins; do

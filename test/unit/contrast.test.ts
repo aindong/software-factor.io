@@ -72,6 +72,7 @@ const SHAPES: [string, string, string][] = [
   ["through", "panel", "a passed mark on a selected row"],
   ["return", "panel", "a failed mark on a selected row"],
   ["end", "panel", "a stop not reached on a selected row"],
+  ["ink", "rule", "the fill of a login's meter on its track"],
 ];
 
 describe.each(Object.entries(themes))("the %s theme", (_name, theme) => {
