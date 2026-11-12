@@ -175,6 +175,8 @@ pw press Enter
 wait_for "the diff" "() => document.querySelector('.diff')?.textContent ?? ''" '\+\+\+ b/src/export\.ts'
 expect "a line taken out or put in is marked" "$(js "() => document.querySelectorAll('.diff .add').length > 0")" '^true$'
 shot run-diff-light-1440
+tab_to '^[0-9]+ files?$'
+pw press Enter
 tab_to '^Before and after'
 pw press Enter
 wait_for "a screenshot pair, both loaded" "() => [...document.querySelectorAll('.pair-shots img')].map((i) => i.complete && i.naturalWidth > 0).join(' ')" '^true true$'
@@ -186,8 +188,6 @@ pw press Enter
 wait_for "a recording that has decoded" "() => (document.querySelector('video.shot')?.videoWidth ?? 0) > 0" '^true$'
 in_window "a run with a pair and a recording open"
 shot run-recording-light-1440
-tab_to '^[0-9]+ files?$'
-pw press Enter
 tab_to '^File: notes\.txt'
 pw press Enter
 wait_for "an attached note" "$(shown 'File: notes.txt')" 'Checked at 1440 and 390 wide'
