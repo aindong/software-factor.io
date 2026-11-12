@@ -15,6 +15,7 @@ const account = (name: string, agent: string, models: { value: string; label: st
   limits: [],
   headroom: 0.9,
   heldUntil: null,
+  reading: null,
   models,
 });
 const accounts = [

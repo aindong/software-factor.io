@@ -23,8 +23,8 @@ mkdir -p "$work/shop" "$work/profiles/claude" "$work/profiles/codex" && cd "$wor
 git init -q -b main && git config user.email t@example.com && git config user.name T
 echo "# shop" > README.md && git add -A && git commit -q -m initial
 sf init > /dev/null || fail "init"
-sf account add claude-main --agent claude --profile "$work/profiles/claude" > /dev/null || fail "account add claude-main"
-sf account add openai-main --agent codex --profile "$work/profiles/codex" > /dev/null || fail "account add openai-main"
+sf account add claude-main --agent claude --profile "$work/profiles/claude" --bin "$here/test/fixtures/bin/claude" > /dev/null || fail "account add claude-main"
+sf account add openai-main --agent codex --profile "$work/profiles/codex" --bin "$here/test/fixtures/bin/codex" > /dev/null || fail "account add openai-main"
 sf role bind reviewer --account claude-main --medium sonnet > /dev/null || fail "role bind reviewer"
 node -e '
 const fs = require("fs");

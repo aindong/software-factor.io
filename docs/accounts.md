@@ -69,6 +69,29 @@ When a CLI reports that the limit is reached, the account is held for one hour a
 that. The exact words each CLI uses for this are not verified: the factory looks for "usage limit", "rate
 limit" and similar, and only in an error the CLI reported, never in ordinary output.
 
+### What the CLI reports
+
+The Accounts page and `softwarefactor account list` also show each login's limit windows as its own CLI reports
+them: the name of the window, the percent used, a meter and when it resets. For Claude Code these come from
+`claude -p /usage`, started with the login's profile in the system's temp folder, stopped after 20 seconds. Only
+lines such as `Current week (all models): 73% used · resets Nov 15 at 6:59am (Asia/Manila)` are read; any other
+line is passed over. The current session, the week for all models and a week for one named model are expected. One
+the CLI does not print is said to be "not reported", never 0. A CLI that fails gives its own words and exit code.
+
+The reading is taken when the page opens, when "Read the limits again" is pressed, by `account list`, and by the
+`accounts_list` operation with `{ "read": true }`. It is kept with its time in `limits.json` under the factor
+home, and the page says how old it is. Nothing is read in the background. Codex, Kimi Code and command accounts
+start no process: no CLI of theirs reports its limits without a model call, and the page says so. No file in a
+login's profile folder is read.
+
+Not verified: that `claude -p /usage` makes no model call and prints those lines. That comes from the CLI's own
+usage page as it was described when this was built; the tests use a stand-in CLI. Look at the first reading on a
+real login.
+
+These windows are the vendor's count of the whole subscription. Beside them, under "The factory's own count", is
+the `--limit` above, which counts only the factory's runs. A login at 90% of any window, or of its factory limit,
+is marked "Near a limit". The hold above is marked "On hold until" its time.
+
 ## Sessions and cost
 
 Every start of an agent leaves a session record: a row with the lane, the account, the model, the tokens by
