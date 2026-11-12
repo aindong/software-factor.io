@@ -17,7 +17,7 @@
 }
 .decide .asks {
   max-width: 80ch;
-  font-weight: 500;
+  font-weight: var(--w-medium);
   overflow-wrap: anywhere;
 }
 .decide .field {
@@ -45,7 +45,7 @@
 .said {
   max-width: 80ch;
   color: var(--ink-soft);
-  font: 500 var(--text-data) / 1.3 var(--font-tight);
+  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font);
   overflow-wrap: anywhere;
 }
 .said.bad,
@@ -72,7 +72,7 @@
   background: var(--signal);
   border: 1.5px solid var(--ink);
   color: var(--signal-ink);
-  font-weight: 600;
+  font-weight: var(--w-strong);
 }
 .button.approve:hover {
   background: color-mix(in oklch, var(--signal) 88%, var(--ink));
@@ -90,7 +90,7 @@
   padding: 0 4px;
   border: 1px solid currentColor;
   border-radius: 3px;
-  font: 600 var(--text-label) / 1.3 var(--font-tight);
+  font: var(--w-strong) var(--text-label) / var(--lh-data) var(--font);
   opacity: 0.75;
 }
 .rail .count {
@@ -103,7 +103,7 @@
   border-radius: 9px;
   background: var(--signal);
   color: var(--signal-ink);
-  font: 600 0.6875rem / 15px var(--font-tight);
+  font: var(--w-strong) var(--text-label) / 15px var(--font);
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
@@ -143,12 +143,12 @@
   vertical-align: top;
 }
 .table thead th {
-  font: 600 var(--text-label) / 1.2 var(--font-tight);
+  font: var(--w-strong) var(--text-label) / var(--lh-label) var(--font);
   color: var(--ink-soft);
   vertical-align: bottom;
 }
 .table tbody th {
-  font-weight: 600;
+  font-weight: var(--w-strong);
 }
 .table .num {
   text-align: right;
@@ -157,7 +157,7 @@
 .table .flagged,
 .table .limit {
   display: block;
-  font-weight: 400;
+  font-weight: var(--w-text);
 }
 .table .flagged {
   display: flex;
@@ -222,7 +222,7 @@
   content: attr(data-label);
   display: block;
   margin-bottom: var(--xs);
-  font: 600 var(--text-label) / 1.2 var(--font-tight);
+  font: var(--w-strong) var(--text-label) / var(--lh-label) var(--font);
   color: var(--ink-soft);
 }
 .table.roles input,

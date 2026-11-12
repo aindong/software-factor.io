@@ -23,7 +23,7 @@
   border-color: var(--ink);
   background: var(--ink);
   color: var(--ground);
-  font-weight: 600;
+  font-weight: var(--w-strong);
 }
 /* on the chosen button the ring would be ink on ink */
 .runfilter button[aria-pressed="true"]:focus-visible {

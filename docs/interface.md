@@ -168,8 +168,10 @@ The arrow keys move through the list and Enter goes into a run. A run shows:
 - **What waits for you**, under the head, with a yellow "Decide in the inbox" link and the command that does
   the same. On a narrow screen the map is scrolled to the lane the run is at, or to where it ended, and a soft edge shows where it goes on.
 
-The type is Atkinson Hyperlegible Next at 400 to 700 (body 15px, data 14px, labels 13px) and, for the rail and
-the map only, Barlow Semi Condensed at 500 and 600. Nothing in a run's page is under 13px.
+The type is Inter (variable, optical size) and JetBrains Mono for code, one face for the rail and the map too:
+body 15px at 400, data 15px at 500, labels 13px at 500, headings at 600 at most. Nothing in a run's page is under
+13px; only the map's sub labels are 12px. On the map, a label that would touch its neighbour's steps out to a
+further row (38px up or down, measured in the page once the face has loaded), so no two labels overlap.
 
 On the floor, "Runs on map" puts a numbered train on the lane of each run that is moving or waiting. The
 number is the task's, the same as in the rows of Runs and Inbox. A train is a link to its run. One that waits

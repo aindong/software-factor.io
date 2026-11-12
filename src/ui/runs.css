@@ -33,7 +33,7 @@
   outline-offset: -2px;
 }
 .run .task {
-  font-weight: 600;
+  font-weight: var(--w-strong);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -47,7 +47,7 @@
   border-radius: 8px;
   background: var(--ink);
   color: var(--ground);
-  font-weight: 600;
+  font-weight: var(--w-strong);
   text-align: center;
 }
 .run .when,
@@ -161,21 +161,21 @@
   outline: none;
 }
 .rundetail h2 {
-  font-size: 1.375rem;
-  line-height: 1.25;
+  font-size: var(--text-title);
+  line-height: var(--lh-section);
   max-width: 40ch;
 }
 .rundetail h3 {
   margin: 0;
-  font: 600 var(--text-section) / 1.25 var(--font);
+  font: var(--w-heading) var(--text-section) / var(--lh-section) var(--font);
 }
 .rundetail .lede {
   max-width: 60ch;
-  font-size: 1.0625rem;
-  line-height: 1.45;
+  font-size: var(--text-section);
+  line-height: var(--lh-note);
 }
 .rundetail .lede .needs {
-  font-weight: 600;
+  font-weight: var(--w-strong);
 }
 .rundetail .sentence {
   max-width: 62ch;
@@ -287,7 +287,7 @@ a.button {
 }
 .map .train text {
   fill: var(--ground);
-  font: 600 var(--text-label) / 1 var(--font-tight);
+  font: var(--w-strong) var(--text-label) / 1 var(--font);
   font-variant-numeric: tabular-nums;
 }
 .map .train.asks rect {
@@ -343,7 +343,7 @@ a.button {
   transform: rotate(90deg);
 }
 .proof .what {
-  font-weight: 500;
+  font-weight: var(--w-medium);
 }
 /* a lane's evidence holds rows of its own: they are shown a step in */
 .proof .shown .proof > button {
@@ -394,7 +394,7 @@ a.button {
   padding: 0 var(--xs);
 }
 .diff .file {
-  font-weight: 700;
+  font-weight: var(--w-heading);
 }
 /* one rule for each file, above its first line */
 .diff .file.first {
@@ -406,7 +406,7 @@ a.button {
   color: var(--ink-soft);
 }
 .diff .add {
-  font-weight: 600;
+  font-weight: var(--w-strong);
   background: color-mix(in oklch, var(--ink) 16%, transparent);
 }
 .diff .del {
@@ -457,8 +457,8 @@ a.button {
 }
 .visit h4 {
   font-size: var(--text-section);
-  font-weight: 600;
-  line-height: 1.25;
+  font-weight: var(--w-heading);
+  line-height: var(--lh-section);
 }
 .visit .spent {
   margin-left: auto;
@@ -468,7 +468,7 @@ a.button {
   display: grid;
   gap: var(--xs);
   max-width: 58ch;
-  line-height: 1.55;
+  line-height: var(--lh-prose);
   overflow-wrap: anywhere;
 }
 .visits .gates-line {
@@ -560,7 +560,7 @@ a.button {
 .views .button[aria-pressed="true"] {
   border-color: var(--ink);
   background: var(--panel);
-  font-weight: 600;
+  font-weight: var(--w-strong);
 }
 .account {
   display: grid;
@@ -579,7 +579,7 @@ a.button {
 .account .said {
   max-width: 80ch;
   /* what the agent said is what a reviewer reads first: body size and ink, not the quiet line of an answer */
-  font: var(--text-body) / 1.45 var(--font);
+  font: var(--text-body) / var(--lh-note) var(--font);
   color: var(--ink);
   white-space: pre-line;
   overflow-wrap: anywhere;
@@ -612,7 +612,7 @@ a.button {
   display: inline-flex;
   align-items: center;
   gap: var(--xs);
-  font-weight: 600;
+  font-weight: var(--w-strong);
 }
 .account .out {
   margin: var(--xs) 0 0;
