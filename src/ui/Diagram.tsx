@@ -3,11 +3,12 @@
 // map, Enter opens a station, `c` connects it. Dragging from a station's handle draws a line.
 // Runs are drawn over it and never change it: what a run did at each station, the lines it
 // took, and a train where each run is. Without `onConnect` the map is only read.
-import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, type PointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Floor, Line, Outcome, Point, Station } from "../core/floor/layout.ts";
 import { type StopState, travelledOf, type Visit } from "../core/runs/track.ts";
 
 const BEND = 12;
+const TIER = 38; // how far a label that would run into its neighbour's steps out, up or down
 const WORD: Record<Outcome, string> = { pass: "pass", fail: "fail", needsPerson: "asks" };
 const END_CLASS: Record<string, string> = {
   "@done": "done",
@@ -187,6 +188,44 @@ export function Diagram({
     trains.filter((t) => t.working && t.visits).map((t) => travelledOf(floor.lines, t.visits ?? [])),
   );
   const order = [...floor.stations].sort((a, b) => a.x - b.x);
+  // Labels that would touch a neighbour's step out to a further row. The widths are measured, for the face and
+  // the names are the owner's: nothing here knows how wide a name is until it is drawn.
+  const [tiers, setTiers] = useState<Record<string, number>>({});
+  useLayoutEffect(() => {
+    let live = true;
+    const place = () => {
+      const taken: { side: number; tier: number; from: number; to: number }[] = [];
+      const next: Record<string, number> = {};
+      for (const s of order) {
+        const texts = [
+          ...(nodes.current.get(s.id)?.querySelectorAll<SVGTextElement>("text.name, text.sub") ?? []),
+        ];
+        const boxes = texts.filter((t) => typeof t.getBBox === "function").map((t) => t.getBBox());
+        if (boxes.length === 0) continue;
+        const from = s.x + Math.min(...boxes.map((b) => b.x)) - 6;
+        const to = s.x + Math.max(...boxes.map((b) => b.x + b.width)) + 6;
+        const side = s.labelSide === "below" ? 1 : -1;
+        let tier = 0;
+        while (taken.some((t) => t.side === side && t.tier === tier && t.from < to && from < t.to)) tier += 1;
+        taken.push({ side, tier, from, to });
+        if (tier > 0) next[s.id] = tier;
+      }
+      if (live) setTiers((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
+    };
+    place();
+    document.fonts?.ready.then(place); // the face may arrive after the first drawing
+    return () => {
+      live = false;
+    };
+  });
+  const lift = (side: "above" | "below") =>
+    Math.max(
+      0,
+      ...floor.stations
+        .filter((s) => (s.labelSide === "below") === (side === "below"))
+        .map((s) => tiers[s.id] ?? 0),
+    ) * TIER;
+  const [top, bottom] = [lift("above"), lift("below")];
   const tabStop = selected && order.some((s) => s.id === selected) ? selected : order[0]?.id;
 
   // after a move by the arrow keys, the keyboard's focus follows the selection
@@ -214,7 +253,7 @@ export function Diagram({
 
   const pointOf = (event: PointerEvent) => {
     const box = svg.current?.getBoundingClientRect();
-    return { x: event.clientX - (box?.left ?? 0), y: event.clientY - (box?.top ?? 0) };
+    return { x: event.clientX - (box?.left ?? 0), y: event.clientY - (box?.top ?? 0) - top };
   };
   const drop = (event: PointerEvent) => {
     if (!drag) return;
@@ -234,8 +273,8 @@ export function Diagram({
       ref={svg}
       className={`map${states ? " overlaid" : ""}`}
       width={floor.width}
-      height={floor.height}
-      viewBox={`0 0 ${floor.width} ${floor.height}`}
+      height={floor.height + top + bottom}
+      viewBox={`0 ${-top} ${floor.width} ${floor.height + top + bottom}`}
       // a run's map is read whole: it is drawn smaller to fit its box, down to seven tenths, and scrolls after that
       style={states ? { maxWidth: "100%", minWidth: floor.width * 0.7, height: "auto" } : undefined}
       role="group"
@@ -279,7 +318,8 @@ export function Diagram({
         const capsule = s.checkpoint === "in";
         // beside: lines leave on both sides, so the label sits up and to the left, clear of them
         const beside = s.labelSide === "beside";
-        const nameY = s.labelSide === "below" ? 34 : beside ? -30 : -36;
+        const stepped = (tiers[s.id] ?? 0) * TIER;
+        const nameY = s.labelSide === "below" ? 34 + stepped : (beside ? -30 : -36) - stepped;
         const nameX = beside ? -18 : 0;
         const anchor = beside ? "end" : "middle";
         const sub = subOf(s);
@@ -358,7 +398,7 @@ export function Diagram({
               {s.label}
             </text>
             {sub ? (
-              <text className="sub" x={nameX} y={nameY + 14} textAnchor={anchor}>
+              <text className="sub" x={nameX} y={nameY + 16} textAnchor={anchor}>
                 {sub}
               </text>
             ) : null}

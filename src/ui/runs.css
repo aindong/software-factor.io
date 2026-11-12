@@ -161,7 +161,7 @@
   outline: none;
 }
 .rundetail h2 {
-  font-size: 1.375rem;
+  font-size: var(--text-title);
   line-height: var(--lh-section);
   max-width: 40ch;
 }
@@ -171,7 +171,7 @@
 }
 .rundetail .lede {
   max-width: 60ch;
-  font-size: 1.0625rem;
+  font-size: var(--text-section);
   line-height: var(--lh-note);
 }
 .rundetail .lede .needs {
@@ -287,7 +287,7 @@ a.button {
 }
 .map .train text {
   fill: var(--ground);
-  font: var(--w-strong) var(--text-label) / 1 var(--font-tight);
+  font: var(--w-strong) var(--text-label) / 1 var(--font);
   font-variant-numeric: tabular-nums;
 }
 .map .train.asks rect {
@@ -394,7 +394,7 @@ a.button {
   padding: 0 var(--xs);
 }
 .diff .file {
-  font-weight: 700;
+  font-weight: var(--w-heading);
 }
 /* one rule for each file, above its first line */
 .diff .file.first {

@@ -232,7 +232,7 @@ textarea {
   border-left: 2px solid transparent;
   background: none;
   color: inherit;
-  font: var(--w-strong) var(--text-small) / var(--lh-label) var(--font-tight);
+  font: var(--w-strong) var(--text-label) / var(--lh-label) var(--font);
   text-decoration: none;
   cursor: pointer;
 }
@@ -270,7 +270,7 @@ textarea {
   border-radius: 3px;
   background: var(--rail);
   color: var(--rail-ink);
-  font: var(--w-strong) var(--text-small) / 14px var(--font-tight);
+  font: var(--w-strong) var(--text-label) / 14px var(--font);
   text-align: center;
 }
 .rail .spacer {
@@ -325,7 +325,7 @@ textarea {
 }
 .status {
   color: var(--ink-soft);
-  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font-tight);
+  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font);
 }
 .status.bad {
   color: var(--ink);
@@ -472,6 +472,5 @@ textarea {
   font: var(--text-code) var(--font-code);
 }
 body {
-  letter-spacing: var(--track);
-  font-variant-numeric: var(--num);
+  font-variant-numeric: tabular-nums;
 }

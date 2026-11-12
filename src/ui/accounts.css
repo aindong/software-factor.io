@@ -27,7 +27,7 @@
 }
 .login h3 .agent {
   margin-left: var(--xs);
-  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font-tight);
+  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font);
 }
 /* on hold, near a limit, a reading that failed: words after the diamond, never the colour alone */
 .flag {
@@ -35,7 +35,7 @@
   align-items: center;
   gap: var(--sm);
   color: var(--ink);
-  font: var(--w-strong) var(--text-data) / var(--lh-data) var(--font-tight);
+  font: var(--w-strong) var(--text-data) / var(--lh-data) var(--font);
 }
 .login .parts {
   display: grid;
@@ -109,7 +109,7 @@
   background: var(--ink);
 }
 .login .age {
-  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font-tight);
+  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font);
 }
 @media (max-width: 760px) {
   .login .parts {

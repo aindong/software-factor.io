@@ -30,40 +30,40 @@ colors:
   night-end: "oklch(55% 0.015 250)"
 typography:
   title:
-    fontFamily: "'Atkinson Hyperlegible Next', system-ui, sans-serif"
-    fontSize: "1.25rem"
+    fontFamily: "'Inter Variable', system-ui, sans-serif"
+    fontSize: "1.375rem"
     fontWeight: 600
-    lineHeight: 1.2
+    lineHeight: 1.3
   section:
-    fontFamily: "'Atkinson Hyperlegible Next', system-ui, sans-serif"
-    fontSize: "1.125rem"
+    fontFamily: "'Inter Variable', system-ui, sans-serif"
+    fontSize: "1.0625rem"
     fontWeight: 600
-    lineHeight: 1.2
+    lineHeight: 1.35
   body:
-    fontFamily: "'Atkinson Hyperlegible Next', system-ui, sans-serif"
+    fontFamily: "'Inter Variable', system-ui, sans-serif"
     fontSize: "0.9375rem"
     fontWeight: 400
-    lineHeight: 1.5
+    lineHeight: 1.55
   data:
-    fontFamily: "'Atkinson Hyperlegible Next', system-ui, sans-serif"
-    fontSize: "0.875rem"
+    fontFamily: "'Inter Variable', system-ui, sans-serif"
+    fontSize: "0.9375rem"
+    fontWeight: 500
+    lineHeight: 1.4
+  label:
+    fontFamily: "'Inter Variable', system-ui, sans-serif"
+    fontSize: "0.8125rem"
     fontWeight: 500
     lineHeight: 1.3
-  label:
-    fontFamily: "'Atkinson Hyperlegible Next', system-ui, sans-serif"
-    fontSize: "0.8125rem"
-    fontWeight: 600
-    lineHeight: 1.2
-  rail-label:
-    fontFamily: "'Barlow Semi Condensed', system-ui, sans-serif"
-    fontSize: "0.6875rem"
-    fontWeight: 600
-    lineHeight: 1.2
+  map-label:
+    fontFamily: "'Inter Variable', system-ui, sans-serif"
+    fontSize: "0.75rem"
+    fontWeight: 500
+    lineHeight: 1
   code:
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
-    fontSize: "0.8125rem"
+    fontFamily: "'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+    fontSize: "0.84375rem"
     fontWeight: 400
-    lineHeight: 1.5
+    lineHeight: 1.55
 rounded:
   asked-mark: "1px"
   gate-bar: "1.5px"
@@ -199,25 +199,26 @@ and the lines and end marks that step back to opacity 0.28 while a run is drawn 
 
 ## Typography
 
-**Display and Body Font:** Atkinson Hyperlegible Next
-**Label/Mono Font:** Barlow Semi Condensed for the rail and map, system monospace for output
-
-**Character:** Atkinson Hyperlegible Next was drawn for low vision: open shapes, tall x-height. Barlow Semi Condensed stays for the rail and the map, which are short of width. Both are bundled and
-load from no network: Latin only.
+Inter (variable, optical size) for all text, JetBrains Mono (variable) for output; bundled, from no network. Nothing is
+heavier than 600. Numbers in columns use tabular figures.
 
 | Token | Value | What it is for |
 | --- | --- | --- |
-| `--font` | `"Atkinson Hyperlegible Next", system-ui, sans-serif` | Text, labels and data. |
-| `--font-tight` | `"Barlow Semi Condensed", system-ui, sans-serif` | The rail and everything on the map. |
-| `--font-code` | `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace` | Output, the diff, the JSON view, names typed into a file. |
-| `--text-title` | `1.25rem` | Title (600, line 1.2): one per screen, in the top bar. |
-| `--text-section` | `1.125rem` | Section (600, line 1.2): the heading of the inspector, a run, a block of a page. |
-| `--text-body` | `0.9375rem` | Body (400, line 1.5): text and controls. Running text: 62ch to 70ch. |
-| `--text-data` | `0.875rem` | Data (500, line 1.3, tabular numerals), station names (Semi Condensed 600), code (400, line 1.5). |
-| `--text-label` | `0.8125rem` | Label (600, line 1.2, ink soft): field labels, table heads, tags on lines. |
+| `--font` | `"Inter Variable", system-ui, sans-serif` | All text. |
+| `--font-code` | `"JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace` | Output, the diff, the JSON view, typed names. |
+| `--text-title` | `1.375rem` | Title (`--w-heading`, `--lh-label`), one per screen. |
+| `--text-section` | `1.0625rem` | Section (`--w-heading`, `--lh-section`). |
+| `--text-body` | `0.9375rem` | Body (`--w-text`, `--lh-body`): text and controls. Running text: 62ch to 70ch. |
+| `--text-data` | `0.9375rem` | Data (`--w-medium`, `--lh-data`), station names on the map. |
+| `--text-label` | `0.8125rem` | Label (`--w-strong`, `--lh-label`, ink soft): field labels, table heads, tags, the rail. |
+| `--text-small` | `0.75rem` | The map's sub labels only. The one text under 13px. |
+| `--text-code` | `0.84375rem` | Code. |
+| `--w-text` `400`, `--w-medium` `500`, `--w-strong` `500`, `--w-heading` `600` | weights | Body; data; labels; headings. |
+| `--lh-prose` | `1.55` | Running text. Also `--lh-body` `1.55`. |
+| `--lh-note` | `1.5` | Notes. `--lh-ui` `1.4` and `--lh-data` `1.4`: controls, rows. |
+| `--lh-section` | `1.35` | Sections. `--lh-label` `1.3`: labels, titles. |
 
-The rail's labels and count are Semi Condensed 600 at 0.6875rem, with no token.
-Labels are in sentence case, not letter-spaced.
+Labels are in sentence case, not letter-spaced. More: `docs/interface.md`.
 
 ### Named Rules
 

@@ -45,7 +45,7 @@
 .said {
   max-width: 80ch;
   color: var(--ink-soft);
-  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font-tight);
+  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font);
   overflow-wrap: anywhere;
 }
 .said.bad,
@@ -90,7 +90,7 @@
   padding: 0 4px;
   border: 1px solid currentColor;
   border-radius: 3px;
-  font: var(--w-strong) var(--text-label) / var(--lh-data) var(--font-tight);
+  font: var(--w-strong) var(--text-label) / var(--lh-data) var(--font);
   opacity: 0.75;
 }
 .rail .count {
@@ -103,7 +103,7 @@
   border-radius: 9px;
   background: var(--signal);
   color: var(--signal-ink);
-  font: var(--w-strong) var(--text-small) / 15px var(--font-tight);
+  font: var(--w-strong) var(--text-label) / 15px var(--font);
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
@@ -143,7 +143,7 @@
   vertical-align: top;
 }
 .table thead th {
-  font: var(--w-strong) var(--text-label) / var(--lh-label) var(--font-tight);
+  font: var(--w-strong) var(--text-label) / var(--lh-label) var(--font);
   color: var(--ink-soft);
   vertical-align: bottom;
 }
@@ -222,7 +222,7 @@
   content: attr(data-label);
   display: block;
   margin-bottom: var(--xs);
-  font: var(--w-strong) var(--text-label) / var(--lh-label) var(--font-tight);
+  font: var(--w-strong) var(--text-label) / var(--lh-label) var(--font);
   color: var(--ink-soft);
 }
 .table.roles input,

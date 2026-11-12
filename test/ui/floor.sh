@@ -42,6 +42,7 @@ pw resize 1440 900
 expect "the key is taken out of the address bar" "$(js '() => location.href')" '^http://127\.0\.0\.1:[0-9]+/$'
 wait_for "the workflow is drawn" "() => document.querySelectorAll('.station.lane').length" '^6$'
 shot floor-light-1440
+labels_apart "the floor, floor-light-1440"
 
 # 0. a press of the mouse on a station's handle, with no drag, changes nothing
 at=$(js "() => { const b = document.querySelector('.station[aria-label^=\"Lane Build\"] .handle.pass').getBoundingClientRect(); return Math.round(b.x + b.width / 2) + ' ' + Math.round(b.y + b.height / 2); }")
@@ -194,6 +195,7 @@ tab_to '^Diagram$'
 pw press Enter
 wait_for "the map is back" "() => document.querySelectorAll('.station.lane').length" '^8$'
 shot floor-dark-1440
+labels_apart "the floor, floor-dark-1440"
 pw resize 390 844
 expect "the map scrolls and does not reflow at phone width" "$(js "() => [document.documentElement.scrollWidth <= 390, document.querySelector('.map-scroll').scrollWidth > 390].join(' ')")" '^true true$'
 tab_to '^Close$'
@@ -217,8 +219,10 @@ pw press Enter
 fits "the floor"
 walk "the floor"
 shot floor-dark-390
+labels_apart "the floor, floor-dark-390"
 theme Light
 shot floor-light-390
+labels_apart "the floor, floor-light-390"
 tab_to '^Lane '
 arrow_to '^Lane Build'
 pw press Enter

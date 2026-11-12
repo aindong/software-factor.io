@@ -27,18 +27,6 @@ importers:
       '@fontsource-variable/jetbrains-mono':
         specifier: 5.3.0
         version: 5.3.0
-      '@fontsource/atkinson-hyperlegible-next':
-        specifier: 5.3.0
-        version: 5.3.0
-      '@fontsource/barlow-semi-condensed':
-        specifier: 5.3.0
-        version: 5.3.0
-      '@fontsource/ibm-plex-mono':
-        specifier: 5.3.0
-        version: 5.3.0
-      '@fontsource/ibm-plex-sans':
-        specifier: 5.3.0
-        version: 5.3.0
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -146,18 +134,6 @@ packages:
 
   '@fontsource-variable/jetbrains-mono@5.3.0':
     resolution: {integrity: sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==}
-
-  '@fontsource/atkinson-hyperlegible-next@5.3.0':
-    resolution: {integrity: sha512-8p1tHVoPDo6oYwSO3sMw5snGwFwSf3TmeSF9Gcj792GXdsg6oqvhoItbj6Hj/XZIk0Xs+Cwu6pkLBAl3Q5HrwA==}
-
-  '@fontsource/barlow-semi-condensed@5.3.0':
-    resolution: {integrity: sha512-EdpQ1GlLMofGqDsQhEw+g6DonNKmzt21p8y/oNbTl4BFzEkqYkFyE2fj25YGxmZBL/LZZGAxe74FlvEWcgc31w==}
-
-  '@fontsource/ibm-plex-mono@5.3.0':
-    resolution: {integrity: sha512-eTgnZjZEGk1QtD3ZstF+Vclo2HLAni8YMy34/DxllwZvyz1lR/1RF/xTiAquOBO7MvqBx8D2Ig2WCPMVfdZu7Q==}
-
-  '@fontsource/ibm-plex-sans@5.3.0':
-    resolution: {integrity: sha512-CbE4CbbEEZJX860XyUiRpsksXIQR8Rp2XDva2VO53NJox9tVNtusrysd2x5YkUEY3ErQ66W1IiiQL8/wihhw5w==}
 
   '@hono/node-server@2.1.6':
     resolution: {integrity: sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ==}
@@ -787,14 +763,6 @@ snapshots:
   '@fontsource-variable/inter@5.3.0': {}
 
   '@fontsource-variable/jetbrains-mono@5.3.0': {}
-
-  '@fontsource/atkinson-hyperlegible-next@5.3.0': {}
-
-  '@fontsource/barlow-semi-condensed@5.3.0': {}
-
-  '@fontsource/ibm-plex-mono@5.3.0': {}
-
-  '@fontsource/ibm-plex-sans@5.3.0': {}
 
   '@hono/node-server@2.1.6(hono@4.13.17)':
     dependencies:

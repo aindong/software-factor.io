@@ -59,7 +59,7 @@
   stroke: none;
 }
 .map .tag {
-  font: var(--w-strong) var(--text-label) / 1 var(--font-tight);
+  font: var(--w-strong) var(--text-label) / 1 var(--font);
   fill: var(--ink-soft);
   paint-order: stroke;
   stroke: var(--ground);
@@ -105,7 +105,7 @@
   stroke: var(--signal-ink);
 }
 .map .station .name {
-  font: var(--w-strong) var(--text-data) / 1 var(--font-tight);
+  font: var(--w-strong) var(--text-label) / 1 var(--font);
   fill: var(--ink);
   paint-order: stroke;
   stroke: var(--ground);
@@ -113,7 +113,7 @@
   stroke-linejoin: round;
 }
 .map .station .sub {
-  font: var(--w-medium) var(--text-label) / 1 var(--font-tight);
+  font: var(--w-medium) var(--text-small) / 1 var(--font);
   fill: var(--ink-soft);
   paint-order: stroke;
   stroke: var(--ground);
@@ -159,7 +159,7 @@
   padding: var(--sm) var(--lg);
   border-top: 1px solid var(--rule);
   color: var(--ink-soft);
-  font: var(--w-medium) var(--text-label) / var(--lh-label) var(--font-tight);
+  font: var(--w-medium) var(--text-label) / var(--lh-label) var(--font);
 }
 .legend span {
   display: inline-flex;
