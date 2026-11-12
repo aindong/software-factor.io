@@ -26,7 +26,8 @@ export interface Reading {
   none: string | null;
 }
 
-const ANSI = /\u001b\[[0-9;?]*[A-Za-z]/g;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: colour codes are control sequences
+const ANSI =/\u001b\[[0-9;?]*[A-Za-z]/g;
 const LINE = /^(Current (?:session|week \([^)]+\))):\s*(\d+(?:\.\d+)?)% used\s*·\s*resets\s+(.+?)\s*$/;
 const READ_MS = 20_000;
 const NONE: Record<Account["agent"], string | null> = {
