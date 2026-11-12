@@ -92,7 +92,7 @@ export function Switcher() {
                   type="button"
                   key={o}
                   aria-pressed={choice[g.key] === o}
-                  onClick={() => setChoice({ ...choice, [g.key]: o })}
+                  onClick={() => setChoice((c) => ({ ...c, [g.key]: o }))}
                 >
                   {o === "today" ? "Today" : o[0]?.toUpperCase() + o.slice(1)}
                 </button>
