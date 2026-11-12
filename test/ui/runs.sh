@@ -167,7 +167,7 @@ pw press End
 shown() { # what the open proof with that label shows (several can be open at once)
   echo "() => [...document.querySelectorAll('.proof')].find((p) => p.querySelector('.what').textContent.startsWith('$1'))?.querySelector('.shown .output')?.textContent ?? ''"
 }
-# a lane's claims, gates and hand-off are one button away: the lane's evidence
+# a lane's gates and hand-off: behind its evidence
 tab_to '^Evidence for'
 pw press Enter
 tab_to '^The diff of the whole run'
@@ -222,6 +222,8 @@ wait_for "g then r goes to Runs" "() => document.querySelector('h1').textContent
 # ---- 5. dark, then the floor with the run on its map
 theme Dark
 shot runs-dark-1440
+tab_to '^[0-9]+ files?$'
+pw press Enter
 tab_to '^Before and after'
 pw press Enter
 wait_for "the pair in the dark" "() => [...document.querySelectorAll('.pair-shots img')].map((i) => i.complete && i.naturalWidth > 0).join(' ')" '^true true$'
