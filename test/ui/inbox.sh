@@ -185,8 +185,8 @@ shot inbox-empty-light-1440
 
 # ---- 7. accounts: the logins, and a role bound by keyboard
 section Accounts
-wait_for "the logins are listed" "() => [...document.querySelectorAll('.table tbody')][0]?.innerText.replace(/\\s+/g, ' ') ?? ''" '^work command no limit set no spare command 0 of 2,000,000 tokens in 5 h no$'
-expect "the page tells nothing of a login" "$(js "() => /true|profile|\\.claude\\//.test(document.querySelector('.table').innerText)")" '^false$'
+wait_for "the logins are listed, each with the factory's own count" "() => [...document.querySelectorAll('.logins .login')].map((l) => l.querySelector('h3').textContent.trim().split(/\\s+/)[0] + ': ' + [...l.querySelectorAll('.parts section')][1].textContent.replace(/\\s+/g, ' ')).join(' | ')" '^work: .*None set\..* \| spare: .*0 of 2,000,000 tokens in 5 h$'
+expect "the page tells nothing of a login" "$(js "() => /true|profile|\\.claude\\//.test(document.querySelector('.logins').textContent)")" '^false$'
 tab_to '^Account for the role author$'
 pw press s
 expect "typing a letter picks the account" "$(js "() => document.activeElement.value")" '^spare$'
