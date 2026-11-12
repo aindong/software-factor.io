@@ -186,6 +186,9 @@ Only on the scripted agent or a stand-in:
   in tests and in the eval suite.
 - The Kimi adapter: written from its documentation, tested against a stand-in binary, never the real CLI.
 - The `command` adapter (any command of yours as an agent): scripted commands in tests only.
+- Each login's limits as its CLI reports them, on the Accounts page and in `account list`: read from
+  `claude -p /usage` with a stand-in CLI only. Whether the real CLI prints those lines without a model call is
+  not checked.
 - A collector on an MCP server (the Jira case), and installing a skill for a run: stand-ins only. So are the skills and profile servers a lane may use (see [the guide](docs/skills-and-servers.md)): no real agent has called a skill or a server through them.
 - The autonomy ladder and retros: scripted runs. No lane has yet earned a step on real work.
 - The interface is checked in a real browser, driven by keyboard, on runs of the scripted agent.

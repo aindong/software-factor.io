@@ -137,7 +137,7 @@ and the style sheets beside it. `test/unit/design-record.test.ts` checks it agai
 
 The floor is drawn the way a transit authority draws a network. A lane is a station, a transition is a line,
 each outcome has its own line colour, a task is a numbered train, a gate is a short bar on the line after its
-station. The same notation shrinks into a strip map wherever a run is listed. The map is white by day and deep blue at night. The theme follows the system; the rail's foot button switches Auto, Light, Dark.
+station. The same notation shrinks into a strip map wherever a run is listed. The theme follows the system; the rail's foot button switches Auto, Light, Dark.
 
 **Key Characteristics:**
 
@@ -174,7 +174,7 @@ repeated under `@media (prefers-color-scheme: dark)`.
 
 - Hover and pressed tones are mixed from the palette with `color-mix`: the primary button is ink with 14%
   ground under the pointer and 28% pressed, Approve is signal with 12% and 24% ink, a row under the pointer is
-  half panel and half ground, a line a diff put in stands on ink at 16%.
+  half panel and half ground.
 
 ### Named Rules
 
@@ -195,7 +195,7 @@ must be seen: at least 3:1 on ground and on panel.
 
 **The Contrast Rule.** `test/unit/contrast.test.ts` holds the palette in both themes to 4.5:1 for text and 3:1
 for shapes and lines. Two things are deliberately not held to it: the text of a disabled control (end grey),
-and the lines and end marks that step back to opacity 0.28 while a run is drawn over the map. Their labels turn end grey, which still reads at 3 to 1.
+and the lines and end marks that step back to opacity 0.28 while a run is drawn over the map.
 
 ## Typography
 
@@ -374,8 +374,10 @@ answered in the data style. A refusal is in ink after a vermilion diamond.
 
 One scrolling column, 24px between blocks, text held to 72ch. Tables have 28px rows divided by 1px rules,
 heads in the label style, numbers right-aligned in tabular numerals. The three Costs tables share their
-columns. A list of names is a row of small tags (rule border, 3px radius). Under 760px the roles table of
-Accounts becomes one block per role, each field under its label.
+columns. A list of names is a row of small tags (rule border, 3px radius). Accounts puts the logins first, a
+block each between rules: its marks in words after a diamond, the CLI's windows (an 8px ink meter on a rule
+track, the percent in words beside it), the factory's own count apart. Under 760px these stack, and each role is
+one block.
 
 ## Do's and Don'ts
 
@@ -391,6 +393,5 @@ Accounts becomes one block per role, each field under its label.
 - **Don't** use gradients, glows or glass as decoration, and don't put a shadow on the map. The one gradient
   in the build is the checker behind a screenshot.
 - **Don't** lay content out as a grid of cards.
-- **Don't** decorate with map furniture that carries no information: no roundel logos, compass roses or fare
-  zones.
+- **Don't** add map furniture that carries no information: roundels, compass roses, fare zones.
 - **Don't** use any game's name, art or icons.
