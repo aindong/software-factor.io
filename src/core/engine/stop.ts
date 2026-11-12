@@ -1,10 +1,13 @@
 // A person stops a run. A run that is working is asked through SQLite, and its own process stops
 // what it is running. A run that waits, or whose process is gone, is ended here.
+import { existsSync } from "node:fs";
+import { MINUTE_MS } from "../clock.ts";
 import { openDb } from "../db.ts";
 import { UserError } from "../errors.ts";
 import * as store from "../store.ts";
 import type { Workspace } from "../workspace.ts";
 import { cleanUp, isAlive } from "./recover.ts";
+import type { RunState } from "./state.ts";
 
 const WAIT_MS = 15_000;
 
@@ -32,6 +35,51 @@ export function requeueRun(ws: Workspace, runId: string): string {
       .run(run.task_id).changes;
     if (!changed) throw taken;
     return `run ${runId} requeued: the task "${task.title}" is queued, and the next softwarefactor run takes it.`;
+  } finally {
+    db.close();
+  }
+}
+
+// A run that stopped on its budget is set back to work once the workflow allows more. Nothing is run
+// again: the scheduler takes it up as it takes up a run whose process is gone, from the lane it had reached.
+export function resumeRun(ws: Workspace, runId: string): string {
+  const db = openDb(ws.dbPath);
+  try {
+    const run = store.getRun(db, runId);
+    if (!run)
+      throw new UserError(`There is no run "${runId}".`, "See the run ids with `softwarefactor status`.");
+    const refuse = (why: string, fix: string) =>
+      new UserError(`Run ${runId} cannot be carried on: ${why}.`, fix);
+    const again = "`softwarefactor requeue` starts its task again from the beginning.";
+    if (run.status !== "stopped")
+      throw refuse(`it is ${run.status}`, "Only a run that stopped on its budget is carried on.");
+    if (!/^budget_(minutes|tokens|usd)$/.test(run.stop_code ?? ""))
+      throw refuse(`it did not stop on its budget (${run.stop_code})`, again);
+    const state = JSON.parse(run.state) as RunState;
+    const limits = ws.workflow.limits;
+    const used = [
+      state.spent.ms >= limits.minutes * MINUTE_MS ? "minutes" : "",
+      state.spent.tokens >= limits.tokens ? "tokens" : "",
+      limits.usd !== undefined && state.spent.usd >= limits.usd ? "usd" : "",
+    ].filter(Boolean);
+    if (used.length > 0)
+      throw refuse(
+        "its budget is still used up",
+        `Raise ${used.map((u) => `limits.${u}`).join(" and ")} in the workflow first.`,
+      );
+    if (store.getTask(db, run.task_id)?.status !== "stopped")
+      throw refuse("another run has taken its task since", "See `softwarefactor status`.");
+    if (!existsSync(run.worktree)) throw refuse("its worktree is gone", again);
+    // one conditional write: the run is working again, with no process, so the scheduler takes it up
+    const changed = db
+      .prepare(
+        "update runs set status = 'running', stop_code = null, stop_reason = null, ended_at = null, pid = null where id = ? and status = 'stopped'",
+      )
+      .run(runId).changes;
+    if (!changed) throw refuse("it was moved by another process just now", "See `softwarefactor status`.");
+    store.setTaskStatus(db, run.task_id, "running");
+    store.addEvent(db, runId, "run.resumed", { from: state.next });
+    return `run ${runId}: carries on from lane "${state.next}"`;
   } finally {
     db.close();
   }

@@ -23,6 +23,8 @@ export interface RunOptions {
   all?: boolean;
   /** How many runs may work at once in this call. Never more than the workspace's slots. */
   parallel?: number;
+  /** Take no new task: only move the runs that are already there. */
+  noNew?: boolean;
   /** Take this queued task first, not the oldest: its key, or words of its title. */
   task?: string;
 }
@@ -100,7 +102,7 @@ export async function runNext(ws: Workspace, options: RunOptions = {}): Promise<
         log.push(`run ${due.id}: waking`);
         return contextFor(ws, db, { ...due, status: "running" }, log);
       }
-      if (!options.all && started >= 1) return undefined;
+      if (options.noNew || (!options.all && started >= 1)) return undefined;
       const queued = db.prepare("select count(*) as n from tasks where status = 'queued'").get() as {
         n: number;
       };

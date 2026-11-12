@@ -91,7 +91,9 @@ export function recoverOrphans(ws: Workspace, db: Db, log: string[], stopped: st
       store.saveState(db, run.id, state);
     }
     store.addEvent(db, run.id, "run.recovered", { deadPid: run.pid });
-    log.push(`run ${run.id}: its process died. Picking it up after the crash, from lane "${state.next}"`);
+    // a run with no process was set back to work by a person (resume); one with a dead process crashed
+    if (run.pid !== null)
+      log.push(`run ${run.id}: its process died. Picking it up after the crash, from lane "${state.next}"`);
     const fresh = store.getRun(db, run.id);
     if (fresh) taken.push(fresh);
   }
