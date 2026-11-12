@@ -21,6 +21,14 @@ export const isNear = (a: Login) =>
   (a.reading?.windows ?? []).some((w) => (w.percent ?? 0) >= NEAR) ||
   a.limits.some((l) => l.used >= (l.tokens * NEAR) / 100);
 
+/** The time a hold ends, with its day when that is not today. */
+function holdEnd(iso: string): string {
+  const at = new Date(iso);
+  const time = at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (at.toDateString() === new Date().toDateString()) return time;
+  return `${at.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}, ${time}`;
+}
+
 const Flag = ({ children }: { children: React.ReactNode }) => (
   <span className="flag">
     <span className="mark fail" aria-hidden="true" />
@@ -100,11 +108,7 @@ export function Logins({ accounts }: { accounts: AccountsView["accounts"] }) {
               {a.name} <span className="agent quiet">{AGENT_WORDS[a.agent] ?? a.agent}</span>
             </h3>
             {a.heldUntil ? (
-              <Flag>
-                On hold until{" "}
-                {new Date(a.heldUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}: no
-                lane starts on it before then
-              </Flag>
+              <Flag>On hold until {holdEnd(a.heldUntil)}: no lane starts on it before then</Flag>
             ) : null}
             {isNear(a) ? <Flag>Near a limit</Flag> : null}
           </header>
