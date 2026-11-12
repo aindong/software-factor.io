@@ -202,7 +202,8 @@
   overflow-wrap: anywhere;
 }
 /* the run's id and branch: for a developer, so they step back */
-.facts .ids dd {
+.facts.ids,
+.facts.ids dd {
   color: var(--ink-soft);
 }
 .quiet {
@@ -464,7 +465,9 @@ a.button {
   color: var(--ink-soft);
 }
 .visits .note {
-  max-width: 64ch;
+  display: grid;
+  gap: var(--xs);
+  max-width: 58ch;
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
@@ -642,4 +645,39 @@ a.button {
 /* "N more lines" under a result: a target of at least 24 px */
 button.more {
   min-height: 24px;
+}
+
+/* a lane's evidence is a quiet line under its summary, not a box: the text is the control */
+.visits > li > .proof > button,
+.block > .proof > button {
+  border-color: transparent;
+  background: none;
+  padding-left: 0;
+  color: var(--ink-soft);
+}
+.visits > li > .proof > button:hover,
+.visits > li > .proof > button[aria-expanded="true"],
+.block > .proof > button:hover,
+.block > .proof > button[aria-expanded="true"] {
+  color: var(--ink);
+}
+/* once open, the row and what it shows are one box */
+.visits > li > .proof > button[aria-expanded="true"],
+.block > .proof > button[aria-expanded="true"] {
+  border-color: var(--ink);
+  padding-left: var(--sm);
+}
+.visits > li > .proof > button .meta {
+  margin-left: var(--sm);
+}
+.verdicts {
+  display: grid;
+  gap: var(--sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 70ch;
+}
+.verdicts .mark {
+  vertical-align: baseline;
 }

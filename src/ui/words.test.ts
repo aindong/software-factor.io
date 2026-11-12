@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { finished, howLong, lede } from "./words.ts";
+import { finished, howLong, lead, lede, verdicts } from "./words.ts";
 
 describe("finished", () => {
   it("drops the sentence the store cut in half", () => {
@@ -45,4 +45,31 @@ describe("lede", () => {
     });
     expect(lede(run("stopped"), "Build").says).toBe("Stopped before it finished.");
   });
+});
+
+describe("lead and verdicts", () => {
+  it("keeps the first two sentences and says there is more", () => {
+    expect(lead("One. Two. Three.")).toEqual({ head: "One. Two.", more: true });
+    expect(lead("Only one.")).toEqual({ head: "Only one.", more: false });
+  });
+  it("splits a panel's note into its reviewers", () => {
+    expect(verdicts("correctness: fail. It loses rows.; skeptic: pass. Fine.")).toEqual([
+      { who: "correctness", pass: false, said: "It loses rows." },
+      { who: "skeptic", pass: true, said: "Fine." },
+    ]);
+    expect(verdicts("Built it; and tested it.")).toBeNull();
+  });
+});
+
+it("keeps a semicolon inside one reviewer's words", () => {
+  expect(verdicts("a: fail. Tests passed; others were blocked.; b: pass. Fine.")?.map((v) => v.said)).toEqual(
+    ["Tests passed; others were blocked.", "Fine."],
+  );
+});
+
+it("reads an advisory reviewer, named with its role in brackets", () => {
+  expect(verdicts("a: pass. Fine.; maintainability (advises): pass. Tidy.")?.map((v) => v.who)).toEqual([
+    "a",
+    "maintainability (advises)",
+  ]);
 });

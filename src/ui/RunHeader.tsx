@@ -44,6 +44,11 @@ export function RunHeader(props: {
           )}
         </>
       )}
+      {props.deciding || (row.status !== "stopped" && row.status !== "dropped") ? null : (
+        <p className="quiet">
+          To try the task again, run <code>softwarefactor requeue {row.id}</code> in your terminal.
+        </p>
+      )}
       <dl className="facts">
         <div>
           <dt>Started</dt>
@@ -75,12 +80,14 @@ export function RunHeader(props: {
           <dt>{row.status === "running" ? "Cost so far" : "Cost"}</dt>
           <dd>{cost(row.usd, row.usdUnknown)}</dd>
         </div>
-        <div className="ids">
+      </dl>
+      <dl className="facts ids">
+        <div>
           <dt>Run</dt>
           <dd className="code">{row.id}</dd>
         </div>
         {detail ? (
-          <div className="ids">
+          <div>
             <dt>Branch</dt>
             <dd className="code">{detail.branch}</dd>
           </div>

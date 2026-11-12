@@ -7,7 +7,7 @@ import type { RunDetail } from "./api.ts";
 import { FileView, Proof } from "./Evidence.tsx";
 import { STATE_WORD } from "./Strip.tsx";
 import { TranscriptView } from "./Transcript.tsx";
-import { dollars, finished, howLong, span, tokens } from "./words.ts";
+import { dollars, finished, howLong, lead, span, tokens, verdicts } from "./words.ts";
 
 type Lane = RunDetail["lanes"][number];
 export interface ProofProps {
@@ -31,6 +31,8 @@ export function gatesLine(gates: Lane["gates"]): string {
 export function LaneVisit(props: {
   lane: Lane;
   name: string;
+  /** Which time the run entered this lane, when it entered it more than once. */
+  round?: number;
   runId: string;
   files: RunDetail["files"];
   proof: (key: string) => ProofProps;
@@ -44,7 +46,10 @@ export function LaneVisit(props: {
     lane.gates.length ? `${lane.gates.length} ${lane.gates.length === 1 ? "gate" : "gates"}` : "",
     lane.sessions.length ? "agent output" : "",
   ].filter(Boolean);
-  const hasMore = parts.length > 0 || lane.output || lane.handoff;
+  const panel = lane.note ? verdicts(lane.note) : null;
+  const said = lane.note && !panel ? lead(lane.note) : null;
+  const failing = panel?.filter((v) => !v.pass) ?? [];
+  const hasMore = parts.length > 0 || lane.output || lane.handoff || panel || said?.more;
   const spent = [lane.durationMs ? howLong(lane.durationMs) : "", lane.usd ? dollars(lane.usd) : ""].filter(
     Boolean,
   );
@@ -53,13 +58,43 @@ export function LaneVisit(props: {
       <div className="visit">
         <span className={`mark ${state}`} aria-hidden="true" />
         <h4>{props.name}</h4>
+        {props.round ? <span className="quiet">round {props.round}</span> : null}
         <span className="outcome">{STATE_WORD[state]}</span>
         <span className="spent">{spent.join(", ")}</span>
       </div>
-      {lane.note ? <p className="note">{finished(lane.note)}</p> : null}
-      {gatesLine(lane.gates) ? <p className="gates-line">{gatesLine(lane.gates)}</p> : null}
+      {said ? <p className="note">{said.head}</p> : null}
+      {panel ? (
+        <div className="note">
+          {failing.map((v) => (
+            <p key={v.who}>
+              <b>{v.who}</b> found a problem: {lead(v.said).head}
+            </p>
+          ))}
+          <p className="quiet">
+            {failing.length === 0
+              ? `All ${panel.length} checks passed.`
+              : `${panel.length - failing.length} of ${panel.length} checks passed.`}
+          </p>
+        </div>
+      ) : null}
+      {gatesLine(lane.gates) &&
+      !lane.gates.some((g) => g.status !== "pass" && lane.note?.includes(`"${g.gate}"`)) ? (
+        <p className="gates-line">{gatesLine(lane.gates)}</p>
+      ) : null}
       {hasMore ? (
         <Proof {...proof(`lane:${lane.id}`)} label={`Evidence for ${props.name}`} meta={parts.join(", ")}>
+          {panel ? (
+            <ul className="verdicts">
+              {panel.map((v) => (
+                <li key={v.who}>
+                  <span className={`mark ${v.pass ? "pass" : "fail"}`} aria-hidden="true" /> <b>{v.who}</b>{" "}
+                  {v.pass ? "passed it" : "found a problem"}. {v.said}
+                </li>
+              ))}
+            </ul>
+          ) : said?.more ? (
+            <p className="note">{finished(lane.note ?? "")}</p>
+          ) : null}
           <p className="quiet data">
             Used{" "}
             {[lane.tokens ? tokens(lane.tokens) : "", lane.durationMs ? span(lane.durationMs) : ""]

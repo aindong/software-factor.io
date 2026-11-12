@@ -96,3 +96,28 @@ export function lede(run: RunRow, lane: string): { says: string; needs: boolean;
       : "Nothing is needed from you.";
   return { says, needs: asks, line };
 }
+
+/** The first sentences of a note (two at most, about 260 characters), and whether there is more of it. */
+export function lead(note: string): { head: string; more: boolean } {
+  const text = finished(note).trim();
+  let head = "";
+  let n = 0;
+  for (const s of text.match(/.*?[.!?](?=\s|$)|.+$/gs) ?? []) {
+    if (head && (head + s).length > 260) break;
+    head += s;
+    if (++n === 2) break;
+  }
+  head = head.trim();
+  return { head, more: head.length < text.length };
+}
+
+/**
+ * A panel's note holds each reviewer's verdict, joined with "; ": "correctness: fail. It loses rows.; skeptic: pass. Fine."
+ * Null when the note is not made so.
+ */
+export function verdicts(note: string): { who: string; pass: boolean; said: string }[] | null {
+  const parts = finished(note).split(/;\s+(?=[\w.-]+(?: \([^)]*\))?: (?:pass|fail)\b)/);
+  const found = parts.map((p) => /^([\w.-]+(?: \([^)]*\))?): (pass|fail)\b\.?\s*(.*)$/s.exec(p));
+  if (found.some((m) => !m)) return null;
+  return found.map((m) => ({ who: m?.[1] ?? "", pass: m?.[2] === "pass", said: (m?.[3] ?? "").trim() }));
+}

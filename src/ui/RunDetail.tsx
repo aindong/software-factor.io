@@ -236,6 +236,11 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                   <LaneVisit
                     lane={lane}
                     name={nameOf(lane.lane)}
+                    round={
+                      detail.lanes.filter((l) => l.lane === lane.lane).length > 1
+                        ? detail.lanes.filter((l) => l.lane === lane.lane).indexOf(lane) + 1
+                        : undefined
+                    }
                     runId={row.id}
                     files={detail.files}
                     proof={proof}
