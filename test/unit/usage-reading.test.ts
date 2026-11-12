@@ -64,6 +64,15 @@ describe("the usage text of Claude Code", () => {
     ]);
   });
 
+  it("says a percent over 100 is not reported, never a number the CLI cannot mean", () => {
+    const windows = parseUsage("Current session: 130% used · resets 3pm (Asia/Manila)");
+    expect(windows.find((w) => w.name === "Current session")).toEqual({
+      name: "Current session",
+      percent: null,
+      resets: null,
+    });
+  });
+
   it("gives every window as not reported for text with no window in it", () => {
     for (const text of ["", "Not a usage page.\nNothing here."]) {
       const windows = parseUsage(text);
@@ -96,6 +105,24 @@ describe("reading a login's limits", () => {
     });
     expect(reading.failed).toMatch(/Not logged in/);
     expect(reading.failed).toMatch(/1/);
+    expect(reading.windows).toEqual([]);
+  });
+
+  it("keeps a path that is not the login's own out of the reason", async () => {
+    const reading = await readAccountLimits({
+      agent: "claude",
+      ...cli("", "Error: ENOENT /Users/someone/.claude.json\n    at /Users/someone/src/cli.js:3\n", 1),
+    });
+    expect(reading.failed).toMatch(/ENOENT/);
+    expect(reading.failed).not.toMatch(/\/Users|someone/);
+  });
+
+  it("gives the CLI's words when it ends well but prints no window", async () => {
+    const reading = await readAccountLimits({
+      agent: "claude",
+      ...cli("Not logged in · Please run /login\n", "", 0),
+    });
+    expect(reading.failed).toMatch(/Not logged in/);
     expect(reading.windows).toEqual([]);
   });
 

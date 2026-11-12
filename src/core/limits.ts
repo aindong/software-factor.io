@@ -28,7 +28,7 @@ export interface Reading {
 
 // biome-ignore lint/suspicious/noControlCharactersInRegex: colour codes are control sequences
 const ANSI = /\u001b\[[0-9;?]*[A-Za-z]/g;
-const LINE = /^(Current (?:session|week \([^)]+\))):\s*(\d+(?:\.\d+)?)% used\s*·\s*resets\s+(.+?)\s*$/;
+const LINE = /^(Current (?:session|week \([^)]+\))):\s*(\d+(?:\.\d+)?)% used\s*·\s*resets\s+(.{1,60}?)\s*$/;
 const READ_MS = 20_000;
 const NONE: Record<Account["agent"], string | null> = {
   claude: null,
@@ -42,7 +42,8 @@ export function parseUsage(text: string): Window[] {
   const printed: Window[] = [];
   for (const line of text.replace(ANSI, "").split("\n")) {
     const m = LINE.exec(line.trim());
-    if (m?.[1] && !printed.some((w) => w.name === m[1])) {
+    // a percent over 100 is not a reading: the window stays not reported
+    if (m?.[1] && Number(m[2]) <= 100 && !printed.some((w) => w.name === m[1])) {
       printed.push({ name: m[1], percent: Number(m[2]), resets: m[3] ?? null });
     }
   }
@@ -69,9 +70,11 @@ export function readAccountLimits(account: Pick<Account, "agent" | "profile" | "
   if (none !== null) return Promise.resolve(reading([], null, none));
   const bin = account.bin ?? "claude";
   // the CLI's words, without where the login is kept
+  // shortcut: any path of two parts or more is hidden, not only the login's own; a path with a space in it shows in part
   const plain = (text: string) =>
     [bin, account.profile ?? ""]
       .reduce((t: string, path) => (path ? t.split(path).join("…") : t), text.trim())
+      .replace(/(?:[A-Za-z]:)?(?:[\\/][^\s:()'"]+){2,}/g, "…")
       .slice(0, 300);
   return new Promise((done) => {
     const child = execFile(
@@ -86,7 +89,12 @@ export function readAccountLimits(account: Pick<Account, "agent" | "profile" | "
         maxBuffer: 1_000_000,
       },
       (error, stdout, stderr) => {
-        if (!error) return done(reading(parseUsage(stdout), null));
+        if (!error) {
+          const windows = parseUsage(stdout);
+          if (windows.some((w) => w.percent !== null)) return done(reading(windows, null));
+          // it ended well and printed no window: its own words, such as that it is not logged in
+          return done(reading([], plain(stdout) || "it printed no limits"));
+        }
         const code = (error as NodeJS.ErrnoException).code;
         if (code === "ENOENT" || code === "EACCES") return done(reading([], "the CLI could not be started"));
         if (error.killed) return done(reading([], `the CLI did not answer in ${READ_MS / 1000} s`));
