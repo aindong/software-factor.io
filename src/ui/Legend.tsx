@@ -1,5 +1,6 @@
 // The fixed parts around the floor's map: what it is drawn with, in words, the buttons that add a
-// lane, the trains that stand on it, and the caret's way to a lane in the JSON view.
+// lane and the fold they sit in at phone width, the trains that stand on it, and the caret's way to a lane in the JSON view.
+import { type ReactNode, useState } from "react";
 import type { RunRow } from "./api.ts";
 
 /** The runs of one workflow that are moving or waiting, each as a train at its lane. */
@@ -72,6 +73,27 @@ export function AddLane({ onAdd }: { onAdd: (kind: "agent" | "command" | "wait")
         Wait
       </button>
     </div>
+  );
+}
+
+/** The top bar's controls that fold behind one button at phone width; above it they stand in the row. */
+export function Fold({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className="button phone-only"
+        aria-expanded={open}
+        aria-controls="floor-tools"
+        onClick={() => setOpen(!open)}
+      >
+        Tools
+      </button>
+      <div className="tools" id="floor-tools" data-open={open}>
+        {children}
+      </div>
+    </>
   );
 }
 

@@ -339,8 +339,13 @@ textarea {
   background: var(--return);
   transform: rotate(45deg);
 }
-.narrow-only {
+.narrow-only,
+.phone-only {
   display: none;
+}
+/* the fold around the floor's tools: above phone width its controls stand in the top bar's row */
+.tools {
+  display: contents;
 }
 .plain {
   max-width: 62ch;
@@ -391,6 +396,21 @@ textarea {
   .topbar {
     gap: var(--sm);
     padding: var(--sm) var(--md);
+  }
+  /* the floor's tools fold behind one button, and open as a row of their own under the others */
+  .phone-only {
+    display: inline-block;
+  }
+  .tools {
+    order: 1;
+    flex-basis: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sm);
+  }
+  .tools[data-open="false"] {
+    display: none;
   }
 }
 
