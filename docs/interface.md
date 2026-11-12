@@ -214,6 +214,11 @@ where a login is kept. Below, who works each role: choose an account, a model fo
 lanes and an effort, and Bind. That writes what `softwarefactor role bind` writes. A role that should be on
 another vendor than a role it shares one with is flagged. Adding a login stays in the terminal.
 
+The logins come first, a block each between rules: its marks in words after a diamond (near a limit, on hold,
+could not be read), then the windows its CLI reports, each with an 8px ink meter on a rule track, the percent
+in words beside it and when it resets. A window the CLI does not print is "not reported", never 0. The
+factory's own count is shown apart from them. Under 760px these stack, and each role is one block.
+
 ## Costs
 
 Tokens and cost by lane, by task and by account, from the session records, with the whole in the top bar. A

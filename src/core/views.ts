@@ -7,6 +7,7 @@ import { AGENTS, DEFAULT_HEADROOM, heldUntil, readAccounts, usedIn } from "./acc
 import type { Db } from "./db.ts";
 import type { RunState } from "./engine/state.ts";
 import { UserError } from "./errors.ts";
+import { keptLimits, type Reading } from "./limits.ts";
 import { type ModelChoice, modelChoices } from "./models.ts";
 import { installedPlugins } from "./plugins/use.ts";
 import { LIST, readPrices } from "./prices.ts";
@@ -66,6 +67,8 @@ export interface AccountsView {
     heldUntil: string | null;
     /** What a role's model is chosen from: its agent's models, newest first, then what it ran here. */
     models: ModelChoice[];
+    /** What its CLI last said of its limits, with the time it said it, or null when never read. */
+    reading: Reading | null;
   }[];
   roles: {
     role: string;
@@ -92,6 +95,7 @@ function pricesOrList() {
 /** The logins on this machine and who works each role. Never where a login is kept, or a command. */
 export function accountsView(ws: Workspace, db: Db): AccountsView {
   const accounts = readAccounts();
+  const readings = keptLimits();
   const known = Object.keys(pricesOrList());
   const ran = db.prepare(
     "select asked_model as asked, model from sessions where account = ? order by started_at desc, id desc",
@@ -114,6 +118,7 @@ export function accountsView(ws: Workspace, db: Db): AccountsView {
           known,
           ran.all(name) as { asked: string | null; model: string | null }[],
         ),
+        reading: own(readings, name) ?? null,
       };
     }),
     roles: Object.entries(ws.workflow.roles ?? {}).map(([role, declared]) => {

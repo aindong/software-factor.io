@@ -42,6 +42,13 @@ export async function standin(kind) {
     else process.stdout.write(list.out ?? "");
     process.exit(list.exit ?? 0);
   }
+  if (kind === "claude" && argv.length === 2 && argv[0] === "-p" && argv[1] === "/usage") {
+    // `claude -p /usage`: the usage page, no model call (plan.usage). Not a lane's start: not in calls.jsonl
+    const file = join(profile, "standin.json");
+    const usage = (existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {}).usage ?? {};
+    process.stdout.write(usage.out ?? "");
+    process.exit(usage.exit ?? 0);
+  }
   const stdin = process.stdin.isTTY ? "" : readFileSync(0, "utf8");
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => KEPT.test(k)));
   appendFileSync(

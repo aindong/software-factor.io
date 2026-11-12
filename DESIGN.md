@@ -372,8 +372,8 @@ answered in the data style. A refusal is in ink after a vermilion diamond.
 
 One scrolling column, 24px between blocks, text held to 72ch. Tables have 28px rows divided by 1px rules,
 heads in the label style, numbers right-aligned in tabular numerals. The three Costs tables share their
-columns. A list of names is a row of small tags (rule border, 3px radius). Under 760px the roles table of
-Accounts becomes one block per role, each field under its label.
+columns. A list of names is a row of small tags (rule border, 3px radius). Accounts draws logins' limits as meters.
+Under 760px its roles are a block each, each field under its label.
 
 ## Do's and Don'ts
 
@@ -386,8 +386,8 @@ Accounts becomes one block per role, each field under its label.
 ### Don't:
 
 - **Don't** add a colour for one screen. Five meanings, five colours.
-- **Don't** use gradients, glows or glass as decoration, and don't put a shadow on the map. The one gradient
-  in the build is the checker behind a screenshot.
+- **Don't** use gradients, glows or glass as decoration, and don't put a shadow on the map. The only gradient is
+  the checker behind a screenshot.
 - **Don't** lay content out as a grid of cards.
 - **Don't** decorate with map furniture that carries no information: no roundel logos, compass roses or fare
   zones.

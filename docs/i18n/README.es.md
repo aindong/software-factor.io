@@ -147,6 +147,9 @@ Solo con el agente con guion o con un sustituto:
 - La compuerta `core/no-secrets@1` no está en ningún flujo de trabajo incluido ni en el que escribe `init`: solo se ha ejecutado en pruebas y en la suite de evaluación.
 - El adaptador de Kimi: escrito a partir de su documentación, probado contra un binario sustituto, nunca con la CLI real.
 - El adaptador `command` (cualquier comando tuyo como agente): solo comandos con guion en las pruebas.
+- Los límites de cada login tal como los da su CLI, en la página Accounts y en `account list`: leídos de
+  `claude -p /usage` solo con un CLI de prueba. No se ha comprobado si el CLI real imprime esas líneas sin una
+  llamada al modelo.
 - Un recolector sobre un servidor MCP (el caso de Jira) y la instalación de una skill para una ejecución: solo sustitutos. Igual las skills y los servidores del perfil que puede usar un carril: ningún agente real ha llamado a una skill ni a un servidor por esa vía.
 - La escalera de autonomía y las retrospectivas: ejecuciones con guion. Ningún carril ha ganado todavía un peldaño con trabajo real.
 - La interfaz se comprueba en un navegador real, manejado con el teclado, sobre ejecuciones del agente con guion.
