@@ -16,7 +16,17 @@ describe("accounts on this machine", () => {
   const bin = resolve("test/fixtures/bin/claude");
 
   it("are added by naming an agent and its profile folder, and hold no secret", () => {
-    const r = repo.sf("account", "add", "claude-main", "--agent", "claude", "--profile", profile, "--bin", bin);
+    const r = repo.sf(
+      "account",
+      "add",
+      "claude-main",
+      "--agent",
+      "claude",
+      "--profile",
+      profile,
+      "--bin",
+      bin,
+    );
     expect(r.status, r.stdout + r.stderr).toBe(0);
     const file = JSON.parse(readFileSync(join(repo.home, "accounts.json"), "utf8"));
     expect(file.accounts["claude-main"]).toEqual({ agent: "claude", profile, bin });
