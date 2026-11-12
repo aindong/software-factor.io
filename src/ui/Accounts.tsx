@@ -170,17 +170,21 @@ export function RoleRow({
 
 export function Accounts() {
   const [view, setView] = useState<AccountsView>();
-  const [notice, setNotice] = useState<{ text: string; bad: boolean }>();
+  const [notice, setNotice] = useState<{ text: string; bad: boolean; load?: boolean }>();
   const [reading, setReading] = useState(false);
   // what is kept, at once; with `read`, each login's CLI is asked for its limits first
   const load = useCallback(async (read: boolean) => {
     const { status, body } = await op<AccountsView>("accounts_list", read ? { read: true } : {});
-    if (status === 200) setView(body);
-    else {
+    if (status === 200) {
+      setView(body);
+      // a failure to read is over once a read is answered; what a binding said stays
+      setNotice((n) => (n?.load ? undefined : n));
+    } else {
       const why = `${body.error ?? "no answer"}${body.fix ? ` ${body.fix}` : ""}`;
       setNotice({
         text: read ? `The limits could not be read: ${why}` : `The accounts could not be read: ${why}`,
         bad: true,
+        load: true,
       });
     }
   }, []);
