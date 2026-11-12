@@ -102,7 +102,8 @@ export function Logins({ accounts }: { accounts: AccountsView["accounts"] }) {
             {a.heldUntil ? (
               <Flag>
                 On hold until{" "}
-                {new Date(a.heldUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                {new Date(a.heldUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}: no
+                lane starts on it before then
               </Flag>
             ) : null}
             {isNear(a) ? <Flag>Near a limit</Flag> : null}
