@@ -10,6 +10,7 @@ import {
   heldUntil,
   readAccounts,
   removeAccount,
+  usedIn,
 } from "./accounts.ts";
 import { describeServer, printOf } from "./collectors/mcp.ts";
 import { LocalConfig } from "./config.ts";
@@ -17,6 +18,7 @@ import type { Db } from "./db.ts";
 import { printOfProfile, serversNeeded } from "./engine/reach.ts";
 import { printOfSkill, skillProblem, skillsNeeded } from "./engine/skills.ts";
 import { UserError } from "./errors.ts";
+import { readLimits, type Window } from "./limits.ts";
 import { dropNote, keepNote, lines, proposedNotes, readMemory } from "./memory.ts";
 import { own } from "./schema/builtins.ts";
 import { getRun, type Session, sessionsOf } from "./store.ts";
@@ -25,15 +27,35 @@ import type { Workspace } from "./workspace.ts";
 type Flags = Record<string, string | boolean | string[] | undefined>;
 const text = (flags: Flags, name: string) => (typeof flags[name] === "string" ? flags[name] : undefined);
 
-export function accountCommand(args: string[], flags: Flags, say: (line: string) => void): number {
+const windowLine = (w: Window) =>
+  w.percent === null ? `${w.name}: not reported` : `${w.name}: ${w.percent}% used · resets ${w.resets}`;
+const whole = new Intl.NumberFormat("en-US");
+
+export async function accountCommand(
+  args: string[],
+  flags: Flags,
+  say: (line: string) => void,
+): Promise<number> {
   const [action, name] = args;
   if (action === "list") {
     const accounts = Object.entries(readAccounts());
     if (accounts.length === 0) say("No accounts yet. Add one with `softwarefactor account add`.");
+    const readings = await readLimits();
     for (const [n, a] of accounts) {
       const until = heldUntil(n, a);
       const held = until === undefined ? "" : `  held until ${new Date(until).toISOString()}`;
       say(`${n.padEnd(16)} ${a.agent.padEnd(8)} ${a.profile ?? a.command ?? ""}${held}`);
+      const reading = readings[n];
+      if (reading) {
+        say(`  its CLI, read at ${reading.at}:`);
+        if (reading.failed) say(`    the limits could not be read: ${reading.failed}`);
+        if (reading.none) say(`    ${reading.none}`);
+        for (const w of reading.windows) say(`    ${windowLine(w)}`);
+      }
+      for (const l of a.limits ?? []) {
+        const of = `${whole.format(usedIn(n, l.hours))} of ${whole.format(l.tokens)} tokens in ${l.hours} h`;
+        say(`  the factory's own count, of its runs only: ${of}`);
+      }
     }
     return 0;
   }

@@ -24,6 +24,7 @@ import { costReport } from "./cost.ts";
 import type { Db } from "./db.ts";
 import { UserError } from "./errors.ts";
 import { acceptStep, ladderView } from "./ladder.ts";
+import { readLimits } from "./limits.ts";
 import { listRuns, runDetail, runDiff, runFile } from "./runs/view.ts";
 import { type Problem, parseWorkflow } from "./schema/parse.ts";
 import { accountsView, inboxItems, pluginsView } from "./views.ts";
@@ -407,14 +408,17 @@ export const OPERATIONS: Operation[] = [
   op({
     name: "accounts_list",
     description:
-      "The agent logins on this machine with their limits and what they have used, and which one works each role of the workflow. Never where a login is kept.",
-    input: none,
+      "The agent logins on this machine with their limits and what they have used, and which one works each role of the workflow. Never where a login is kept. With read, each Claude Code login's CLI is started for its usage page (no model call) and the reading is kept; without it, the last kept reading is given.",
+    input: z.strictObject({ read: z.boolean().optional() }),
     changes: false,
     cli: [
       ["account", "list"],
       ["role", "list"],
     ],
-    run: (at) => accountsView(loadWorkspace(at.root), at.db),
+    run: async (at, input) => {
+      if (input.read) await readLimits();
+      return accountsView(loadWorkspace(at.root), at.db);
+    },
   }),
   op({
     name: "roles_bind",
