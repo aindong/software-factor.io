@@ -22,12 +22,12 @@
   gap: var(--xs) var(--lg);
 }
 .login h3 {
-  font: 600 var(--text-section) / 1.2 var(--font);
+  font: var(--w-heading) var(--text-section) / var(--lh-label) var(--font);
   overflow-wrap: anywhere;
 }
 .login h3 .agent {
   margin-left: var(--xs);
-  font: 500 var(--text-data) / 1.3 var(--font-tight);
+  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font);
 }
 /* on hold, near a limit, a reading that failed: words after the diamond, never the colour alone */
 .flag {
@@ -35,7 +35,7 @@
   align-items: center;
   gap: var(--sm);
   color: var(--ink);
-  font: 600 var(--text-data) / 1.3 var(--font-tight);
+  font: var(--w-strong) var(--text-data) / var(--lh-data) var(--font);
 }
 .login .parts {
   display: grid;
@@ -70,7 +70,7 @@
   gap: var(--xs) var(--md);
 }
 .window .name {
-  font-weight: 500;
+  font-weight: var(--w-medium);
   overflow-wrap: anywhere;
 }
 /* a window not reported has no meter: its words take the meter's place */
@@ -82,7 +82,7 @@
   vertical-align: 0;
 }
 .window strong {
-  font-weight: 600;
+  font-weight: var(--w-strong);
 }
 /* the browser's meter, drawn in the palette: an ink fill on a rule track */
 .window meter {
@@ -109,7 +109,7 @@
   background: var(--ink);
 }
 .login .age {
-  font: 500 var(--text-data) / 1.3 var(--font-tight);
+  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font);
 }
 @media (max-width: 760px) {
   .login .parts {

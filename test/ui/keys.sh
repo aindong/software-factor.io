@@ -118,3 +118,6 @@ said='() => document.querySelector(".said")?.textContent ?? ""'
 in_window() { # at desk width the page keeps to the window: the rail and the top bar never scroll away
   expect "$1 keeps to the window" "$(js "() => document.documentElement.scrollHeight <= innerHeight")" '^true$'
 }
+labels_apart() { # no two texts on the map (names, sub labels, tags on lines) have boxes that meet
+  expect "$1: no two labels on the map overlap" "$(js "() => { const t = [...document.querySelectorAll('svg.map text')].filter((e) => e.textContent.trim()).map((e) => e.getBoundingClientRect()); let n = 0; for (let i = 0; i < t.length; i++) for (let j = i + 1; j < t.length; j++) if (t[i].left < t[j].right && t[j].left < t[i].right && t[i].top < t[j].bottom && t[j].top < t[i].bottom) n++; return t.length > 0 ? n : 'no labels'; }")" '^0$'
+}
