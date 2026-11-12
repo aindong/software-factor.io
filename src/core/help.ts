@@ -25,6 +25,7 @@ Usage: softwarefactor <command>
                            is empty, several runs at once. With --task, take that queued task first
   stop <run>               Stop a run that is working or waiting
   requeue <run>            Put the task of a stopped or dropped run back in the queue
+  resume <run>             Carry a run on that stopped on its budget, once the workflow allows more
   status                   Show tasks, runs, lanes, gates and where the evidence is
   runs [run] [--diff]      Show every run with one sentence on what is happening, or one run lane by
                            lane, or what it changed

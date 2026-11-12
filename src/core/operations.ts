@@ -405,6 +405,15 @@ export const OPERATIONS: Operation[] = [
     run: (at, input) => command(at.root, ["requeue", input.run]),
   }),
   op({
+    name: "runs_resume",
+    description:
+      "Carry a run on that stopped on its budget, from the lane it had reached, once the workflow's limit is raised. It takes no new task.",
+    input: z.strictObject({ run: runId }),
+    changes: true,
+    cli: [["resume", "<run>"]],
+    run: (at, input) => command(at.root, ["resume", input.run]),
+  }),
+  op({
     name: "accounts_list",
     description:
       "The agent logins on this machine with their limits and what they have used, and which one works each role of the workflow. Never where a login is kept.",

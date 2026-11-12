@@ -10,9 +10,10 @@ const where = {
   defaultBranch: "main",
 };
 
-it.each(["softwarefactor requeue abc123", "npx softwarefactor requeue abc123"])(
-  "denies an agent: %s",
-  (command) => {
-    expect(judge({ tool: "Bash", input: { command } }, where).allow).toBe(false);
-  },
-);
+it.each([
+  "softwarefactor requeue abc123",
+  "npx softwarefactor requeue abc123",
+  "softwarefactor resume abc123",
+])("denies an agent: %s", (command) => {
+  expect(judge({ tool: "Bash", input: { command } }, where).allow).toBe(false);
+});

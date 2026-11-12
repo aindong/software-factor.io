@@ -161,6 +161,7 @@ describe("the factory's operations", () => {
       inbox_decide: { run: "abc", item: 1, decision: "approve" },
       roles_bind: { role: "author", account: "work" },
       runs_requeue: { run: "abc" },
+      runs_resume: { run: "abc" },
       ladder_accept: { lane: "build" },
     };
     const cases = [
