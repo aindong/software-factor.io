@@ -92,7 +92,7 @@ about 113 px down.
 
 ## Done check
 
-- `alleo-verify` (typecheck, lint, vitest)
+- the verify gate (typecheck, lint, vitest)
 - `pnpm run build && bash test/ui/floor-phone.sh`, which prints `floor-phone: ok`
 - `bash test/ui/floor.sh`, which prints `floor: ok`
 
