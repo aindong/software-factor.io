@@ -3,6 +3,7 @@
 import { groupEvidence } from "../core/runs/track.ts";
 import type { RunDetail } from "./api.ts";
 import { FileView, PairView, Proof } from "./Evidence.tsx";
+import { failingGate } from "./gates.ts";
 import { LaneVisit, type ProofProps } from "./LaneVisit.tsx";
 import { LEAD_HEAD } from "./lead.ts";
 
@@ -24,7 +25,12 @@ export function leadFiles(detail: RunDetail, lane: Lane) {
 /** The proofs that are open on arrival: the lane's evidence and the pictures it attached. */
 export function leadKeys(detail: RunDetail, lane: Lane): string[] {
   const { pairs, others } = leadFiles(detail, lane);
-  return [`lane:${lane.id}`, ...pairs.map((p) => p.before.path), ...others.map((f) => f.path)];
+  return [
+    `lane:${lane.id}`,
+    ...(failingGate(lane) ? [failingGate(lane)?.output ?? ""] : []),
+    ...pairs.map((p) => p.before.path),
+    ...others.map((f) => f.path),
+  ];
 }
 
 export function Lead(props: {
@@ -36,6 +42,7 @@ export function Lead(props: {
   runId: string;
   proof: (key: string) => ProofProps;
   show: (path: string) => void;
+  what?: (gate: string) => string | undefined;
 }) {
   const { detail, lane, runId, proof } = props;
   if (!lane) {
@@ -58,6 +65,7 @@ export function Lead(props: {
         files={detail.files}
         proof={proof}
         show={props.show}
+        what={props.what}
       />
       {pairs.map((pair) => (
         <Proof
