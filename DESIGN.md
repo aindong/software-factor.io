@@ -339,7 +339,7 @@ it. The tab's title carries the count and how many work; its icon, a yellow mark
 
 ### The Floor: the line diagram, the inspector and the JSON view
 
-A selected or focused station has a 2px ink ring. Its blue and vermilion handles (5px) show when it is under
+A selected station has a 2px ink ring; focus adds a second. Its blue and vermilion handles (5px) show when it is under
 the pointer or selected, and a drag from one draws a new line. Under the map a strip lists the runs at work and the queued tasks, each with a Run button; the legend names every line, shape and key. In the top bar only the count that waits for you is ink at weight 600, after a yellow square, and Undo, Revert and Save show once there is a change. The inspector is on the panel tone with a 1px rule at its left, its parts divided by rules, and
 each route in it carries a swatch of its line's colour. Problems are a list, each after a 7px vermilion diamond, with the fix under it in ink soft.
 
@@ -363,7 +363,7 @@ and after, on a checker of panel and ground so a see-through picture shows its e
 The list and detail of Runs. Above the detail, on the panel tone: what is asked, the buttons (Approve or
 Answer in yellow, the others quiet, each with its key), a box for a note where needed, and what the factory
 answered in the data style. A refusal is in ink after a vermilion diamond. Before a command lane,
-what it will run stands above the buttons with what is asked; what Reject and Send back do is an ink-soft line below.
+what it will run stands above the buttons; what Reject and Send back do is an ink-soft line below.
 
 ### Accounts, Costs and Plugins: plain pages
 
