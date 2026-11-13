@@ -78,6 +78,27 @@
   grid-column: 1;
 }
 
+/* what a person is needed for reads first in the list, with no new colour (yellow stays on the mark):
+   its title and its state word in ink at 600; a done row steps back to the quiet ink at 400 */
+.run[data-mark] .state b {
+  font-weight: var(--w-strong);
+}
+.run[data-mark="asked"] .task,
+.run[data-mark="asked"] .state b {
+  font-weight: var(--w-heading);
+}
+.run[data-mark="pass"] .task,
+.run[data-mark="pass"] .state b {
+  color: var(--ink-soft);
+  font-weight: var(--w-text);
+}
+
+/* a stopped run whose task is queued again keeps its mark; this is said beside its state word */
+.state .again {
+  color: var(--ink-soft);
+  font-weight: var(--w-text);
+}
+
 /* how a run, a lane or a gate stands: a shape and a colour, never the colour alone */
 .mark {
   flex: none;
@@ -183,6 +204,30 @@
 }
 .rundetail .back {
   display: none;
+  align-items: center;
+  gap: var(--sm);
+  min-height: 44px; /* a finger */
+  margin-left: calc(var(--xs) * -1);
+  padding: 0 var(--xs);
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.rundetail .back:hover {
+  color: var(--ink);
+}
+.rundetail .back .arrow {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .facts {
   display: flex;
@@ -281,6 +326,10 @@ a.button {
 .map .station.ran-fail .body {
   fill: var(--return);
 }
+/* a lane a person stopped is not a failure: the ground disc with its ink outline, and an ink bar */
+.map .station.ran-stopped .mark {
+  stroke: var(--ink);
+}
 .map .station.ran-asked .body {
   fill: var(--signal);
 }
@@ -369,9 +418,9 @@ a.button {
 .proof .what {
   font-weight: var(--w-medium);
 }
-/* a lane's evidence holds rows of its own: they are shown a step in */
-.proof .shown .proof > button {
-  background: var(--panel);
+/* a row that holds rows of its own shows them a step in: depth is the indent, not another look */
+.proof .shown .proof {
+  margin-left: var(--lg);
 }
 .proof .meta {
   margin-left: auto;
@@ -536,7 +585,7 @@ a.button {
     padding: var(--md);
   }
   .rundetail .back {
-    display: inline-block;
+    display: inline-flex;
   }
   .pair-shots {
     grid-template-columns: minmax(0, 1fr);
@@ -673,29 +722,6 @@ button.more {
   min-height: 24px;
 }
 
-/* a lane's evidence is a quiet line under its summary, not a box: the text is the control */
-.visits > li > .proof > button,
-.block > .proof > button {
-  border-color: transparent;
-  background: none;
-  padding-left: 0;
-  color: var(--ink-soft);
-}
-.visits > li > .proof > button:hover,
-.visits > li > .proof > button[aria-expanded="true"],
-.block > .proof > button:hover,
-.block > .proof > button[aria-expanded="true"] {
-  color: var(--ink);
-}
-/* once open, the row and what it shows are one box */
-.visits > li > .proof > button[aria-expanded="true"],
-.block > .proof > button[aria-expanded="true"] {
-  border-color: var(--ink);
-  padding-left: var(--sm);
-}
-.visits > li > .proof > button .meta {
-  margin-left: var(--sm);
-}
 .verdicts {
   display: grid;
   gap: var(--sm);

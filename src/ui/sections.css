@@ -45,9 +45,25 @@
 .listside > .runlist:first-child {
   grid-row: 1 / -1;
 }
-/* what approving before a command lane runs: quiet text, the bar's buttons stay the only loud thing */
+/* what approving before a command lane runs is part of what is asked: the line about the command has the
+   weight of the sentence that says what is decided, and the run's branch is a plainer line of its own */
 .decide .ahead {
+  display: grid;
+  gap: var(--xs);
   max-width: 80ch;
+  overflow-wrap: anywhere;
+}
+.decide .ahead p:first-child {
+  font-weight: var(--w-medium);
+}
+.decide .ahead p + p {
+  color: var(--ink-soft);
+  font: var(--text-data) / var(--lh-data) var(--font);
+}
+/* what Reject and Send back do: under the buttons, softer than anything asked */
+.decide .consequence {
+  max-width: 80ch;
+  color: var(--ink-soft);
   font: var(--text-data) / var(--lh-data) var(--font);
   overflow-wrap: anywhere;
 }
@@ -361,12 +377,25 @@
     grid-template-rows: minmax(0, 1fr) auto;
   }
   .decide {
-    order: 2;
     border-bottom: 0;
     border-top: 1px solid var(--rule);
   }
   .decide,
   .page {
     padding: var(--md);
+  }
+}
+/* a task's link in the table is a target: 24 px high at desk width, 44 at phone width; the row grows, the text does not */
+.costs tbody th a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--hit);
+}
+.costs {
+  --hit: 24px;
+}
+@media (max-width: 600px) {
+  .costs {
+    --hit: 44px;
   }
 }

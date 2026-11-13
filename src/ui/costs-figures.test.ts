@@ -7,9 +7,22 @@ describe("the cache hit rate and the cost per landed task", () => {
     expect(figures({ cacheRate: null, landed: none })).toEqual({
       cache: "none yet",
       cacheNote: "No session could read from a cache.",
-      perTask: "none yet",
-      perTaskNote: "No task has landed yet.",
+      perTask: "none landed yet",
+      perTaskNote: "There is no landed task to divide the cost by.",
     });
+  });
+  it("never reads as a bare zero: a landed task that cost nothing says what it is out of", () => {
+    expect(figures({ cacheRate: null, landed: { tasks: 1, ended: 2, perTask: 0 } })).toMatchObject({
+      perTask: "$0.00 for 1 landed of 2",
+    });
+    expect(figures({ cacheRate: null, landed: { tasks: 3, ended: 3, perTask: 0 } }).perTask).toBe(
+      "$0.00 for 3 landed of 3",
+    );
+  });
+  it("says none landed yet when tasks ended but none landed, with a cost of nothing", () => {
+    expect(figures({ cacheRate: null, landed: { tasks: 0, ended: 2, perTask: 0 } }).perTask).toBe(
+      "none landed yet",
+    );
   });
   it("shows the rate and the cost of a landed task as the command prints them", () => {
     expect(figures({ cacheRate: 91, landed: { tasks: 1, ended: 2, perTask: 0.61 } })).toEqual({

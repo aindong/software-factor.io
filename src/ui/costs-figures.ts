@@ -14,11 +14,18 @@ export function figures(
     cache: cacheRate === null ? "none yet" : `${cacheRate}%`,
     cacheNote:
       cacheRate === null ? "No session could read from a cache." : "of what went in was read from a cache",
+    // never a bare figure: a cost of nothing says what it is out of, and no landed task says so
     perTask:
-      landed.tasks === 0 ? "none yet" : landed.perTask === null ? "not known" : dollars(landed.perTask),
+      landed.tasks === 0
+        ? "none landed yet"
+        : landed.perTask === null
+          ? "not known"
+          : landed.perTask === 0
+            ? `${dollars(0)} for ${landed.tasks} landed of ${landed.ended}`
+            : dollars(landed.perTask),
     perTaskNote:
       landed.tasks === 0
-        ? "No task has landed yet."
+        ? "There is no landed task to divide the cost by."
         : `${landed.tasks} of ${tasks(landed.ended)} landed, every run of them counted`,
   };
 }

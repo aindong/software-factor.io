@@ -134,3 +134,8 @@
     grid-column: 1 / -1;
   }
 }
+/* a Bind that is off is a button that is off, not a label: the quiet button's own border, only its text steps back */
+.roles .button[disabled] {
+  border-color: var(--edge);
+  color: var(--ink-soft);
+}

@@ -2,6 +2,18 @@
 // not saved asks before it closes. In a text field Z is the field's own undo.
 import { type RefObject, useEffect } from "react";
 
+/** Where the keyboard goes when the button it was on (Save, Run) is no longer there to press: a stable control of the floor. */
+export function settle(): void {
+  const lost = document.activeElement;
+  if (lost && lost !== document.body && !lost.matches(".button.primary")) return; // the person is elsewhere
+  const to = [
+    ...document.querySelectorAll<HTMLElement>(
+      ".addlane .desk-only, .map .station[tabindex='0'], .json textarea",
+    ),
+  ];
+  to.find((e) => e.getClientRects().length > 0)?.focus();
+}
+
 export function useFloorKeys(
   save: () => void,
   dirty: boolean,
