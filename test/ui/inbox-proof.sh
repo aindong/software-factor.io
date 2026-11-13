@@ -104,6 +104,29 @@ expect "its evidence is open" "$(js "() => ${lead}.querySelector('.proof > butto
 expect "it comes before the map" "$(js "() => !!(${lead}.compareDocumentPosition(document.querySelector('.deciding .runmap')) & Node.DOCUMENT_POSITION_FOLLOWING)")" '^true$'
 shot inbox-proof-before-light-1440
 
+# ---- at phone width, with the list showing, a deciding key decides nothing: the bar and the proof are not on show
+# (at 1440 a on a focused row approves: restart.sh, "on the item, a approves it")
+pw resize 390 844
+sleep 0.4
+section Runs
+section Inbox
+wait_for "the list stands alone" "() => getComputedStyle(document.querySelector('.deciding')).display" '^none$'
+tab_to '^[0-9]+ Add an export button'
+pw press a
+refused='() => { const s = document.querySelector(".said"); return s && s.getClientRects().length > 0 ? s.textContent : ""; }'
+wait_for "a on a row of the list says to open the item first" "$refused" '^Open the item first: Enter opens it\.$'
+expect "and the item still waits" "$(js "$tasks")" '^Add an export button$'
+expect "and the sentence does not cover the row" "$(js "() => document.querySelector('.said').getBoundingClientRect().bottom <= document.querySelector('.runlist .run').getBoundingClientRect().top")" '^true$'
+shot inbox-key-refused-light-390
+theme Dark
+shot inbox-key-refused-dark-390
+theme Light
+tab_to '^[0-9]+ Add an export button'
+pw press Enter
+wait_for "Enter opens the item" "() => getComputedStyle(document.querySelector('.deciding')).display" '^grid$'
+pw press a
+wait_for "now a approves it" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Add an export button'
+
 playwright-cli -s="$session" console error > "$work/console.log" 2>&1
 grep -E "^\[ERROR\]" "$work/console.log" > "$work/errors.log"
 [ -s "$work/errors.log" ] && fail "the page logged an error: $(cat "$work/errors.log")"
