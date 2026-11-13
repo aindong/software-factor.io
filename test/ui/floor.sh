@@ -95,7 +95,9 @@ in_window "the floor with a lane open"
 shot lane-open-light-1440
 
 # 2. add a lane after it, and connect its fail outcome back, with c
-back_to '^Agent$'
+back_to '^Add a lane$'
+pw press Enter
+tab_to '^Agent$'
 pw press Enter
 expect "a lane is placed after the selected one" "$(js "() => [...document.querySelectorAll('.station.lane')].map((s) => s.getAttribute('aria-label').replace('Lane ', '').split(',')[0]).join(' > ')")" 'Impact > lane > Review'
 # the new lane has no instructions, and the floor does not write them: it is a problem until the author does
