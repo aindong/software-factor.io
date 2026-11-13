@@ -139,9 +139,11 @@ expect "the keyboard is on the next item's heading, not on the page" "$(js "$foc
 shot inbox-focus-next-light-390
 pw press a
 wait_for "a second a, with no Tab, approves the next item" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Add a search box'
-# its run now waits before Ship it: that is the next item, and the keyboard is on its heading too
-wait_for "the next item is the same task, before Ship it" "() => ${lead}?.querySelector('h3')?.textContent ?? ''" '^What ran before this approval$'
-expect "the keyboard is on its heading" "$(js "$focused")" 'Add a search box'
+# its run now waits before Ship it: the last item. It may arrive after the page moved on, so enter it from the list
+wait_for "the same task waits again, before Ship it" "() => ${lead}?.querySelector('h3')?.textContent ?? ''" '^What ran before this approval$'
+tab_to '^[0-9]+ Add a search box'
+pw press Enter
+wait_for "Enter opens it" "() => getComputedStyle(document.querySelector('.deciding')).display" '^grid$'
 pw press a
 wait_for "the last item is approved" "() => document.querySelector('.plain')?.textContent ?? ''" 'Nothing waits for you'
 expect "with no item left the keyboard is on the Inbox heading, not on the page" "$(js "$focused")" '^Inbox$'

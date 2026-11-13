@@ -136,6 +136,7 @@ pw mousemove $at && pw mousedown && pw mouseup
 expect "a click on the proof keeps the keyboard in the decision" "$(js "() => document.activeElement !== document.body && document.querySelector('.deciding').contains(document.activeElement)")" '^true$'
 pw press a
 wait_for "a approves, and the item leaves the list" "$tasks" '^Pick a database \| Add an export button$'
+wait_for "a approves, and the keyboard is on the next row" "$focused" '^[0-9]+ Pick a database'
 wait_for "the rail counts one fewer" "() => document.querySelector('.rail .count')?.textContent ?? ''" '^2 wait for you$'
 sf runs | grep -A1 "Publish the release" | grep -q "Done\." || fail "the approved run did not go on to Done: $(sf runs)"
 
