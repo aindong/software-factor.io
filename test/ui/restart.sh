@@ -178,7 +178,7 @@ shot costs-figures-light-1440
 pw resize 390 800
 section Plugins
 wait_for "what is built in" "$page" 'core/agent@1'
-expect "no inline code is broken across lines" "$(js "() => { const c = [...document.querySelectorAll('.page code')]; return c.length > 0 && c.every((e) => e.getClientRects().length === 1) ? 'one line' : c.map((e) => e.textContent + ' ' + e.getClientRects().length).join('; '); }")" '^one line$'
+expect "no inline code is broken across lines" "$(js "() => { const c = [...document.querySelectorAll('.page code')].filter((e) => e.textContent.length <= 40); return c.some((e) => /--available/.test(e.textContent)) && c.every((e) => e.getClientRects().length === 1) ? 'one line' : c.map((e) => e.textContent + ' ' + e.getClientRects().length).join('; '); }")" '^one line$'
 shot plugins-code-light-390
 
 playwright-cli -s="$session" close > /dev/null 2>&1

@@ -68,7 +68,7 @@ pre,
   outline: none;
 }
 /* a command is read whole: its hyphens are not places to break the line */
-.page .quiet code {
+.page code.whole {
   white-space: nowrap;
 }
 /* Costs: the two figures the command prints under its tables */
