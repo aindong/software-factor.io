@@ -34,7 +34,11 @@ export function RunHeader(props: {
   const hold = said.needs && (!detail || props.asking);
   return (
     <header>
-      <button type="button" className="button back" onClick={props.onBack}>
+      {/* it goes somewhere, it does nothing: a text link with an arrow, not an outlined button */}
+      <button type="button" className="back" onClick={props.onBack}>
+        <svg className="arrow" viewBox="0 0 10 10" aria-hidden="true">
+          <path d="M8.500 5h-7M4.500 1.500L1 5l3.500 3.500" />
+        </svg>
         {props.back}
       </button>
       <h2 ref={props.headRef} tabIndex={-1}>

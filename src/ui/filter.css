@@ -33,6 +33,12 @@
   border-bottom: 1px solid var(--rule);
   color: var(--ink-soft);
 }
+/* the filter belongs to the list: while a run is shown in its place, it is not above it */
+@media (max-width: 1000px) {
+  .topbar[data-inside="true"] .runfilter {
+    display: none;
+  }
+}
 /* a finger needs 44 px */
 @media (max-width: 760px) {
   .runfilter button {

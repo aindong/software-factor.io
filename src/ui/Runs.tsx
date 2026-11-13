@@ -98,7 +98,7 @@ export function Runs() {
 
   return (
     <main className="work">
-      <div className="topbar">
+      <div className="topbar" data-inside={inside}>
         <div className="where">
           <h1>Runs</h1>
           {runs ? <span>{count}</span> : null}
