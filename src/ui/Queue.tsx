@@ -16,6 +16,8 @@ export function Queue({ runs, queued }: { runs: RunRow[]; queued: Queued[] }) {
   const owed = useRef<{ key: string; at: number } | undefined>(undefined); // the task just started: where the keyboard was, once it has left
   // the Run that was pressed is gone with its task: the keyboard goes to the next Run button, else the heading, else the map
   useEffect(() => {
+    // while a start is under way every Run button is off and cannot take the keyboard: wait for its answer
+    if (starting !== undefined) return;
     if (!owed.current || queued.some((t) => t.key === owed.current?.key)) return;
     const { at } = owed.current;
     owed.current = undefined;
@@ -26,7 +28,7 @@ export function Queue({ runs, queued }: { runs: RunRow[]; queued: Queued[] }) {
     const to = next[Math.min(at, next.length - 1)] ?? head.current;
     if (to) to.focus();
     else settle();
-  }, [queued]);
+  }, [queued, starting]);
   if (working.length === 0 && queued.length === 0) return null;
   const start = async (task: Queued) => {
     if (starting) return;
