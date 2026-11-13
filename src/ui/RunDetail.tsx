@@ -13,6 +13,7 @@ import { failingGate, gateWhat } from "./gates.ts";
 import { LaneVisit, stateOf } from "./LaneVisit.tsx";
 import { Lead, leadKeys } from "./Lead.tsx";
 import { leadLane } from "./lead.ts";
+import { MapScroll } from "./MapScroll.tsx";
 import { RunHeader, Waits } from "./RunHeader.tsx";
 import { STATE_WORD } from "./Strip.tsx";
 import { pageSays } from "./says.ts";
@@ -71,8 +72,10 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
     const end = { done: "done", stopped: "stop", dropped: "drop" }[row.status as string];
     const place = () => {
       // a stopped run starts at the lane that failed, a waiting one at the lane that waits
-      const failed = row.status === "stopped" ? [...view.querySelectorAll(".station.ran-fail")].at(-1) : undefined;
-      const mark = failed ?? view.querySelector(end ? `.station.end.${end}` : '.station[aria-label*=" is here"]');
+      const failed =
+        row.status === "stopped" ? [...view.querySelectorAll(".station.ran-fail")].at(-1) : undefined;
+      const mark =
+        failed ?? view.querySelector(end ? `.station.end.${end}` : '.station[aria-label*=" is here"]');
       const box = view.getBoundingClientRect();
       if (!mark || box.width === 0) return;
       const at = mark.getBoundingClientRect();
@@ -222,7 +225,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
       ) : null}
       {floor ? (
         <div className="runmap">
-          <div className="map-scroll" ref={scroller}>
+          <MapScroll boxRef={scroller}>
             <Diagram
               floor={floor}
               selected={station}
@@ -252,7 +255,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                   : []
               }
             />
-          </div>
+          </MapScroll>
           <label className="scrub">
             <span className="label">Replay</span>
             <input
