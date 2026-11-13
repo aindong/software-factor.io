@@ -7,8 +7,11 @@ import { drawable, layout } from "../core/floor/layout.ts";
 import { parseWorkflow } from "../core/schema/parse.ts";
 import { forgetKey, getWorkflow, getWorkspace, type Json, saveWorkflow, type WorkspaceInfo } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
+import { Ago } from "./Elapsed.tsx";
+import { useFloorKeys } from "./floorKeys.ts";
 import { Inspector } from "./Inspector.tsx";
 import { Ladder } from "./Ladder.tsx";
+import { MapScroll } from "./MapScroll.tsx";
 import { AddLane, caretToLane, Fold, Legend, trainsOf } from "./Legend.tsx";
 import { useRuns } from "./live.ts";
 import { go } from "./route.ts";
@@ -23,6 +26,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
   const [text, setText] = useState("");
   const [broken, setBroken] = useState<string>();
   const [saved, setSaved] = useState("");
+  const [savedAt, setSavedAt] = useState<string>(); // when it was saved here
   const [view, setView] = useState<"diagram" | "json">("diagram");
   const [selected, setSelected] = useState<string>();
   const [sheet, setSheet] = useState(false);
@@ -71,6 +75,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
     setFuture([]);
     setAhead(0);
     setVersion(body.version);
+    setSavedAt(undefined);
     setTheirs(undefined);
     typed.current = false;
     field.current = { at: null, when: 0 };
@@ -191,7 +196,8 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
         setAhead(0);
         setVersion(body.version);
         setTheirs(undefined);
-        setNotice({ text: "Saved", bad: false });
+        setNotice(undefined);
+        setSavedAt(new Date().toISOString());
         field.current = { at: null, when: 0 }; // typing after a save is a new step
         typed.current = false;
         return;
@@ -233,30 +239,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
     return () => removeEventListener("focus", look);
   }, [shown, name, take]);
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || !steps.current.shown) return; // kept aside, the floor takes no key
-      if (event.key === "s") {
-        event.preventDefault();
-        save();
-      } else if (
-        event.key.toLowerCase() === "z" &&
-        !(event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLInputElement)
-      ) {
-        // in a text field the key is the field's own undo
-        event.preventDefault();
-        if (event.shiftKey) steps.current.redo();
-        else steps.current.undo();
-      }
-    };
-    const onLeave = (event: BeforeUnloadEvent) => dirty && event.preventDefault();
-    addEventListener("keydown", onKey);
-    addEventListener("beforeunload", onLeave);
-    return () => {
-      removeEventListener("keydown", onKey);
-      removeEventListener("beforeunload", onLeave);
-    };
-  }, [save, dirty]);
+  useFloorKeys(save, dirty, steps);
 
   /** A problem chosen while the JSON view is up leads to its lane in the text, where it is mended. */
   const choose = (id: string | undefined) => {
@@ -278,7 +261,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
   };
 
   const trains = onMap ? trainsOf(runs ?? [], name) : [];
-  const status = statusOf({ broken, problems: problems.length, dirty, notice });
+  const status = statusOf({ broken, problems: problems.length, dirty, notice, savedAt });
   useEffect(() => onUnsaved(dirty), [dirty, onUnsaved]);
   return (
     <main className="work" hidden={!shown}>
@@ -324,8 +307,18 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
           {view === "diagram" ? <AddLane onAdd={add} /> : null}
         </Fold>
         <div className="group push">
-          <span className={`status${status.bad ? " bad" : ""}`} role="status">
+          <span
+            className={`status${status.bad ? " bad" : ""}`}
+            role="status"
+            title={status.since ? `Saved to ${name}.json` : undefined}
+          >
             {status.text}
+            {status.since ? (
+              <>
+                {" "}
+                <Ago at={status.since} />
+              </>
+            ) : null}
           </span>
           <button
             type="button"
@@ -394,7 +387,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
                 here replaces that text.
               </p>
             ) : null}
-            <div className="map-scroll">
+            <MapScroll>
               {floor ? (
                 <Diagram
                   floor={floor}
@@ -432,7 +425,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
                   </p>
                 </div>
               )}
-            </div>
+            </MapScroll>
             <Legend />
           </div>
         ) : (

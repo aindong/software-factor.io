@@ -70,6 +70,9 @@
   cursor: pointer;
   outline: none;
 }
+.map .station .hit {
+  fill: transparent;
+}
 .map .station .body {
   fill: var(--ground);
   stroke: var(--ink);
@@ -414,6 +417,36 @@
 }
 @media (min-width: 1001px) {
   .inspector .close {
+    display: none;
+  }
+}
+
+/* ---- the Floor's purpose box shows its whole text, up to a limit */
+.inspector .field textarea {
+  min-height: 96px;
+  max-height: 20em;
+  field-sizing: content;
+}
+/* where field-sizing is not known: a larger fixed height */
+@supports not (field-sizing: content) {
+  .inspector .field textarea {
+    height: 14em;
+  }
+}
+/* the map goes on past the edge: a fade, and the words under it */
+.map-scroll[data-more="true"] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+}
+.map-more {
+  margin: 0;
+  padding: var(--xs) var(--lg) 0;
+  color: var(--ink-soft);
+  font: var(--w-medium) var(--text-label) / var(--lh-label) var(--font);
+  text-align: right;
+}
+/* no arrow keys at touch widths: the hints are left out */
+@media (max-width: 600px) {
+  .legend .keys {
     display: none;
   }
 }

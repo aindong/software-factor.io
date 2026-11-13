@@ -320,7 +320,7 @@ export function Diagram({
       {order.map((s) => {
         const capsule = s.checkpoint === "in";
         // beside: lines leave on both sides, so the label sits up and to the left, clear of them
-        const beside = s.labelSide === "beside";
+        const beside = s.labelSide === "beside" && !placed?.centred[s.id];
         const nameY = placed?.y[s.id] ?? (s.labelSide === "below" ? 34 : beside ? -30 : -36);
         const nameX = beside ? -18 : 0;
         const anchor = beside ? "end" : "middle";
@@ -361,6 +361,8 @@ export function Diagram({
                 <circle className="pulse" r="22" />
               )
             ) : null}
+            {/* the touch target: 52 by 44 px, wider than what is drawn */}
+            <rect className="hit" x="-26" y="-22" width="52" height="44" />
             {capsule ? (
               <rect className="ring" x="-26" y="-17" width="52" height="34" rx="17" />
             ) : (

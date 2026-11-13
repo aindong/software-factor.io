@@ -52,7 +52,7 @@ export function Legend() {
         <i className="bar" />a gate
       </span>
       <span>×2: goes back at most twice</span>
-      <span>
+      <span className="keys">
         <kbd>←</kbd> <kbd>→</kbd> move, <kbd>Enter</kbd> open, <kbd>c</kbd> connect
       </span>
     </div>

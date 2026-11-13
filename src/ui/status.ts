@@ -6,12 +6,15 @@ export interface FloorState {
   problems: number;
   dirty: boolean;
   notice: { text: string; bad: boolean } | undefined;
+  /** When this copy was saved, if it was saved here: a file read as it is carries no time. */
+  savedAt?: string;
 }
 
-export function statusOf(state: FloorState): { text: string; bad: boolean } {
+export function statusOf(state: FloorState): { text: string; bad: boolean; since?: string } {
   if (state.broken) return { text: "The JSON does not parse", bad: true };
   if (state.problems > 0)
     return { text: `${state.problems} ${state.problems === 1 ? "problem" : "problems"}`, bad: true };
   if (state.notice) return state.notice;
-  return { text: state.dirty ? "Not saved" : "Saved", bad: false };
+  if (state.dirty) return { text: "Not saved", bad: false };
+  return state.savedAt ? { text: "Saved", bad: false, since: state.savedAt } : { text: "Saved", bad: false };
 }
