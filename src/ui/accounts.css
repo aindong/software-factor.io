@@ -100,13 +100,23 @@
   border-radius: 4px;
   background: var(--rule);
 }
+/* a window with room steps back; the one near its limit keeps the full ink and a heavier percent */
 .window meter::-webkit-meter-optimum-value {
   border-radius: 4px;
-  background: var(--ink);
+  background: var(--ink-soft);
 }
 .window meter::-moz-meter-bar {
   border-radius: 4px;
+  background: var(--ink-soft);
+}
+.window.near meter::-webkit-meter-optimum-value {
   background: var(--ink);
+}
+.window.near meter::-moz-meter-bar {
+  background: var(--ink);
+}
+.window.near strong {
+  font-weight: var(--w-heading);
 }
 .login .age {
   font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font);

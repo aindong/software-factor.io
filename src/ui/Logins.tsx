@@ -47,7 +47,7 @@ function WindowRow({ w, login }: { w: Window; login: string }) {
     );
   }
   return (
-    <li className="window">
+    <li className={w.percent >= NEAR ? "window near" : "window"}>
       <span className="name">{w.name}</span>
       <meter
         min={0}

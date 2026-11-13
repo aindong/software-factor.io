@@ -105,7 +105,7 @@ export function Costs() {
         <div className="where">
           <h1>Costs</h1>
           {total ? (
-            <span>
+            <span className="total">
               {whole.format(total.tokens)} tokens,{" "}
               <span title={total.usd === null ? undefined : money(total.usd)}>{amount(total)}</span>
               {total.unknown > 0 && total.usd !== null ? `, and ${total.unknown} of unknown cost` : ""}

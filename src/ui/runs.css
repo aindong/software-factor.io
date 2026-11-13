@@ -783,3 +783,8 @@ button.more {
 .topbar .where {
   flex-wrap: wrap;
 }
+/* the total of Costs is what the eye lands on; its period stays quiet */
+.topbar .where span.total {
+  color: var(--ink);
+  font-weight: var(--w-strong);
+}
