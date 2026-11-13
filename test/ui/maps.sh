@@ -60,6 +60,7 @@ wait_for "the workflow is drawn" "() => document.querySelectorAll('.station.lane
 expect "the map has its conditional routes" "$(js "() => document.querySelectorAll('svg.map .line.conditional').length")" '^3$'
 shot maps-light-1440
 labels_apart "the conditional map, light at 1440"
+names_belong "the conditional map, light at 1440"
 theme Dark
 shot maps-dark-1440
 labels_apart "the conditional map, dark at 1440"
