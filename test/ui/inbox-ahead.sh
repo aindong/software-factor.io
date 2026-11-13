@@ -88,7 +88,15 @@ expect "work that was done shows no command" "$(js "$ahead")" '^none$'
 
 # ---- an approval before a command lane says what the command does, and on which branch
 pw press a
-wait_for "the same task waits before Ship it" "() => document.querySelector('.decide .next')?.textContent ?? ''" '^Approve: Ship it starts next\.$'
+wait_for "the page moves on to the next build" "() => document.querySelector('.rundetail h2')?.textContent ?? ''" 'search box'
+sleep 1
+pw press a
+wait_for "both builds wait before Ship it, and the question is first" "$tasks" '^Pick a database \| Add an export button .* \| Add a search box'
+back_to '^[0-9]+ (Pick a database|Add an export button)'
+js "$focused" | grep -q "export button" || pw press ArrowDown
+expect "the keyboard is on the export button's row" "$(js "$focused")" '^[0-9]+ Add an export button'
+pw press Enter
+wait_for "the item that waits before Ship it is on show" "() => document.querySelector('.decide .next')?.textContent ?? ''" '^Approve: Ship it starts next\.$'
 run=$(js "() => location.pathname" | sed 's|/inbox/||')
 branch=$(git branch --format='%(refname:short)' | grep -F "$run" | head -1)
 [ -n "$branch" ] || fail "no branch holds the run id $run: $(git branch)"
@@ -120,6 +128,7 @@ sleep 0.4
 tab_to '^Approve a$|^Approve$'
 pw press a
 wait_for "the next item is on show with what was decided said" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: .*Ship it'
+shot inbox-approved-light-390
 expect "the decision is on the screen" "$(js "() => document.querySelector('.decide').getBoundingClientRect().bottom <= innerHeight")" '^true$'
 expect "the page does not scroll" "$(js "() => document.documentElement.scrollHeight <= innerHeight")" '^true$'
 expect "the confirmation is not inside the next item" "$(js "() => !document.querySelector('.deciding').contains(document.querySelector('.said'))")" '^true$'

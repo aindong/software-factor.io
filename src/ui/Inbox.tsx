@@ -6,6 +6,7 @@
 import { type KeyboardEvent as ReactKey, useEffect, useRef, useState } from "react";
 import type { Decision, InboxItem } from "../core/views.ts";
 import { op } from "./api.ts";
+import { AheadNote } from "./AheadNote.tsx";
 import { InboxNote, KeyHint } from "./InboxNote.tsx";
 import { InboxRow } from "./InboxRow.tsx";
 import { useRuns } from "./live.ts";
@@ -14,7 +15,8 @@ import { Offline } from "./Offline.tsx";
 import {
   DOING,
   DONE,
-  HINT,
+  hint,
+  isHint,
   type Said,
   typing,
   useDecidingKeyOutside,
@@ -122,7 +124,7 @@ export function Inbox() {
   const choose = (item: InboxItem) => {
     lost.current = false;
     // good news about another item has been read, once the person moves on by themselves
-    if ((item.id !== current?.id || said?.text === HINT) && !said?.bad && !moving.current) setSaid(undefined);
+    if ((item.id !== current?.id || isHint(said?.text)) && !said?.bad && !moving.current) setSaid(undefined);
     setPicked(item.id);
     if (opened) go(`/inbox/${item.run}`, true); // the address follows the item on show
   };
@@ -248,7 +250,7 @@ export function Inbox() {
   // an item that is open and on show is chosen, wherever the keyboard is on the page
   useDecidingKeyOutside(
     current !== undefined,
-    () => setSaid({ text: HINT, bad: false }),
+    () => setSaid({ text: hint(opened !== undefined), bad: false }),
     (event) => {
       if (!opened || !bar.current?.getClientRects().length) return false;
       onKey(event);
@@ -258,7 +260,7 @@ export function Inbox() {
   const refusal = said?.bad && (said.item === undefined || said.item === current?.id);
   const answer =
     said && (said.bad ? refusal : true) ? (
-      <p className={`said${said.bad ? " bad" : ""}`} role="status">
+      <p key={said.text} className={`said${said.bad ? " bad" : ""}`} role="status">
         {said.text}
         {said.fix ? ` ${said.fix}` : ""}
       </p>
@@ -417,6 +419,7 @@ export function Inbox() {
                     </>
                   )}
                 </div>
+                {current.ahead ? <AheadNote ahead={current.ahead} /> : null}
                 {said?.bad ? answer : null}
               </fieldset>
               {row ? (

@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENTS, DEFAULT_HEADROOM, heldUntil, readAccounts, usedIn } from "./accounts.ts";
 import type { Db } from "./db.ts";
+import { type Ahead, aheadFor } from "./inbox-ahead.ts";
 import type { RunState } from "./engine/state.ts";
 import { UserError } from "./errors.ts";
 import { keptLimits, type Reading } from "./limits.ts";
@@ -28,12 +29,14 @@ export interface InboxItem {
   decisions: Decision[];
   /** What the lane said of its finished work, in its own words, or "" when it has nothing to say. */
   summary: string;
+  /** For an approval before a command lane: what the command does and the run's branch. */
+  ahead?: Ahead;
 }
 
-export function inboxItems(db: Db): InboxItem[] {
+export function inboxItems(db: Db, root?: string): InboxItem[] {
   return openInbox(db).map((item) => {
-    const run = db.prepare("select state from runs where id = ?").get(item.run_id) as
-      | { state: string }
+    const run = db.prepare("select state, workflow, branch from runs where id = ?").get(item.run_id) as
+      | { state: string; workflow: string; branch: string }
       | undefined;
     let parked: RunState["parked"];
     try {
@@ -47,6 +50,7 @@ export function inboxItems(db: Db): InboxItem[] {
         : parked?.kind === "approve-after"
           ? ["approve", "reject", "send-back"]
           : ["approve", "reject"];
+    const ahead = root && run ? aheadFor(root, run.workflow, { ...item, decisions }, run.branch) : undefined;
     return {
       id: item.id,
       run: item.run_id,
@@ -56,6 +60,7 @@ export function inboxItems(db: Db): InboxItem[] {
       body: item.body,
       decisions,
       summary: (parked?.kind === "approve-after" && parked.note) || "",
+      ...(ahead ? { ahead } : {}),
     };
   });
 }

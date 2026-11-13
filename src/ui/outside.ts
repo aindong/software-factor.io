@@ -20,6 +20,10 @@ export const DOING: Record<Decision, string> = {
 };
 /** What a deciding key pressed outside the list is answered with. It goes once an item is chosen. */
 export const HINT = "Choose an item first: Tab moves to the list.";
+/** The same, with an item open: no list is chosen from, and on a phone none is on show. */
+const OPEN_HINT = "The deciding keys work in the open item: Tab moves to it.";
+export const hint = (open: boolean) => (open ? OPEN_HINT : HINT);
+export const isHint = (text?: string) => text === HINT || text === OPEN_HINT;
 
 /** `act` decides on the item on show, from where the keyboard is on the page but not in the list or its proof; it says whether it can. */
 export function useDecidingKeyOutside(

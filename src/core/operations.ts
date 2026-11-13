@@ -255,7 +255,7 @@ export const OPERATIONS: Operation[] = [
     input: none,
     changes: false,
     cli: [["inbox"]],
-    run: (at) => ({ items: inboxItems(at.db) }),
+    run: (at) => ({ items: inboxItems(at.db, at.root) }),
   }),
   op({
     name: "inbox_decide",

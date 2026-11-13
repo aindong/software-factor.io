@@ -41,6 +41,21 @@
 .listside > .runlist:first-child {
   grid-row: 1 / -1;
 }
+/* what approving before a command lane runs: quiet text, the bar's buttons stay the only loud thing */
+.decide .ahead {
+  max-width: 80ch;
+  font: var(--text-data) / var(--lh-data) var(--font);
+  overflow-wrap: anywhere;
+}
+/* a row that names no kind gives its whole width to the title */
+.run.bare .task {
+  grid-column: 2 / -1;
+}
+@keyframes said-away {
+  to {
+    visibility: hidden;
+  }
+}
 /* what the factory answered, where the decision was made */
 .said {
   max-width: 80ch;
@@ -326,6 +341,22 @@
   }
   .listside > .said {
     border-right: 0;
+  }
+  /* with an item open, the last confirmation floats over its top edge for a while: it takes no room
+     from the item's decision, and it is plainly not a line of the item. Clicks pass through it. */
+  .runs.inbox[data-inside="true"] {
+    position: relative;
+  }
+  .runs.inbox[data-inside="true"] .listside > .said {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 2;
+    background: var(--panel);
+    border-bottom: 1px solid var(--ink);
+    pointer-events: none;
+    animation: said-away 0s linear 7s forwards;
   }
   /* the decision is under the thumb, after the proof */
   .deciding {
