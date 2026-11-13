@@ -2,6 +2,7 @@
 import type { KeyboardEvent as ReactKey, Ref } from "react";
 import type { InboxItem } from "../core/views.ts";
 import type { RunRow } from "./api.ts";
+import { lead } from "./words.ts";
 
 export function InboxRow({
   item,
@@ -42,7 +43,10 @@ export function InboxRow({
         {run ? <span className="number data">{run.taskId}</span> : null} {item.task}
       </span>
       <span className="when data">{item.kind === "question" ? "question" : "approval"}</span>
-      <span className="sentence">{item.kind === "question" ? item.body : (run?.sentence ?? item.body)}</span>
+      <span className="sentence">
+        {item.kind === "question" ? item.body : (run?.sentence ?? item.body)}
+        {item.summary ? ` ${lead(item.summary).head}` : ""}
+      </span>
     </div>
   );
 }

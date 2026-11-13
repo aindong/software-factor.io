@@ -12,25 +12,29 @@ const workflow = {
     lane("odd", "Odd", "@inbox"),
   ],
 } as unknown as Workflow;
-const after = (at: string) => ({ lane: at, kind: "approval", decisions: ["approve", "reject", "send-back"] });
-const before = (at: string) => ({ lane: at, kind: "approval", decisions: ["approve", "reject"] });
+const approvedAfter = (at: string) => ({
+  lane: at,
+  kind: "approval",
+  decisions: ["approve", "reject", "send-back"],
+});
+const approvedBefore = (at: string) => ({ lane: at, kind: "approval", decisions: ["approve", "reject"] });
 
 describe("what approving starts", () => {
   it("names the lane the pass route leads to", () => {
-    expect(nextStop(workflow, after("plan"))).toBe("Build starts");
+    expect(nextStop(workflow, approvedAfter("plan"))).toBe("Build starts");
   });
-  it("names the lane that has not run when the approval is before it", () => {
-    expect(nextStop(workflow, before("ship"))).toBe("Ship it starts");
+  it("names the lane that has not run when the approval is approvedBefore it", () => {
+    expect(nextStop(workflow, approvedBefore("ship"))).toBe("Ship it starts");
   });
   it("says the run ends done when the pass route ends it", () => {
-    expect(nextStop(workflow, after("review"))).toBe("the run ends done");
-    expect(nextStop(workflow, after("ship"))).toBe("the run ends done");
+    expect(nextStop(workflow, approvedAfter("review"))).toBe("the run ends done");
+    expect(nextStop(workflow, approvedAfter("ship"))).toBe("the run ends done");
   });
   it("says nothing when the route depends on a condition, leads elsewhere or is not known", () => {
-    expect(nextStop(workflow, after("build"))).toBeUndefined();
-    expect(nextStop(workflow, after("odd"))).toBeUndefined();
-    expect(nextStop(workflow, after("gone"))).toBeUndefined();
-    expect(nextStop(undefined, after("plan"))).toBeUndefined();
+    expect(nextStop(workflow, approvedAfter("build"))).toBeUndefined();
+    expect(nextStop(workflow, approvedAfter("odd"))).toBeUndefined();
+    expect(nextStop(workflow, approvedAfter("gone"))).toBeUndefined();
+    expect(nextStop(undefined, approvedAfter("plan"))).toBeUndefined();
   });
   it("says nothing for a question", () => {
     expect(nextStop(workflow, { lane: "plan", kind: "question", decisions: ["answer"] })).toBeUndefined();

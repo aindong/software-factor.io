@@ -26,6 +26,8 @@ export interface InboxItem {
   body: string;
   /** What a person can answer with. Work that has not been done cannot be sent back. */
   decisions: Decision[];
+  /** What the lane said of its finished work, in its own words, or "" when it has nothing to say. */
+  summary: string;
 }
 
 export function inboxItems(db: Db): InboxItem[] {
@@ -53,6 +55,7 @@ export function inboxItems(db: Db): InboxItem[] {
       kind: item.kind,
       body: item.body,
       decisions,
+      summary: (parked?.kind === "approve-after" && parked.note) || "",
     };
   });
 }

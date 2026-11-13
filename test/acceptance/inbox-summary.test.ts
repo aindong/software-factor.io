@@ -9,7 +9,9 @@ const items = (repo: Parameters<typeof tool>[0]) =>
 
 it("carries the summary of finished work", () => {
   const repo = flowRepo({
-    lanes: [agentLane("work", { name: "Work", agent: { access: "write" }, checkpoint: "in" })],
+    lanes: [
+      agentLane("work", { name: "Work", agent: { access: "write" }, gates: ["verify"], checkpoint: "in" }),
+    ],
     scripts: { author: { work: [[...commitFile("a.txt"), pass({ summary: "Added the search box." })]] } },
   });
   if (repo.sf("run").status !== 3) throw new Error("the run should wait");

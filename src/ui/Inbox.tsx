@@ -9,6 +9,7 @@ import { op } from "./api.ts";
 import { InboxNote } from "./InboxNote.tsx";
 import { InboxRow } from "./InboxRow.tsx";
 import { useRuns } from "./live.ts";
+import { nextStop } from "./next-lane.ts";
 import { Offline } from "./Offline.tsx";
 import { DOING, DONE, HINT, type Said, typing, useDecidingKeyOutside, useTakesKeyboard } from "./outside.ts";
 import { RunView } from "./RunDetail.tsx";
@@ -122,6 +123,7 @@ export function Inbox() {
   }, [current?.id]);
   const row = runs?.find((r) => r.id === current?.run);
   const question = current?.kind === "question";
+  const next = current && nextStop(workflows[row?.workflow ?? ""], current);
   useTakesKeyboard(Boolean(opened && current && row), head);
 
   const decide = async (decision: Decision, words = "") => {
@@ -131,7 +133,7 @@ export function Inbox() {
     setFieldSaid(undefined);
     // known before the answer: the record may show the item gone first, and that is this page's doing
     decided.current = current.id;
-    const { status, body } = await op<{ state?: string }>("inbox_decide", {
+    const { status, body } = await op<{ state?: string; run?: string }>("inbox_decide", {
       run: current.run,
       item: current.id, // the item that was on show: the decision is for it and for nothing the run waits on later
       decision,
@@ -139,7 +141,14 @@ export function Inbox() {
     });
     setSending(undefined);
     if (status === 200) {
-      const after = body.state === "going" ? "The run goes on." : "The run has moved on.";
+      // what the pass route sets going, when it is known; a run that has stopped or been dropped since is said as it is
+      const gone = body.state === "ended" && (body.run === "stopped" || body.run === "dropped");
+      const after =
+        next && !gone
+          ? `${next[0]?.toUpperCase()}${next.slice(1)}.`
+          : body.state === "going"
+            ? "The run goes on."
+            : "The run has moved on.";
       setSaid({ text: `${DONE[decision]}: ${current.task}. ${after}`, bad: false });
       setNoting(undefined);
       setNote("");
@@ -288,7 +297,10 @@ export function Inbox() {
             <div className="deciding" tabIndex={-1} ref={bar}>
               <fieldset className="decide">
                 <legend className="sr">Decide on {current.task}</legend>
-                <p className="asks">{question ? current.body : (row?.sentence ?? current.body)}</p>
+                <p className="asks">
+                  {question ? current.body : (row?.sentence ?? current.body)}
+                  {next ? ` Approve: ${next.endsWith("starts") ? `${next} next` : next}.` : ""}
+                </p>
                 {question || noting ? (
                   <InboxNote
                     question={question}
