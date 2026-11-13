@@ -170,6 +170,9 @@ Run with real agents, on the author's own subscription logins:
   [what the factory has done on itself](docs/dogfood.md) for each task, its rounds and its cost. The checkpoints
   in those runs were approved by the AI agent that the author set to build this project, acting as the operator.
   No person read those plans before they were approved.
+  Since then (2026-11-12 and 13) four more runs, on the author's own workflow, which stays on their machine: one
+  task landed through the factory, and three runs stopped before their end and were finished by hand. In these
+  four the author approved the plans, and the one ship, in the Inbox.
 - The GitHub issues collector against the real `gh` (read only), and `softwarefactor add` from a GitHub
   repository.
 
@@ -180,16 +183,17 @@ Only on the scripted agent or a stand-in:
 - `bugfix-fast` and `research-only` end to end, with stand-ins for `gh` and for the command that opens a pull
   request. `full-loop` also runs end to end on the scripted agent, with its own gate `core/plan-contract@1`; no real agent has
   written a plan for that gate yet.
-- One part of `full-loop` that the real runs did not reach: its `verify-ui` lane, the check of a change to the
-  interface in a browser. No real task touched the interface.
+- The `verify-ui` lane, the check of a change to the interface in a browser: no real agent has passed it. It is
+  part of `full-loop`. Three real tasks have changed the interface since 2026-11-12, and one run reached that
+  lane, on a login whose sandbox could not start a browser.
 - The gate `core/no-secrets@1` is in no workflow that ships and not in the one `init` writes: it has only run
   in tests and in the eval suite.
 - The Kimi adapter: written from its documentation, tested against a stand-in binary, never the real CLI.
 - The `command` adapter (any command of yours as an agent): scripted commands in tests only.
-- Each login's limits as its CLI reports them, on the Accounts page and in `account list`: read from
-  `claude -p /usage` with a stand-in CLI only. Whether the real CLI prints those lines without a model call is
-  not checked.
-- A collector on an MCP server (the Jira case), and installing a skill for a run: stand-ins only. So are the skills and profile servers a lane may use (see [the guide](docs/skills-and-servers.md)): no real agent has called a skill or a server through them.
+- Each login's limits as its CLI reports them, on the Accounts page and in `account list`: tested with a
+  stand-in CLI. The real CLI was asked once (`claude -p /usage`, version 2.1.311, 2026-11-12): it printed the
+  week's lines without a model call.
+- A collector on an MCP server (the Jira case), and installing a skill for a run: stand-ins only. The skills and profile servers a lane may use (see [the guide](docs/skills-and-servers.md)) are tested with stand-ins; real lanes have since called skills of the author's profile, and no real lane has called a profile server.
 - The autonomy ladder and retros: scripted runs. No lane has yet earned a step on real work.
 - The interface is checked in a real browser, driven by keyboard, on runs of the scripted agent.
 

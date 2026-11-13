@@ -99,7 +99,7 @@ lane's role is bound to here: bind the role to another account and the run asks 
 
 ## Not tried with a real agent
 
-Everything here was tested with stand-ins for `claude` and for `claude mcp list`. It was not tried with a real
-agent: that a real Claude Code session gets the `Skill` tool from `--tools`, that it honours `--allowedTools`
-and `--disallowedTools` by server name, that the text of `claude mcp list` is as parsed, and what a server
-that needs a login does in a headless session.
+Everything here is tested with stand-ins for `claude` and for `claude mcp list`. Since then real lanes on the
+author's machine were given the `Skill` tool and called skills of the profile (2026-11-12, Claude Code 2.1.311).
+Still not tried with a real agent: a lane that names a profile server, and what a server that needs a login
+does in a headless session.

@@ -77,3 +77,19 @@ it("says what has run with real agents and what only on the scripted agent, by n
   // who approved the checkpoints of the real runs is said in so many words
   expect(real).toContain("approved by the AI agent");
 });
+
+it("says what the real runs after 2026-11-11 reached, and what they still did not", () => {
+  const from = readme.indexOf("## What has run with real agents, and what has not");
+  const section = readme.slice(from, readme.indexOf("\n## ", from + 5));
+  const [real = "", standIn = ""] = section.split("Only on the scripted agent or a stand-in");
+  // four more runs, with a person at the checkpoints this time
+  expect(real).toMatch(/four more runs/);
+  expect(real).toMatch(/the author approved/);
+  // real tasks have changed the interface since, and one run reached the browser lane without passing it
+  expect(standIn).not.toContain("No real task touched the interface");
+  expect(standIn).toMatch(/`verify-ui`[^-]*no real agent has passed it/s);
+  // the real CLI was asked for its limits once, and real lanes have called skills; no profile server yet
+  expect(standIn).not.toContain("is\n  not checked");
+  expect(standIn).toMatch(/real CLI/);
+  expect(standIn).toMatch(/no real lane has called a profile server/);
+});
