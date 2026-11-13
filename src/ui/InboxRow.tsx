@@ -1,4 +1,4 @@
-// One row of the inbox's list: the item's mark, its task, its kind and the sentence under them.
+// One row of the inbox's list: the item's mark, its task, its kind (only a question says it) and the sentence under them.
 import type { KeyboardEvent as ReactKey, Ref } from "react";
 import type { InboxItem } from "../core/views.ts";
 import type { RunRow } from "./api.ts";
@@ -27,7 +27,7 @@ export function InboxRow({
     <div
       ref={node}
       role="option"
-      className="run"
+      className={item.kind === "question" ? "run" : "run bare"}
       aria-selected={selected}
       tabIndex={stop ? 0 : -1}
       onFocus={onFocus}
@@ -42,7 +42,7 @@ export function InboxRow({
       <span className="task" title={item.task}>
         {run ? <span className="number data">{run.taskId}</span> : null} {item.task}
       </span>
-      <span className="when data">{item.kind === "question" ? "question" : "approval"}</span>
+      {item.kind === "question" ? <span className="when data">question</span> : null}
       <span className="sentence">
         {item.kind === "question" ? item.body : (run?.sentence ?? item.body)}
         {item.summary ? ` ${lead(item.summary).head}` : ""}
