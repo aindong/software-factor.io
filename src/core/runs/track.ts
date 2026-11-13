@@ -1,10 +1,12 @@
 // Where a run has been, lane by lane, as the strip map, the big map and the scrubber draw it;
 // and how a run's files are grouped for the evidence viewer. Pure: the page and the tests share it.
 
-export type StopState = "none" | "pass" | "fail" | "asked" | "here";
+export type StopState = "none" | "pass" | "fail" | "asked" | "here" | "stopped";
 export interface Visit {
   lane: string;
   outcome: "pass" | "fail" | "needsPerson" | null;
+  /** A person stopped the lane: its outcome is a failure in the record, but it did not fail. */
+  stopped?: true;
 }
 export interface Track {
   lanes: { id: string; state: StopState; gone?: true }[];
@@ -31,7 +33,7 @@ export function trackOf(order: string[], visits: Visit[], n?: number, at?: strin
   const stateOf = (id: string): StopState => {
     const visit = latest.get(id);
     if (!visit) return id === here ? "here" : "none";
-    return visit.outcome ? STATE[visit.outcome] : "here";
+    return visit.stopped ? "stopped" : visit.outcome ? STATE[visit.outcome] : "here";
   };
   return {
     lanes: [
