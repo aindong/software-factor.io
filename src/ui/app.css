@@ -511,3 +511,32 @@ textarea {
 body {
   font-variant-numeric: tabular-nums;
 }
+
+/* a quiet hint by a list of rows; its keys are written as the Floor's legend writes them */
+.keyhint {
+  margin: 0;
+  padding: var(--sm) var(--md);
+  font-size: var(--text-label);
+  color: var(--ink-soft);
+}
+.keyhint kbd {
+  font: inherit;
+  padding: 0 4px;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  color: var(--ink);
+}
+@media (max-width: 760px) {
+  .keyhint {
+    display: none;
+  }
+}
+/* the separator belongs to the name before it: no line begins with one */
+.page .names li + li::before {
+  content: none;
+}
+.page .names li:not(:last-child)::after {
+  content: "\00b7";
+  margin-left: var(--sm);
+  color: var(--ink-soft);
+}

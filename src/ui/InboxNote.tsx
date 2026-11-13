@@ -56,3 +56,12 @@ export function InboxNote({
     </label>
   );
 }
+
+/** The keys of a list of rows, as the Floor's legend writes keys. Not shown at phone width. */
+export function KeyHint({ things }: { things: string }) {
+  return (
+    <p className="keyhint">
+      <kbd>↑</kbd> <kbd>↓</kbd> move between {things}, <kbd>Enter</kbd> opens
+    </p>
+  );
+}
