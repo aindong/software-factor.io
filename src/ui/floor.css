@@ -479,6 +479,10 @@
   color: var(--ink);
   font-weight: var(--w-heading);
 }
+/* the yellow square the Runs list uses for "Waits for you": a person is needed, so yellow is allowed; with none waiting there is no square */
+.topbar .needs .mark {
+  margin-right: 6px;
+}
 @media (max-width: 760px) {
   .topbar .needs a {
     padding-block: 13px;
@@ -547,4 +551,21 @@
     width: max(calc(var(--w) * 1px), min(100%, calc(var(--w) * 1.5px)));
     height: auto;
   }
+}
+/* the Diagram and JSON switch: the selected half is quiet (panel fill, ink at 600, a 2px ink line under it), so that Save is the only ink fill */
+.segmented.view button {
+  min-height: var(--row);
+  background: var(--ground);
+  color: var(--ink-soft);
+  font-weight: var(--w-text);
+}
+.segmented.view button[aria-pressed="true"],
+.segmented.view button[aria-pressed="true"]:hover {
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: var(--w-heading);
+  border-bottom: 2px solid var(--ink);
+}
+.segmented.view button[aria-pressed="true"]:focus-visible {
+  outline-color: var(--ink);
 }

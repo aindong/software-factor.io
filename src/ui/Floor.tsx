@@ -293,7 +293,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
           <button type="button" className="button narrow-only" onClick={() => open(undefined)}>
             Workflow settings
           </button>
-          <fieldset className="segmented">
+          <fieldset className="segmented view">
             <legend className="sr">View</legend>
             <button type="button" aria-pressed={view === "diagram"} onClick={() => setView("diagram")}>
               Diagram
