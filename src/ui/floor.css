@@ -415,6 +415,11 @@
   .floor[data-sheet="true"] .map-scroll {
     padding-bottom: 50vh;
   }
+  /* the strip and the key are under the sheet while it is open: not drawn, so they cannot spill past the floor onto the rail */
+  .floor[data-sheet="true"] .queue,
+  .floor[data-sheet="true"] .legend {
+    display: none;
+  }
 }
 @media (min-width: 1001px) {
   .inspector .close {
