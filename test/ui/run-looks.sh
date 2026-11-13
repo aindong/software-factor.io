@@ -1,0 +1,237 @@
+#!/bin/bash
+# The list of runs and a run's page, as the second design round wants them, in a real browser, by keyboard:
+# a stopped run says what failed above its map (F4); a closed row that opens looks one way at both depths (F8);
+# the selected filter chip is quiet, so the page's one loud control is its own (F6); the way back is a text
+# link and the filter is not shown above an open run at phone width (F10); a run that waits for a person reads
+# louder than a done one (F11); a run whose task is queued again says so and links to the Floor (F14).
+# The page is only read (the runs are made from the terminal). Needs playwright-cli and a built command.
+# Usage: bash test/ui/run-looks.sh [folder for screenshots]
+# Prints "run-looks: ok" and exits 0, or says which step failed and exits 1.
+set -u
+here=$(cd "$(dirname "$0")/../.." && pwd)
+shots=${1:-}
+work=$(mktemp -d)
+session="runlooks-$$"
+server=""
+slow=""
+cleanup='[ -n "$slow" ] && kill "$slow" 2> /dev/null'
+# shellcheck source=test/ui/keys.sh
+. "$here/test/ui/keys.sh"
+
+[ -f "$here/dist/cli.js" ] && [ -f "$here/dist/ui/index.html" ] || fail "build first: pnpm run build"
+export FACTOR_HOME="$work/home"
+sf() { node "$here/dist/cli.js" "$@"; }
+
+# ---- a workspace: build (gates), then ship on approval
+mkdir -p "$work/demo-shop" && cd "$work/demo-shop" || fail "no work folder"
+git init -q -b main && git config user.email t@example.com && git config user.name T
+echo "# demo" > README.md && git add -A && git commit -q -m initial
+sf init > /dev/null || fail "init"
+cat > .factor/workflows/delivery.json << 'FLOW'
+{
+  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
+  "version": 1,
+  "name": "delivery",
+  "description": "Build, check, and wait for approval.",
+  "roles": { "author": { "description": "Writes." } },
+  "limits": { "minutes": 60, "tokens": 1000000 },
+  "commands": { "verify": { "description": "The tests." } },
+  "collectors": [{ "id": "tasks", "uses": "core/file@1", "with": { "path": ".factor/tasks.md" } }],
+  "gates": {
+    "verify": { "uses": "core/command@1", "with": { "command": "verify" }, "description": "The tests pass.", "onFail": "fail" }
+  },
+  "lanes": [
+    { "id": "build", "name": "Build", "uses": "core/agent@1", "agent": { "role": "author", "access": "write", "prompt": "Build it." }, "gates": ["verify"], "checkpoint": "out", "on": { "pass": "ship", "fail": "@stop" } },
+    { "id": "ship", "name": "Ship it", "uses": "core/command@1", "with": { "run": "true" }, "checkpoint": "in", "on": { "pass": "@done", "fail": "@stop" } }
+  ]
+}
+FLOW
+rm -f .factor/workflows/starter.json
+node -e '
+const fs = require("fs");
+const f = JSON.parse(fs.readFileSync(".factor/factory.json"));
+fs.writeFileSync(".factor/factory.json", JSON.stringify({ ...f, workflow: "delivery", commands: { verify: "true" } }, null, 2));
+fs.writeFileSync(".factor/tasks.md", "- [ ] Add an export button\n- [ ] Fix the date format\n- [ ] Show the cost of each lane\n- [ ] Slow task\n");
+'
+setup() { # setup <what verify runs> <milliseconds the author works>
+  node -e '
+const fs = require("fs");
+const [verify, ms] = process.argv.slice(1);
+const f = JSON.parse(fs.readFileSync(".factor/factory.json"));
+fs.writeFileSync(".factor/factory.json", JSON.stringify({ ...f, commands: { verify } }, null, 2));
+const build = [...(Number(ms) ? [{ sleep: Number(ms) }] : []), { write: { path: "src/a.ts", content: "export {};\n" } }, { commit: "Add a" }, { handoff: { outcome: "pass", summary: "Built it." } }];
+fs.writeFileSync(".factor/local.json", JSON.stringify({ roles: { author: { adapter: "fake", script: { build } } } }, null, 2));
+' "$1" "$2"
+  git add -A && git commit -q -m "set up the factory" > /dev/null 2>&1
+}
+
+# ---- four runs: one done, one stopped on a gate, one that waits for approval, one still working
+setup "echo 'Tests  3 passed (3)'" 0
+sf run > "$work/run1.log" 2>&1; [ $? -eq 3 ] || fail "the first run should wait for approval: $(cat "$work/run1.log")"
+first=$(sf runs 2> /dev/null | awk 'NR == 1 { print $1 }')
+sf approve "$first" > "$work/approve.log" 2>&1 || fail "approve: $(cat "$work/approve.log")"
+setup "echo 'Tests  3 passed (3)'; echo 'FAIL date format: expected 2 got 3'; exit 1" 0
+sf run > "$work/run2.log" 2>&1; [ $? -eq 1 ] || fail "the second run should stop on its gate: $(cat "$work/run2.log")"
+broke=$(sf runs 2> /dev/null | awk 'NR == 1 { print $1 }')
+setup "echo 'Tests  3 passed (3)'" 0
+sf run > "$work/run3.log" 2>&1; [ $? -eq 3 ] || fail "the third run should wait for approval: $(cat "$work/run3.log")"
+setup "echo 'Tests  3 passed (3)'" 120000
+sf run > "$work/run4.log" 2>&1 &
+slow=$!
+for _ in $(seq 1 100); do [ "$(sf runs 2> /dev/null | grep -c running)" -ge 1 ] && break; sleep 0.2; done
+working=$(sf runs 2> /dev/null | awk 'NR == 1 { print $1 }')
+[ -n "$working" ] || fail "no working run in: $(sf runs 2>&1)"
+
+ITEMS=${ITEMS:-"1 2 3 4 5 6"}
+want() { case " $ITEMS " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+to_list() { # the keyboard on a row of the list
+  back_to 'just now|min ago|h ago'
+}
+open_run() { # open_run <task>: the keyboard is on a row; the run of that task is entered
+  pw press Home
+  for _ in 1 2 3 4 5 6; do
+    js "$focused" | grep -Eq "[0-9]+ $1" && break
+    pw press ArrowDown
+  done
+  wait_for "the page follows to $1" "() => document.querySelector('.rundetail h2').textContent" "^$1\$"
+  pw press Enter
+}
+
+start_ui 0
+pw open "$address" || fail "the browser did not open"
+pw resize 1440 900
+section Runs
+wait_for "the list shows the four runs" "$tasks" '^Slow task \| Show the cost of each lane \| Fix the date format \| Add an export button$'
+back_to '^Skip to the list$'
+pw press Enter
+
+# ---- F4: what failed comes first, above the map, at both widths
+if want 1; then
+  open_run "Fix the date format"
+  wait_for "the failing output is on the page" "() => document.querySelector('.rundetail pre.output')?.textContent ?? 'none'" 'FAIL date format: expected 2 got 3'
+  place='() => { const f = document.querySelector(".rundetail .failed"); const m = document.querySelector(".rundetail .runmap"); if (!f || !m) return "no failed block"; const o = f.querySelector("pre.output")?.getBoundingClientRect(); return (f.compareDocumentPosition(m) & Node.DOCUMENT_POSITION_FOLLOWING ? "above the map" : "below the map") + " " + (o ? Math.round(o.top) + " of " + innerHeight : "no output"); }'
+  expect "what failed is above the map, with its output on the first screen" "$(js "$place")" '^above the map [0-9]+ of 900$'
+  expect "the output starts within the first 520 px, where it used to be below the map" "$(js "() => document.querySelector('.rundetail .failed pre.output')?.getBoundingClientRect().top < 520")" '^true$'
+  expect "it names the lane, the gate in plain words, and the output" "$(js "() => document.querySelector('.rundetail .failed')?.innerText ?? 'none'")" 'What failed(.|\n)*Build(.|\n)*verify(.|\n)*The tests pass(.|\n)*FAIL date format'
+  expect "the lane's own evidence still holds the gate" "$(js "() => [...document.querySelectorAll('.rundetail .visits .proof > button .what')].map((w) => w.textContent).filter((t) => /^Gate verify failed/.test(t)).length")" '^1$'
+  shot run-failed-first-light-1440
+  pw resize 390 844
+  wait_for "the page is the same run at phone width" "() => document.querySelector('.rundetail h2')?.textContent" '^Fix the date format$'
+  wait_for "the failing output is inside the first screen after the head" "() => String(document.querySelector('.rundetail .failed pre.output')?.getBoundingClientRect().top < innerHeight)" '^true$'
+  shot run-failed-first-light-390
+  pw resize 1440 900
+fi
+
+# ---- F8: a closed row that opens looks one way, at both depths; depth is the indent alone
+if want 2; then
+  to_list
+  open_run "Add an export button"
+  tab_to '^Evidence for Build'
+  pw press Enter
+  wait_for "the lane's evidence is open, with rows of its own" "() => document.querySelectorAll('.rundetail .proof .proof').length" '^[1-9]'
+  look='() => { const rows = [...document.querySelectorAll(".rundetail .proof > button[aria-expanded=false]")]; const sig = (b) => { const c = getComputedStyle(b); return [c.borderTopWidth, c.borderTopStyle, c.borderTopColor, c.backgroundColor, c.borderRadius, c.color, c.paddingLeft].join(" "); }; const by = new Map(); for (const b of rows) { const k = sig(b); by.set(k, [...(by.get(k) ?? []), b.querySelector(".what").textContent]); } return by.size === 1 ? "one look" : [...by].map(([k, v]) => v.join(" / ") + " = " + k).join(" || "); }'
+  expect "every closed row, evidence for a lane, the diff, a gate, the hand-off, looks the same" "$(js "$look")" '^one look$'
+  expect "there are rows of both depths to compare" "$(js "() => document.querySelectorAll('.rundetail .proof > button[aria-expanded=false]').length > 3 && document.querySelectorAll('.rundetail .proof .proof > button').length > 0")" '^true$'
+  expect "a nested row is set in by its indent" "$(js "() => { const o = document.querySelector('.rundetail .proof .proof > button').getBoundingClientRect().left; const t = document.querySelector('.rundetail .proof > button').getBoundingClientRect().left; return String(o - t >= 8); }")" '^true$'
+  expect "a gate's row keeps its mark" "$(js "() => [...document.querySelectorAll('.rundetail .proof > button')].filter((b) => /^Gate /.test(b.querySelector('.what').textContent) && !b.querySelector('.mark')).length")" '^0$'
+  shot run-rows-light-1440
+  back_to 'just now|min ago|h ago'
+  open_run "Fix the date format"
+  expect "the failed gate keeps its mark of failure in the lane's rows" "$(js "() => [...document.querySelectorAll('.rundetail .visits .proof > button')].filter((b) => /^Gate verify failed/.test(b.querySelector('.what').textContent) && b.querySelector('.mark.fail')).length")" '^1$'
+  back_to 'just now|min ago|h ago'
+fi
+
+# ---- F6: the selected chip is quiet, so the only loud control of a run's page is its own
+if want 3; then
+  to_list
+  open_run "Fix the date format"
+  chip='() => { const on = document.querySelector(".runfilter [aria-pressed=true]"); const off = document.querySelector(".runfilter [aria-pressed=false]"); const c = getComputedStyle(on); const o = getComputedStyle(off); const ink = getComputedStyle(document.body).color; const loud = getComputedStyle(document.querySelector(".rundetail .button.primary")).backgroundColor; return [c.fontWeight, c.borderBottomWidth, c.backgroundColor === loud ? "ink fill" : "quiet fill", c.color === ink ? "ink text" : "other text", o.fontWeight, o.color === ink ? "ink text" : "soft text"].join(", "); }'
+  expect "the selected chip is a quiet fill with ink text at 600 and a 2 px line under it; the others are plain" "$(js "$chip")" '^600, 2px, quiet fill, ink text, 400, soft text$'
+  expect "one control of the page is loud: the button that does the one thing" "$(js "() => { const loud = getComputedStyle(document.querySelector('.rundetail .button.primary')).backgroundColor; return [...document.querySelectorAll('main button, main a.button')].filter((b) => b.getClientRects().length > 0 && getComputedStyle(b).backgroundColor === loud).map((b) => b.textContent.trim()).join(' | '); }")" '^Put back in the queue$'
+  shot run-chip-light-1440
+  back_to 'just now|min ago|h ago'
+fi
+
+# ---- F10: the way back is a text link with an arrow; the chips belong to the list, not to an open run
+if want 4; then
+  to_list
+  open_run "Fix the date format"
+  pw resize 390 844
+  wait_for "the run is shown in place of the list" "() => getComputedStyle(document.querySelector('.runlist')).display" '^none$'
+  shown='() => [...document.querySelectorAll(".runfilter")].filter((e) => e.getClientRects().length > 0).length'
+  expect "an open run has no filter chips above it at phone width" "$(js "$shown")" '^0$'
+  expect "the failing output is clear of the rail now that the chips are gone" "$(js "() => String(document.querySelector('.rundetail .failed pre.output').getBoundingClientRect().top < innerHeight - 100)")" '^true$'
+  link='() => { const b = document.querySelector(".rundetail .back"); const c = getComputedStyle(b); const r = b.getBoundingClientRect(); return [c.borderTopWidth, c.backgroundColor, r.height >= 44 ? "44 high" : Math.round(r.height) + " high", b.textContent.trim(), b.querySelector("svg") ? "arrow" : "no arrow"].join(", "); }'
+  expect "the way back is a text link with an arrow, 44 px high, without a border or a fill" "$(js "$link")" '^0px, rgba\(0, 0, 0, 0\), 44 high, All runs, arrow$'
+  back_to '^All runs$'
+  pw press Enter
+  wait_for "the list is back, with its chips" "() => getComputedStyle(document.querySelector('.runlist')).display" '^block$'
+  expect "the list has its chips" "$(js "$shown")" '^1$'
+  open_run "Slow task"
+  wait_for "the working run is shown" "() => getComputedStyle(document.querySelector('.runlist')).display" '^none$'
+  expect "Stop is the only outlined button by the title" "$(js "() => [...document.querySelectorAll('.rundetail header button, .rundetail header a')].filter((e) => e.getClientRects().length > 0 && getComputedStyle(e).borderTopWidth !== '0px').map((e) => e.textContent.trim()).join(' | ')")" '^Stop$'
+  shot run-working-light-390
+  # the Inbox's way back is the same control
+  section Inbox
+  tab_to '^[0-9]+ Show the cost of each lane'
+  pw press Enter
+  wait_for "the item is shown in place of the list" "() => getComputedStyle(document.querySelector('.runlist')).display" '^none$'
+  expect "the Inbox's way back is the same text link" "$(js "$link")" '^0px, rgba\(0, 0, 0, 0\), 44 high, Inbox, arrow$'
+  shot inbox-back-light-390
+  pw resize 1440 900
+  section Runs
+  back_to '^Skip to the list$'
+  pw press Enter
+fi
+
+# ---- F11: in the list, a run that waits for a person reads louder than a done one, without a new colour
+if want 5; then
+  for theme in Light Dark; do
+    [ "$theme" = Dark ] && theme Dark
+    look='(task) => { const r = [...document.querySelectorAll(".run")].find((r) => r.querySelector(".task").textContent.includes(task)); const ink = getComputedStyle(document.body).color; const t = getComputedStyle(r.querySelector(".task")); const s = getComputedStyle(r.querySelector(".state b")); return [t.fontWeight, t.color === ink ? "ink" : "soft", s.fontWeight, s.color === ink ? "ink" : "soft"].join(", "); }'
+    expect "$theme: the row that waits has its title and state word in ink at 600" "$(js "() => ($look)('Show the cost')")" '^600, ink, 600, ink$'
+    expect "$theme: a done row steps back: title and state word in the quiet ink at 400" "$(js "() => ($look)('Add an export')")" '^400, soft, 400, soft$'
+    shot "runs-$(echo "$theme" | tr '[:upper:]' '[:lower:]')-1440"
+    pw resize 390 844
+    back_to '^All runs$|just now|min ago|h ago'
+    [ "$(js "$focused")" = "All runs" ] && pw press Enter
+    wait_for "the list is shown at phone width" "() => getComputedStyle(document.querySelector('.runlist')).display" '^block$'
+    shot "runs-$(echo "$theme" | tr '[:upper:]' '[:lower:]')-390"
+    pw resize 1440 900
+  done
+  # the stopped run's page in both themes at both widths, for a look
+  theme Dark
+  to_list
+  open_run "Fix the date format"
+  shot run-dark-1440
+  pw resize 390 844
+  shot run-dark-390
+  pw resize 1440 900
+  theme Light
+  shot run-light-1440
+  pw resize 390 844
+  shot run-light-390
+  pw resize 1440 900
+fi
+
+# ---- F14: a run whose task is queued again says so beside its state (the diamond stays: the run did fail) and links to the Floor
+if want 6; then
+  sf requeue "$broke" > "$work/requeue.log" 2>&1 || fail "requeue: $(cat "$work/requeue.log")"
+  wait_for "the list row says the task is queued again, beside the state" "() => [...document.querySelectorAll('.run')].find((r) => r.textContent.includes('Fix the date format'))?.querySelector('.state').textContent ?? 'none'" '^Stopped.*queued again$'
+  to_list
+  open_run "Fix the date format"
+  expect "the page's state says it too, and keeps the mark of a failure" "$(js "() => document.querySelector('.rundetail header .state').textContent + ' | ' + document.querySelector('.rundetail header .state .mark').className")" '^Stopped.*queued again \| mark fail$'
+  expect "the sentence names the Floor with a link" "$(js "() => { const a = document.querySelector('.rundetail .lede a'); return a ? a.textContent + ' ' + a.getAttribute('href') : 'no link'; }")" '^Open the Floor /$'
+  shot run-queued-again-light-1440
+  tab_to '^Open the Floor$'
+  pw press Enter
+  wait_for "the link leads to the Floor" "() => document.querySelector('.rail [aria-current=page]').textContent" '^Floor'
+fi
+
+# ---- end
+sf stop "$working" > /dev/null 2>&1
+wait "$slow" 2> /dev/null
+slow=""
+playwright-cli -s="$session" close > /dev/null 2>&1
+kill "$server" 2> /dev/null
+echo "run-looks: ok"

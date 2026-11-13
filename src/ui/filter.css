@@ -14,27 +14,30 @@
   border: 1px solid var(--edge);
   border-radius: var(--control);
   background: var(--ground);
+  color: var(--ink-soft);
   cursor: pointer;
 }
 .runfilter button:hover {
   background: var(--panel);
 }
+/* the chosen one is quiet: a panel fill, ink text, an ink line under it. An ink fill is for the page's one action. */
 .runfilter button[aria-pressed="true"] {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: var(--ground);
-  font-weight: var(--w-strong);
-}
-/* on the chosen button the ring would be ink on ink */
-.runfilter button[aria-pressed="true"]:focus-visible {
-  outline-color: var(--ground);
-  outline-offset: -4px;
+  border-bottom: 2px solid var(--ink);
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: var(--w-heading);
 }
 .runlist .listnote {
   margin: 0;
   padding: var(--sm) var(--lg);
   border-bottom: 1px solid var(--rule);
   color: var(--ink-soft);
+}
+/* the filter belongs to the list: while a run is shown in its place, it is not above it */
+@media (max-width: 1000px) {
+  .topbar[data-inside="true"] .runfilter {
+    display: none;
+  }
 }
 /* a finger needs 44 px */
 @media (max-width: 760px) {

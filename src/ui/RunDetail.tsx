@@ -9,6 +9,7 @@ import { getRun, type RunDetail, type RunRow } from "./api.ts";
 import { useChanged } from "./changed.ts";
 import { Diagram } from "./Diagram.tsx";
 import { DiffView, FileView, PairView, Proof } from "./Evidence.tsx";
+import { Failed } from "./Failed.tsx";
 import { failingGate, gateWhat } from "./gates.ts";
 import { LaneVisit, stateOf } from "./LaneVisit.tsx";
 import { Lead, leadKeys } from "./Lead.tsx";
@@ -218,12 +219,24 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
         asking={asking}
         laneName={nameOf(row.at ?? "")}
         gateWords={
-          stopGate && what(stopGate.gate) ? { id: stopGate.gate, what: what(stopGate.gate) ?? "" } : undefined
+          // what the gate checks is said under "What failed" when the page shows that
+          !failure && stopGate && what(stopGate.gate)
+            ? { id: stopGate.gate, what: what(stopGate.gate) ?? "" }
+            : undefined
         }
       >
         {detail && !deciding ? <Waits detail={detail} runId={row.id} nameOf={nameOf} /> : null}
       </RunHeader>
 
+      {detail && failure && stopGate ? (
+        <Failed
+          lane={nameOf(failure.lane)}
+          gate={stopGate}
+          what={what(stopGate.gate)}
+          runId={row.id}
+          proof={proof}
+        />
+      ) : null}
       {detail && lead ? (
         <Lead
           item={lead}
