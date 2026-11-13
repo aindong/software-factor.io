@@ -73,7 +73,7 @@ pw resize 1440 900
 section Runs
 wait_for "the run is shown" "() => document.querySelector('.rundetail .visits > li')?.textContent ?? ''" 'passed'
 
-expect "the page says whether it needs the person, in words" "$(js "() => document.querySelector('.rundetail .lede').textContent")" 'This needs you\.$'
+expect "the page says whether it needs the person, in words, once: in the block with the way to decide" "$(js "() => document.querySelector('.rundetail .waits')?.textContent ?? ''")" 'waits for your approval|asks:'
 expect "a lane's summary ends on a whole sentence" "$(js "() => document.querySelector('.visits .note').textContent")" '[.!?]$'
 expect "and is not cut with dots" "$(js "() => String(/\\.\\.\\.|…/.test(document.querySelector('.visits .note').textContent))")" '^false$'
 expect "the references are not on the page until asked for" "$(js "() => document.querySelectorAll('.visits .ref, .visits .claims').length")" '^0$'
@@ -127,8 +127,7 @@ back_to '^Skip to the list$'
 pw press Enter
 pw press ArrowUp
 wait_for "the stopped run is shown" "() => document.querySelector('.rundetail h2')?.textContent ?? ''" '^Second$'
-tab_to '^Evidence for Work'
-pw press Enter
+# the stopped run opens on its failure: no key opens the lane's evidence
 rows="() => [...document.querySelectorAll('.visits .shown .proof > button')].map((b) => b.querySelector('.what').textContent + (b.getAttribute('aria-expanded') === 'true' ? ' (open)' : '')).filter((t) => t.startsWith('Gate')).join(' | ')"
 wait_for "the gate that failed is the first row, and is open, with what it checks in plain words" "$rows" '^Gate verify failed: the number of tests must not go down \(open\) \| '
 expect "the rows are grouped by round, the latest first" "$(js "() => [...document.querySelectorAll('.visits .shown .round')].map((h) => h.textContent).join(' | ')")" '^Round 3, the latest \| Round 2 \| Round 1$'
