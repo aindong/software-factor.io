@@ -248,6 +248,9 @@ a.button {
   background: var(--panel);
 }
 .scrub input {
+  /* the hit area grows, not the control: the margin gives back what the height takes */
+  height: var(--hit);
+  margin-block: calc((16px - var(--hit)) / 2);
   flex: 1 1 160px;
   max-width: 360px;
   accent-color: var(--ink);
@@ -306,6 +309,18 @@ a.button {
 }
 .map .train.asks text {
   fill: var(--signal-ink);
+}
+
+/* targets: 24 px at desk width, 44 at phone width */
+.scrub,
+.ref {
+  --hit: 24px;
+}
+@media (max-width: 600px) {
+  .scrub,
+  .ref {
+    --hit: 44px;
+  }
 }
 
 /* ---- evidence */
@@ -537,6 +552,8 @@ a.button {
   }
 }
 .ref button {
+  min-height: var(--hit);
+  margin-block: calc((1lh - var(--hit)) / 2);
   padding: 0;
   border: 0;
   background: none;

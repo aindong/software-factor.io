@@ -105,7 +105,7 @@ pw press ArrowUp
 pw press Enter
 wait_for "the waiting run's map is drawn" "() => document.querySelectorAll('.runmap svg.map.overlaid .station').length" '^[1-9]'
 expect "no text of the waiting run's map renders under 12 px at 390" "$(js "$map_text")" '^all [0-9]+ texts'
-wait_for "the lane that waits is in view" "$(in_view '.station.ran-asked')" '^in view$'
+wait_for "the lane that waits is in view" "$(in_view '.station[aria-label*=here]')" '^in view$'
 unpainted "the waiting run's map"
 shot phone-waiting-light-390
 pw resize 1440 900
