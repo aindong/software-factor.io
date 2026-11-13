@@ -9,6 +9,8 @@ import { getRun, type RunDetail, type RunRow } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
 import { DiffView, FileView, PairView, Proof } from "./Evidence.tsx";
 import { LaneVisit, stateOf } from "./LaneVisit.tsx";
+import { Lead, leadKeys } from "./Lead.tsx";
+import { leadLane } from "./lead.ts";
 import { RunHeader, Waits } from "./RunHeader.tsx";
 import { STATE_WORD } from "./Strip.tsx";
 
@@ -21,9 +23,11 @@ export interface RunViewProps {
   back?: string;
   /** The screen around it already asks for the decision: do not name the command for it too. */
   deciding?: boolean;
+  /** The inbox item this is shown for: the lane it is about comes first, with its proof open. */
+  lead?: { kind: string; lane: string; decisions: string[] };
 }
 
-export function RunView({ row, workflow, headRef, onBack, back = "All runs", deciding }: RunViewProps) {
+export function RunView({ row, workflow, headRef, onBack, back = "All runs", deciding, lead }: RunViewProps) {
   const [detail, setDetail] = useState<RunDetail>();
   const [problem, setProblem] = useState<string>();
   const [at, setAt] = useState<number>(); // the step shown: the latest, until the control is moved
@@ -74,6 +78,16 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
     watch.observe(view);
     return () => watch.disconnect();
   }, [row.status, row.at, floor]);
+  const first = detail && lead ? leadLane(detail.lanes, lead) : undefined;
+  // the first lane's proof is open when it is first shown, and stays as the person leaves it
+  const opened = useRef("");
+  const arrival = detail && lead ? `${row.id}:${first?.id}` : "";
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once for each lane that comes first
+  useEffect(() => {
+    if (!detail || !first || opened.current === arrival) return;
+    opened.current = arrival;
+    setOpen((now) => new Set([...now, ...leadKeys(detail, first)]));
+  }, [arrival]);
   const names = new Map(row.stops.map((l) => [l.id, l.name]));
   const nameOf = (id: string) => names.get(id) ?? id;
   const asking = !deciding && (detail?.inbox.length ?? 0) > 0;
@@ -95,6 +109,10 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
     step === 0
       ? "Before the first lane"
       : `Step ${step} of ${total}: ${nameOf(visit?.lane ?? "")} ${STATE_WORD[stateOf(visit?.outcome ?? null)]}`;
+  const roundOf = (lane: RunDetail["lanes"][number] | undefined) => {
+    const same = lane ? (detail?.lanes.filter((l) => l.lane === lane.lane) ?? []) : [];
+    return lane && same.length > 1 ? same.indexOf(lane) + 1 : undefined;
+  };
   const toggle = (key: string) => {
     const next = new Set(open);
     if (!next.delete(key)) next.add(key);
@@ -156,6 +174,18 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
       />
       {detail && !deciding ? <Waits detail={detail} runId={row.id} nameOf={nameOf} /> : null}
 
+      {detail && lead ? (
+        <Lead
+          item={lead}
+          detail={detail}
+          lane={first}
+          name={nameOf(first?.lane ?? "")}
+          round={roundOf(first)}
+          runId={row.id}
+          proof={proof}
+          show={show}
+        />
+      ) : null}
       {floor ? (
         <div className="runmap">
           <div className="map-scroll" ref={scroller}>
@@ -223,34 +253,36 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
       {problem ? <p className="quiet">{problem}</p> : null}
       {detail ? (
         <>
-          <div className="block">
-            <h3>What each lane did</h3>
-            <ol className="visits">
-              {detail.lanes.map((lane) => (
-                <li
-                  key={lane.id}
-                  ref={(node) => {
-                    if (node) blocks.current.set(lane.lane, node);
-                  }}
-                >
-                  <LaneVisit
-                    lane={lane}
-                    name={nameOf(lane.lane)}
-                    round={
-                      detail.lanes.filter((l) => l.lane === lane.lane).length > 1
-                        ? detail.lanes.filter((l) => l.lane === lane.lane).indexOf(lane) + 1
-                        : undefined
-                    }
-                    runId={row.id}
-                    files={detail.files}
-                    proof={proof}
-                    show={show}
-                  />
-                </li>
-              ))}
-            </ol>
-            {detail.lanes.length === 0 ? <p className="quiet">This run has not entered a lane yet.</p> : null}
-          </div>
+          {lead && detail.lanes.length < 2 ? null : (
+            <div className="block">
+              <h3>What each lane did</h3>
+              <ol className="visits">
+                {detail.lanes
+                  .filter((lane) => lane !== first)
+                  .map((lane) => (
+                    <li
+                      key={lane.id}
+                      ref={(node) => {
+                        if (node) blocks.current.set(lane.lane, node);
+                      }}
+                    >
+                      <LaneVisit
+                        lane={lane}
+                        name={nameOf(lane.lane)}
+                        round={roundOf(lane)}
+                        runId={row.id}
+                        files={detail.files}
+                        proof={proof}
+                        show={show}
+                      />
+                    </li>
+                  ))}
+              </ol>
+              {detail.lanes.length === 0 ? (
+                <p className="quiet">This run has not entered a lane yet.</p>
+              ) : null}
+            </div>
+          )}
 
           <div className="block">
             <h3>What it changed</h3>
