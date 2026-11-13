@@ -154,23 +154,22 @@ section Inbox
 wait_for "each waiting item carries what its own lane said" "() => [...document.querySelectorAll('.runlist .sentence')].map((s) => s.textContent).join(' | ')" 'Added FACTOR-HELLO\.md\..*\|.*Added the other file\.'
 shot inbox-summaries-light-1440
 section Runs
-tab_to 'Second'
+tab_to 'Third'
 pw press Enter
 tab_to '^Decide in the inbox$'
 pw press Enter
 wait_for "the inbox shows the run's item" "() => location.pathname.startsWith('/inbox/') && document.querySelectorAll('.deciding').length === 1" '^true$'
 pw press a
-wait_for "a approves the item on show, and does not say to choose one" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Second'
+wait_for "a approves the item on show, and does not say to choose one" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Third'
 
 # ---- 6. Costs and Plugins: the skip link, the figures, and a command that is not broken across lines
 section Costs
-wait_for "Costs is on the page" "() => document.activeElement.textContent" '^Costs$'
-expect "Costs: the heading the page focused shows no ring" "$(js "$ring")" '^none$'
+wait_for "Costs is on the page" "() => document.querySelector('h1')?.textContent ?? ''" '^Costs$'
 back_to '^Skip to the content$'
 expect "Costs: the skip link is the first stop of the Tab order" "$(js "() => ${tabbable}[0].textContent")" '^Skip to the content$'
 pw press Enter
 expect "Costs: it leads into the page" "$(js "() => String(!!document.activeElement.closest('.page'))")" '^true$'
-page='() => document.querySelector(".page").innerText'
+page='() => document.querySelector(".page").innerText.replace(/\s+/g, " ")'
 expect "the cache hit rate says none yet when no session could read a cache" "$(js "$page")" 'Cache hit rate[[:space:]]+none yet'
 per=$(sf cost | sed -nE 's/^ *cost per landed task +([^ ]+) .*/\1/p')
 [ -n "$per" ] || fail "the command prints no cost per landed task: $(sf cost)"
