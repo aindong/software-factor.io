@@ -96,6 +96,7 @@ wait_for "the stopped run's map is drawn" "() => document.querySelectorAll('.run
 expect "no text of the stopped run's map renders under 12 px at 390" "$(js "$map_text")" '^all [0-9]+ texts'
 expect "every station and the badge of the run's map is 44 by 44 px at least at 390" "$(hits '.runmap svg.map .station .hit, .runmap g.train .hit' 44 44)" '^ok$'
 wait_for "the lane that failed is in view" "$(in_view '.station.ran-fail')" '^in view$'
+wait_for "the stopped run's map says how many stations are out of sight to the right, as the Floor's does" "() => document.querySelector('.runmap .map-more')?.textContent ?? 'no cue'" '^[0-9]+ more stations? to the right$'
 unpainted "the stopped run's map"
 shot phone-stopped-light-390
 # ---- a waiting run, at phone width
