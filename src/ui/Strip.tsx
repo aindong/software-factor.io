@@ -12,6 +12,7 @@ export const STATE_WORD: Record<StopState, string> = {
   fail: "failed",
   asked: "asked a person",
   here: "at work",
+  stopped: "stopped",
 };
 
 /** The shape of one stop, around the origin. */

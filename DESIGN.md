@@ -228,7 +228,7 @@ Labels are in sentence case, not letter-spaced. More: `docs/interface.md`.
 
 The shell is exactly as high as the window (`100dvh`). Left, a navy rail 64px wide with the six sections
 (Floor, Runs, Inbox, Accounts, Plugins, Costs) and the theme button at its foot. Right, a top bar at least 48px
-high, then the screen. The rail and the top bar stay. Each part scrolls by itself: the map, the inspector, a
+high, then the screen. Each part scrolls by itself: the map, the inspector, a
 list, a detail, a plain page. The page never scrolls.
 
 | Token | Value | What it is for |
@@ -244,27 +244,24 @@ list, a detail, a plain page. The page never scrolls.
 - **Above 1000px.** The floor is the map with a 360px inspector beside it. Runs and Inbox are a list (320px to
   440px) and the detail side by side.
 - **Under 1000px.** The inspector is a sheet over the lower part of the map, at most half of its height, opened
-  by one tap on a station or by the "Workflow settings" button, shut by its Close button. Runs and Inbox show
+  by one tap on a station or by the "Workflow settings" button. Runs and Inbox show
   one at a time: the list, or the run that was entered, with a button back to the list. The inbox's decision
   bar moves to the bottom, after the proof.
 - **Under 760px.** The rail is a bar along the bottom. Controls are 44px high. Tables fit the width: nothing scrolls
   sideways but the map and a diff. The floor's controls fold behind Tools.
 
 The map never reflows: it is laid out from the workflow (124px between stations, 28px between tracks) and
-scrolls both ways in its own box. A run's map, which is only read, is drawn smaller to fit its box, down to
-seven tenths of its size, and scrolls after that.
+scrolls both ways in its own box. A run's map, which is only read, is never drawn smaller: it scrolls sideways and
+says how many stations are out of sight. Targets: 24px, 44px under 760px.
 
 ### Not built
 
-- **The strip of running runs along the bottom of the floor.** The Runs section is that list, and "Runs on map"
-  puts a numbered train on the lane of each working or waiting run.
-- **A time scrubber in that strip.** It is the "Replay" range input under a run's map.
 - **Sizes that follow the default font.** The rail, the inspector and the map's label offsets are in px. Page zoom
   works; a larger default font breaks the map.
 
 ## Elevation & Depth
 
-Flat, like print: panel tone and 1px rules. The one shadow (`--shadow`) is under the inspector when it is a sheet. Nothing else has one.
+Flat, like print: panel tone and 1px rules. The one shadow (`--shadow`) is under the inspector when it is a sheet.
 
 ### Named Rules
 
@@ -285,7 +282,7 @@ Lines of one outcome that lead to the same station run together.
 | Disc, through blue | Passed. |
 | Diamond, return vermilion | Failed. |
 | Square, signal yellow with a 1.5px ink border | Asks a person. |
-| Ring | Not reached. With an ink border: the run is here. |
+| Ring | Not reached, on hold, or stopped by a person. With an ink border: the run is here. |
 | Capsule station (40px by 22px) | A person approves here. |
 | Short bars across the line after a station (3px by 18px, end grey) | Its gates. |
 
@@ -345,7 +342,7 @@ it. The tab's title carries the count and how many work; its icon, a yellow mark
 ### The Floor: the line diagram, the inspector and the JSON view
 
 A selected or focused station has a 2px ink ring. Its blue and vermilion handles (5px) show when it is under
-the pointer or selected, and a drag from one draws a new line. The legend under the map names every line, shape and key. The inspector is on the panel tone with a 1px rule at its left, its parts divided by rules, and
+the pointer or selected, and a drag from one draws a new line. Under the map a strip lists the runs at work and the queued tasks, each with a Run button; the legend names every line, shape and key. In the top bar only the count that waits for you is ink at weight 600, and Undo, Revert and Save show once there is a change. The inspector is on the panel tone with a 1px rule at its left, its parts divided by rules, and
 each route in it carries a swatch of its line's colour. The JSON view is one text area on the ground. Problems are a list, each after a 7px vermilion diamond, with the fix under it in ink soft.
 
 ### Runs: the list, the strip map, one run
@@ -354,7 +351,7 @@ A row: the state mark, the task's number in an ink capsule, the task, when, what
 sentence. The selected row is on the panel tone. The strip map is 18px high: a 2px rule-coloured line with one
 stop for each lane, and a small outlined capsule around the stop the run is at.
 
-One run: the heading, one sentence, the facts on one line, then its map in a 1px rule frame with "Replay"
+One run: the heading, what waits for you (once, first), one sentence, the facts on one line, then its map in a 1px rule frame with "Replay"
 under it on the panel tone. Each proof is a row that opens: an edge border shut, an ink border open, several
 at once. A claim's reference is a small tag with a mark that says whether the host checked it. Output is on
 the panel tone.
@@ -367,13 +364,14 @@ and after, on a checker of panel and ground so a see-through picture shows its e
 
 The list and detail of Runs. Above the detail, on the panel tone: what is asked, the buttons (Approve or
 Answer in yellow, the others quiet, each with its key), a box for a note where needed, and what the factory
-answered in the data style. A refusal is in ink after a vermilion diamond.
+answered in the data style. A refusal is in ink after a vermilion diamond. The line on what approving
+starts is weight 400; before a command lane, what it does follows.
 
 ### Accounts, Costs and Plugins: plain pages
 
 One scrolling column, 24px between blocks, text held to 72ch. Tables have 28px rows divided by 1px rules,
 heads in the label style, numbers right-aligned in tabular numerals. The three Costs tables share their
-columns. A list of names is a row of small tags (rule border, 3px radius). Accounts draws logins' limits as meters.
+columns. A list of names is a row of small tags (rule border, 3px radius). Accounts draws logins' limits as meters, the one near its limit darkest.
 Under 760px its roles are a block each, each field under its label.
 
 ## Do's and Don'ts
@@ -381,7 +379,6 @@ Under 760px its roles are a block each, each field under its label.
 ### Do:
 
 - **Do** keep the named rules above. They are tested.
-- **Do** keep a new screen inside the window: its parts scroll, the page does not.
 - **Do** add a pair to `test/unit/contrast.test.ts` when text or a shape lands on a new ground.
 
 ### Don't:

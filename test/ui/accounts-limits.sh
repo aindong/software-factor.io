@@ -93,6 +93,9 @@ expect "work, at 92% of a window, is marked near a limit" "$w" 'Near a limit'
 expect "spare is marked on hold" "$(js "$(block spare)")" 'On hold'
 expect "spare, under 90% of every window, is not marked near a limit" "$(js "() => (($(block spare))()).includes('Near a limit')")" '^false$'
 
+expect "near a limit and on hold carry the neutral mark, not the mark of a failure" "$(js "() => [...document.querySelectorAll('.page .flag, .page .window .said')].filter((f) => /Near a limit|On hold|9[0-9]% used/.test(f.textContent)).map((f) => f.querySelector('.mark')?.className ?? 'no mark').join(' | ')")" '^(mark [|] )*mark$'
+expect "a reading that could not be read keeps the mark of a failure" "$(js "() => [...document.querySelectorAll('.page .flag')].filter((f) => /could not be read/.test(f.textContent)).map((f) => f.querySelector('.mark')?.className).join(' | ')")" '^mark fail'
+expect "the window near its limit is the one the eye lands on: its percent is heavier than a window with room's" "$(js "() => { const row = (n) => [...document.querySelectorAll('.page .window')].find((w) => w.textContent.includes(n)); const weight = (n) => Number(getComputedStyle(row(n).querySelector('strong')).fontWeight); return weight('92% used') > weight('73% used') ? 'stands out' : 'alike'; }")" '^stands out$'
 # ---- 5. a failed reading says why, Codex says it reports nothing, and the rest still shows
 expect "the failed reading says why" "$(js "$(block broken)")" 'could not be read.*Not logged in'
 expect "Codex says in plain words that it reports nothing" "$(js "$(block other)")" 'Codex[^.]*model call'

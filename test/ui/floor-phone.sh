@@ -60,11 +60,12 @@ to_fold() { # Tab or Shift+Tab until the keyboard is on the button that folds th
 start_ui 0
 pw open "$address" || fail "the browser did not open"
 
-# 1. at desk width nothing is folded: the controls are in the top bar, and no button folds them
+# 1. at desk width the view's controls are in the top bar and the Tools fold is not there; the editing
+# controls (the three kinds of lane, Undo, Revert, Save) are folded until they are needed (floor-bar.sh)
 pw resize 1440 900
 wait_for "the workflow is drawn" "() => document.querySelectorAll('.station.lane').length" '^6$'
-expect "no button folds the controls at desk width" "$(js "() => (${shown})(${fold})")" '^false$'
-reach "at desk width" Diagram JSON "Runs on map" Agent Command Wait
+expect "no Tools button at desk width" "$(js "() => [...document.querySelectorAll('.topbar .phone-only')].some((e) => (${shown})(e))")" '^false$'
+reach "at desk width" Diagram JSON "Runs on map" "Add a lane"
 expect "no cue at desk width, where the map fits" "$(js "() => document.querySelector('.map-more') === null")" '^true$'
 expect "the key hints show at desk width" "$(js "() => [...document.querySelectorAll('.legend kbd')].some((k) => k.getClientRects().length > 0)")" '^true$'
 

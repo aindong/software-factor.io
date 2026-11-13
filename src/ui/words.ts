@@ -10,7 +10,9 @@ export function standing(run: RunRow): { mark: string; word: string } {
       : { mark: "moving", word: "Waits by itself" };
   }
   if (run.status === "done") return { mark: "pass", word: "Done" };
-  return run.status === "stopped" ? { mark: "fail", word: "Stopped" } : { mark: "none", word: "Dropped" };
+  if (run.status !== "stopped") return { mark: "none", word: "Dropped" };
+  // a person stopped it: that is not a failure, and the diamond means a failure only
+  return { mark: run.stopCode === "stopped_by_person" ? "stopped" : "fail", word: "Stopped" };
 }
 
 /** A run's sentence, unless it only repeats the state that stands beside it ("Done."). */

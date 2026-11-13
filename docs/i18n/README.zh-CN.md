@@ -123,7 +123,7 @@ softwarefactor role bind author --account work --large opus --medium sonnet
 - [账号、角色与防护](../accounts.md)，以及[通道的技能与服务器](../skills-and-servers.md)。
 - [交接](../handoff.md)与[评审小组](../panels.md)。
 - [记忆与 factor 服务器](../memory.md)。
-- [界面](../interface.md)。
+- [界面](../interface.md)，以及[其中的运行](../interface-runs.md)。
 - [操作](../operations.md)：界面、命令行和你自己的智能体共用同一组动作。
 - [分享工作流](../sharing.md)：导出与导入。
 - [自主性阶梯](../ladder.md)与[复盘和经验教训](../retros.md)。

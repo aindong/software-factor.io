@@ -13,7 +13,9 @@ import { failingGate, gateWhat } from "./gates.ts";
 import { LaneVisit, stateOf } from "./LaneVisit.tsx";
 import { Lead, leadKeys } from "./Lead.tsx";
 import { leadLane } from "./lead.ts";
+import { MapScroll } from "./MapScroll.tsx";
 import { RunHeader, Waits } from "./RunHeader.tsx";
+import { reveal } from "./reveal.ts";
 import { STATE_WORD } from "./Strip.tsx";
 import { pageSays } from "./says.ts";
 
@@ -70,7 +72,11 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
     if (!view) return;
     const end = { done: "done", stopped: "stop", dropped: "drop" }[row.status as string];
     const place = () => {
-      const mark = view.querySelector(end ? `.station.end.${end}` : '.station[aria-label*=" is here"]');
+      // a stopped run starts at the lane that failed, a waiting one at the lane that waits
+      const failed =
+        row.status === "stopped" ? [...view.querySelectorAll(".station.ran-fail")].at(-1) : undefined;
+      const mark =
+        failed ?? view.querySelector(end ? `.station.end.${end}` : '.station[aria-label*=" is here"]');
       const box = view.getBoundingClientRect();
       if (!mark || box.width === 0) return;
       const at = mark.getBoundingClientRect();
@@ -111,7 +117,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
   const stepWords =
     step === 0
       ? "Before the first lane"
-      : `Step ${step} of ${total}: ${nameOf(visit?.lane ?? "")} ${STATE_WORD[stateOf(visit?.outcome ?? null)]}`;
+      : `Step ${step} of ${total}: ${nameOf(visit?.lane ?? "")} ${STATE_WORD[stateOf(visit?.outcome ?? null, visit?.stopped)]}`;
   const roundOf = (lane: RunDetail["lanes"][number] | undefined) => {
     const same = lane ? (detail?.lanes.filter((l) => l.lane === lane.lane) ?? []) : [];
     return lane && same.length > 1 ? same.indexOf(lane) + 1 : undefined;
@@ -130,8 +136,18 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
   // what a gate checks is the gate's own description in the workflow the run ran on
   const what = (gate: string) => gateWhat(detail?.kept ?? (row.own ? undefined : workflow), gate);
   // the gate the run stopped on: the latest lane that failed on one
-  const stoppedOn = detail?.lanes.findLast((l) => failingGate(l));
+  const stoppedOn = detail?.lanes.findLast((l) => !l.stopped && failingGate(l));
   const stopGate = stoppedOn && failingGate(stoppedOn);
+  // a run that stopped on a gate opens on its failure: that lane's evidence, and the gate's output, open
+  const failure =
+    !lead && row.status === "stopped" && stoppedOn === detail?.lanes.at(-1) ? stoppedOn : undefined;
+  const failed = failure ? `${row.id}:${failure.id}` : "";
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once for each lane that failed
+  useEffect(() => {
+    if (!failure || !stopGate || opened.current === failed) return;
+    opened.current = failed;
+    setOpen((now) => new Set([...now, `lane:${failure.id}`, stopGate.output]));
+  }, [failed]);
   // the diff is read for the references of a lane whose evidence is open: they lead to it when it has what they name
   const changed = useChanged(
     row.id,
@@ -140,13 +156,17 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
   );
   const showDiff = () => {
     setOpen(new Set(open).add("diff"));
-    requestAnimationFrame(() => proofs.current.get("diff")?.scrollIntoView({ block: "nearest" }));
+    reveal(() => proofs.current.get("diff"));
   };
   // what the page's first sentence says: a lane's card does not say it again
   const says = deciding || asking ? undefined : pageSays(row);
   const proof = (key: string) => ({
     open: open.has(key),
-    onToggle: () => toggle(key),
+    onToggle: () => {
+      // what is opened near the bottom of the page is brought into view, not left below the fold
+      if (!open.has(key)) reveal(() => proofs.current.get(key));
+      toggle(key);
+    },
     at: (node: HTMLDivElement | null) => {
       if (node) proofs.current.set(key, node);
       else proofs.current.delete(key);
@@ -177,7 +197,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
   const show = (path: string) => {
     const key = rowOf.get(path) ?? path;
     setOpen(new Set(open).add("attached").add(key));
-    requestAnimationFrame(() => proofs.current.get(key)?.scrollIntoView({ block: "nearest" }));
+    reveal(() => proofs.current.get(key));
   };
   const attached =
     groups.pairs.length +
@@ -200,8 +220,9 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
         gateWords={
           stopGate && what(stopGate.gate) ? { id: stopGate.gate, what: what(stopGate.gate) ?? "" } : undefined
         }
-      />
-      {detail && !deciding ? <Waits detail={detail} runId={row.id} nameOf={nameOf} /> : null}
+      >
+        {detail && !deciding ? <Waits detail={detail} runId={row.id} nameOf={nameOf} /> : null}
+      </RunHeader>
 
       {detail && lead ? (
         <Lead
@@ -220,7 +241,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
       ) : null}
       {floor ? (
         <div className="runmap">
-          <div className="map-scroll" ref={scroller}>
+          <MapScroll boxRef={scroller}>
             <Diagram
               floor={floor}
               selected={station}
@@ -250,7 +271,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                   : []
               }
             />
-          </div>
+          </MapScroll>
           <label className="scrub">
             <span className="label">Replay</span>
             <input

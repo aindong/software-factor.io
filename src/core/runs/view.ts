@@ -12,7 +12,9 @@ import { drawable } from "../floor/layout.ts";
 import { readObject, readTail } from "../safe-read.ts";
 import type { GateRecord, InboxItem, Outcome, Run, Session } from "../store.ts";
 import { factorHome, workspaceId } from "../workspace.ts";
+import { type LaneDef, laneReader } from "./lanes.ts";
 import { activityOf, type Now, sentenceOf } from "./sentence.ts";
+import { stoppedVisit } from "./stopped.ts";
 import { kindOf } from "./track.ts";
 
 const MOST = 50;
@@ -20,7 +22,6 @@ const TAIL = 64_000;
 const FAR_TAIL = 4_000_000;
 const MAX_FILE = 50_000_000;
 const MAX_DIFF = 1_000_000;
-const NAME = /^[a-z][a-z0-9-]*$/;
 const MAX_GIT = 8_000_000;
 const GIT_MS = 10_000;
 // a full id only: a shorter word could be the name of a branch an agent made
@@ -37,7 +38,7 @@ export interface RunRow {
   reason: string | null;
   startedAt: string;
   endedAt: string | null;
-  visits: { lane: string; outcome: Outcome | null }[];
+  visits: { lane: string; outcome: Outcome | null; stopped?: true }[];
   /** The lanes of the workflow the run is drawn on, in order, by the names people see: the stops of its strip map. */
   stops: { id: string; name: string }[];
   /** Whether that is the workflow as it was when the run started. False: it is today's, the run's own was not kept. */
@@ -69,6 +70,8 @@ export interface RunDetail extends RunRow {
     id: number;
     lane: string;
     outcome: Outcome | null;
+    /** A person stopped this lane: its outcome is a failure in the record, but it did not fail. */
+    stopped?: true;
     note: string | null;
     tokens: number;
     usd: number;
@@ -121,7 +124,6 @@ type LaneRow = {
   usd: number;
   duration_ms: number;
 };
-type LaneDef = { id: string; name?: string; uses?: string; gates?: string[]; panel?: unknown };
 
 const all = <T>(db: Db, sql: string, ...args: (string | number)[]) =>
   db.prepare(sql).all(...args) as unknown as T[];
@@ -133,26 +135,6 @@ const parsed = <T>(text: string | null, otherwise: T): T => {
     return otherwise;
   }
 };
-
-/** Reads each workflow's lanes once, as far as they can be read. */
-function laneReader(root: string): (workflow: string) => LaneDef[] {
-  const known = new Map<string, LaneDef[]>();
-  return (workflow) => {
-    let lanes = known.get(workflow);
-    if (!lanes) {
-      lanes = [];
-      try {
-        const file = join(root, ".factor", "workflows", `${workflow}.json`);
-        if (NAME.test(workflow))
-          lanes = (drawable(JSON.parse(readFileSync(file, "utf8")))?.lanes ?? []) as LaneDef[];
-      } catch {
-        // the workflow is gone or broken: lanes go by their ids
-      }
-      known.set(workflow, lanes);
-    }
-    return lanes;
-  };
-}
 
 /**
  * What the open lane of a moving run is busy with, from what happened since the lane was entered:
@@ -238,6 +220,7 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
   // the lanes as the run knew them: a workflow changed since must not rename or redraw what the run did
   const kept = drawable(keptWorkflow(root, run.id))?.lanes as LaneDef[] | undefined;
   const lanes = kept ?? lanesOf(run.workflow);
+  const stopped = stoppedVisit(run.stop_code, visits);
   const def = lanes.find((l) => l.id === at);
   const now: Now = {
     status: run.status,
@@ -283,7 +266,11 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
     reason: run.stop_reason,
     startedAt: run.started_at,
     endedAt: run.ended_at,
-    visits: visits.map((v) => ({ lane: v.lane, outcome: v.outcome })),
+    visits: visits.map((v) => ({
+      lane: v.lane,
+      outcome: v.outcome,
+      ...(v.id === stopped ? { stopped: true as const } : {}),
+    })),
     stops: lanes.map((l) => ({ id: l.id, name: l.name ?? l.id })),
     own: kept !== undefined,
     at,
@@ -338,7 +325,9 @@ export function runDetail(db: Db, root: string, id: string): RunDetail | undefin
   if (!run) return undefined;
   const named = new Map<string, { name: string; visit: number }>();
   const files = evidenceFiles(root, id);
-  const lanes = all<LaneRow>(db, "select * from lane_runs where run_id = ? order by seq, id", id).map((l) => {
+  const rows = all<LaneRow>(db, "select * from lane_runs where run_id = ? order by seq, id", id);
+  const stopped = stoppedVisit(run.stop_code, rows);
+  const lanes = rows.map((l) => {
     const gates = all<GateRecord>(db, "select * from gate_results where lane_run_id = ? order by id", l.id);
     const claims = all<{ text: string; evidence: string }>(
       db,
@@ -356,6 +345,7 @@ export function runDetail(db: Db, root: string, id: string): RunDetail | undefin
       id: l.id,
       lane: l.lane,
       outcome: l.outcome,
+      ...(l.id === stopped ? { stopped: true as const } : {}),
       note: l.note,
       tokens: l.tokens,
       usd: l.usd,

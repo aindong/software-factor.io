@@ -121,7 +121,7 @@ Para usar uno, cópialo de `workflows/` a `.factor/workflows/`, nómbralo en `.f
 - [Cuentas, roles y la guarda](../accounts.md), y [skills y servidores en un carril](../skills-and-servers.md).
 - [El traspaso](../handoff.md) y [los paneles](../panels.md).
 - [La memoria y el servidor factor](../memory.md).
-- [La interfaz](../interface.md).
+- [La interfaz](../interface.md), y [sus ejecuciones](../interface-runs.md).
 - [Operaciones](../operations.md): las mismas acciones para la interfaz, la línea de comandos y tu propio agente.
 - [Compartir un flujo de trabajo](../sharing.md): exportar e importar.
 - [La escalera de autonomía](../ladder.md) y [retrospectivas y lecciones](../retros.md).

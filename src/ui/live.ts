@@ -1,13 +1,15 @@
 // The list of runs, kept up to date by the server. One connection for the whole page, shared by
 // every screen that shows runs and by the rail's count, and open only while one of them is shown.
 import { useSyncExternalStore } from "react";
-import { hasKey, listen, type RunRow } from "./api.ts";
+import { hasKey, listen, type Queued, type RunRow } from "./api.ts";
 
 interface Live {
   runs: RunRow[] | undefined;
+  /** The tasks waiting for a run, oldest first. */
+  queued: Queued[];
   live: boolean;
 }
-let now: Live = { runs: undefined, live: true };
+let now: Live = { runs: undefined, queued: [], live: true };
 const listeners = new Set<() => void>();
 let stop: (() => void) | undefined;
 const set = (change: Partial<Live>) => {
@@ -19,7 +21,7 @@ function subscribe(tell: () => void): () => void {
   // a page with no key is refused, and a refusal loads the page again: it would never end
   if (hasKey)
     stop ??= listen(
-      (runs) => set({ runs }),
+      (runs, queued) => set({ runs, queued }),
       (live) => set({ live }),
     );
   return () => {

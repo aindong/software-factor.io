@@ -7,6 +7,7 @@ import type { CostLine } from "../core/views.ts";
 import { op } from "./api.ts";
 import { figures } from "./costs-figures.ts";
 import { useRuns } from "./live.ts";
+import { go } from "./route.ts";
 import { Breakable, Coded } from "./Words.tsx";
 import { dollars } from "./words.ts";
 import "./runs.css";
@@ -14,6 +15,12 @@ import "./sections.css";
 
 const whole = new Intl.NumberFormat("en-US");
 const amount = (line: CostLine) => (line.usd === null ? "not known" : dollars(line.usd));
+
+const day = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+/** What the totals cover: every session recorded, from the day of the first to the day of the last. */
+const period = ({ from, to }: { from: string; to: string }) =>
+  day(from) === day(to) ? `all sessions, on ${day(from)}` : `all sessions, ${day(from)} to ${day(to)}`;
 
 function Table({
   title,
@@ -98,12 +105,13 @@ export function Costs() {
         <div className="where">
           <h1>Costs</h1>
           {total ? (
-            <span>
+            <span className="total">
               {whole.format(total.tokens)} tokens,{" "}
               <span title={total.usd === null ? undefined : money(total.usd)}>{amount(total)}</span>
               {total.unknown > 0 && total.usd !== null ? `, and ${total.unknown} of unknown cost` : ""}
             </span>
           ) : null}
+          {costs?.period ? <span className="quiet">{period(costs.period)}</span> : null}
         </div>
       </div>
       <div className="page">
@@ -140,7 +148,17 @@ export function Costs() {
                 name: `${t.task} (${t.runs.join(", ")})`,
                 shown: (
                   <>
-                    <Coded sentence={t.task} /> ({t.runs.join(", ")})
+                    {/* the task leads to its latest run */}
+                    <a
+                      href={`/runs/${encodeURIComponent(t.runs.at(-1) ?? "")}`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        go(`/runs/${encodeURIComponent(t.runs.at(-1) ?? "")}`);
+                      }}
+                    >
+                      <Coded sentence={t.task} />
+                    </a>{" "}
+                    ({t.runs.join(", ")})
                   </>
                 ),
               }))}
