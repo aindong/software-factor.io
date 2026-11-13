@@ -137,6 +137,9 @@ const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.workflow = name
 hits() { # hits <selector> <least width> <least height>: every hit area that matches is at least so large
   js "() => { const r = [...document.querySelectorAll('$1')].map((e) => e.getBoundingClientRect()); if (r.length === 0) return 'none found'; const s = r.filter((b) => b.width < $2 - 0.5 || b.height < $3 - 0.5); return s.length === 0 ? 'ok' : s.map((b) => Math.round(b.width) + 'x' + Math.round(b.height)).join(' ') + ' too small'; }"
 }
+unpainted() { # no hit area of a map paints anything: it is there to be pressed, not seen
+  expect "$1: no hit area is painted" "$(js "() => { const bad = [...document.querySelectorAll('svg.map .hit')].filter((e) => { const c = getComputedStyle(e); return !(c.fill === 'none' || /^rgba\\(0, 0, 0, 0\\)$|^transparent$/.test(c.fill) || c.fillOpacity === '0') || !(c.stroke === 'none' || c.strokeOpacity === '0'); }); return bad.length ? bad.length + ' painted' : 'none'; }")" '^none$'
+}
 centres_free() { # no hit area of a map covers the centre of another's
   expect "$1: no hit area covers the centre of another" "$(js "() => { const r = [...document.querySelectorAll('svg.map .hit')].map((e) => e.getBoundingClientRect()); const out = []; for (const [i, a] of r.entries()) for (const [j, b] of r.entries()) { const [x, y] = [a.x + a.width / 2, a.y + a.height / 2]; if (i !== j && x > b.left && x < b.right && y > b.top && y < b.bottom) out.push(i + ' covers ' + j); } return out.length ? out.join(', ') : 'free'; }")" '^free$'
 }

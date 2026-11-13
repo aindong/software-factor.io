@@ -284,7 +284,12 @@ a.button {
 .map .station.ran-asked .mark {
   stroke: var(--signal-ink);
 }
-.map .train rect {
+/* the badge itself: its hit area, a rect too, is styled apart and paints nothing */
+.map .train .hit {
+  fill: transparent;
+  stroke: none;
+}
+.map .train rect:not(.hit) {
   fill: var(--ink);
   stroke: var(--ground);
   stroke-width: 2;
@@ -294,7 +299,7 @@ a.button {
   font: var(--w-strong) var(--text-label) / 1 var(--font);
   font-variant-numeric: tabular-nums;
 }
-.map .train.asks rect {
+.map .train.asks rect:not(.hit) {
   fill: var(--signal);
   stroke: var(--ink);
   stroke-width: 1.5;
