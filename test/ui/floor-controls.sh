@@ -88,6 +88,25 @@ pw resize 390 844
 expect "at phone width the mark is there too" "$(js "() => document.querySelectorAll('.topbar .needs .mark.asked').length")" '^1$'
 pw resize 1440 900
 
+# ---- F6: the switch's selected half is quiet (panel fill, ink text at 600, a 2px ink line under it), so with a
+# change pending Save is the one ink fill; the halves are 44 px high at phone width
+tab_to '^Lane Build'
+pw press Enter
+tab_to '^Instructions'
+pw type " Say what could break."
+expect "a change is pending" "$(js "() => document.querySelector('.topbar .status').textContent")" '^Not saved$'
+loud='() => [...document.querySelectorAll("button, a.button, [role=button]")].filter((b) => !b.disabled && b.getClientRects().length > 0 && getComputedStyle(b).backgroundColor === getComputedStyle(document.querySelector(".button.primary")).backgroundColor).map((b) => b.textContent.trim()).join(" | ")'
+selected='() => { const b = document.querySelector(".segmented button[aria-pressed=true]"); const o = document.querySelector(".segmented button[aria-pressed=false]"); const c = getComputedStyle(b), q = getComputedStyle(o), root = getComputedStyle(document.body); return [c.fontWeight, c.borderBottomWidth, c.borderBottomColor === c.color ? "line in ink" : "line " + c.borderBottomColor, c.backgroundColor === getComputedStyle(document.querySelector(".inspector")).backgroundColor ? "panel" : "not panel", q.fontWeight, q.borderBottomWidth, q.color === c.color ? "same colour" : "softer"].join(" "); }'
+pw resize 1440 900
+expect "the selected half: weight 600, a 2px ink line, panel fill; the other: 400, no line, softer ink" "$(js "$selected")" '^600 2px line in ink panel 400 0px softer$'
+expect "at desk width Save is the only ink fill" "$(js "$loud")" '^Save$'
+pw resize 390 844
+expect "at phone width Save is the only ink fill" "$(js "$loud")" '^Save$'
+back_to '^Tools$'
+pw press Enter
+expect "at phone width each half of the switch is at least 44 px high" "$(js "() => [...document.querySelectorAll('.segmented button')].every((b) => b.getBoundingClientRect().height >= 43.5)")" '^true$'
+pw resize 1440 900
+
 # ---- the end: nothing waits, so no yellow in the line of counts
 sf approve "$waiting" > "$work/approve.log" 2>&1 || fail "approve: $(cat "$work/approve.log")"
 wait_for "nothing waits any more" "$needs" '^1 queued$|^no line$'
