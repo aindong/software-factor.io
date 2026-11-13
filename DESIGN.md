@@ -195,7 +195,7 @@ must be seen: at least 3:1 on ground and on panel.
 
 **The Contrast Rule.** `test/unit/contrast.test.ts` holds the palette in both themes to 4.5:1 for text and 3:1
 for shapes and lines. Two things are deliberately not held to it: the text of a disabled control (end grey),
-and the lines and end marks that step back to opacity 0.28 while a run is drawn over the map. Their labels turn end grey, which still reads at 3 to 1.
+and the lines and end marks that step back to opacity 0.28 while a run is drawn over the map. Their labels take quiet ink and read at 4.5 to 1.
 
 ## Typography
 
