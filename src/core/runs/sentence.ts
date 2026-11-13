@@ -192,7 +192,8 @@ function words(now: Now): string {
 }
 
 /** What a stopped or dropped run says once its task is queued again: the page shows the sentence without it. */
-export const QUEUED = "Its task is queued again: `softwarefactor run` starts it.";
+export const QUEUED =
+  "Its task is queued again: the Run button on the Floor or `softwarefactor run` starts it.";
 
 /** One line of at most 160 characters that says where the run is and what is happening. */
 // What a lane said last may be an address, and a full stop glued to it would break it.

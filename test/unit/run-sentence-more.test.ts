@@ -6,15 +6,19 @@ describe("a run whose task is queued again", () => {
   it("says so, and what starts it, after why it ended", () => {
     expect(
       sentenceOf({ status: "stopped", stopCode: "lane_failed", reason: "a test is red", queued: true }),
-    ).toBe("Stopped: a test is red. Its task is queued again: `softwarefactor run` starts it.");
+    ).toBe(
+      "Stopped: a test is red. Its task is queued again: the Run button on the Floor or `softwarefactor run` starts it.",
+    );
     expect(sentenceOf({ status: "dropped", reason: "a duplicate", queued: true })).toBe(
-      "Dropped: a duplicate. Its task is queued again: `softwarefactor run` starts it.",
+      "Dropped: a duplicate. Its task is queued again: the Run button on the Floor or `softwarefactor run` starts it.",
     );
   });
   it("keeps that part whole when the reason is long", () => {
     const said = sentenceOf({ status: "stopped", reason: "word ".repeat(80), queued: true });
     expect(said.length).toBeLessThanOrEqual(160);
-    expect(said).toMatch(/Its task is queued again: `softwarefactor run` starts it\.$/);
+    expect(said).toMatch(
+      /Its task is queued again: the Run button on the Floor or `softwarefactor run` starts it\.$/,
+    );
   });
   it("says nothing of it for a run that is not over", () => {
     expect(sentenceOf({ status: "done", queued: true })).toBe("Done.");

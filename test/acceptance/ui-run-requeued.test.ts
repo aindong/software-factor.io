@@ -20,6 +20,8 @@ describe("a stopped run's row", () => {
     expect((await row())?.sentence).not.toMatch(/queued again/);
     expect(repo.sf("requeue", stopped).status).toBe(0);
     expect((await row())?.taskStatus).toBe("queued");
-    expect((await row())?.sentence).toMatch(/Its task is queued again: `softwarefactor run` starts it\.$/);
+    expect((await row())?.sentence).toMatch(
+      /Its task is queued again: the Run button on the Floor or `softwarefactor run` starts it\.$/,
+    );
   });
 });
