@@ -37,7 +37,7 @@ const workflow = {
   collectors: [{ id: "tasks", uses: "core/file@1", with: { path: ".factor/tasks.md" } }],
   gates: { verify: { uses: "core/command@1", with: { command: "verify" }, onFail: "fail" } },
   lanes: [
-    { id: "sort", name: "Sort", uses: "core/command@1", with: { run: "true" }, on: { pass: "build", fail: "@stop" } },
+    { id: "sort", name: "Sort", uses: "core/command@1", with: { run: "true" }, checkpoint: "near", on: { pass: "build", fail: "@stop" } },
     { id: "build", name: "Build", uses: "core/agent@1", agent: { role: "author", access: "write", prompt: "Build it." },
       gates: ["verify"], checkpoint: "out", on: { pass: "ship", fail: "@stop" } },
     { id: "ship", name: "Ship it", uses: "core/command@1", with: { run: "true" }, checkpoint: "in", on: { pass: "@done", fail: "@stop" } },
