@@ -8,7 +8,7 @@ import { parseWorkflow } from "../core/schema/parse.ts";
 import { forgetKey, getWorkflow, getWorkspace, type Json, saveWorkflow, type WorkspaceInfo } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
 import { EditBar } from "./EditBar.tsx";
-import { useFloorKeys } from "./floorKeys.ts";
+import { settle, useFloorKeys } from "./floorKeys.ts";
 import { Inspector } from "./Inspector.tsx";
 import { Ladder } from "./Ladder.tsx";
 import { AddLane, caretToLane, Fold, Legend, trainsOf } from "./Legend.tsx";
@@ -200,6 +200,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
         setTheirs(undefined);
         setNotice(undefined);
         setSavedAt(new Date().toISOString());
+        settle(); // Save is about to be off: the keyboard stays on the floor
         field.current = { at: null, when: 0 }; // typing after a save is a new step
         typed.current = false;
         return;
@@ -292,7 +293,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
           <button type="button" className="button narrow-only" onClick={() => open(undefined)}>
             Workflow settings
           </button>
-          <fieldset className="segmented">
+          <fieldset className="segmented view">
             <legend className="sr">View</legend>
             <button type="button" aria-pressed={view === "diagram"} onClick={() => setView("diagram")}>
               Diagram

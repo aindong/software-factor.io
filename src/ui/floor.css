@@ -256,17 +256,7 @@
   align-items: center;
   gap: var(--sm);
 }
-.inspector .route select {
-  width: 100%;
-  min-height: var(--row);
-  padding: 2px var(--sm);
-  border: 1px solid var(--edge);
-  border-radius: var(--control);
-  background: var(--ground);
-}
-.inspector .route select:hover {
-  border-color: var(--ink-soft);
-}
+/* the route selects are fields like the others (class field on the label): one look for every select of the panel */
 .inspector .route .label {
   display: inline-flex;
   align-items: center;
@@ -415,6 +405,11 @@
   .floor[data-sheet="true"] .map-scroll {
     padding-bottom: 50vh;
   }
+  /* the strip and the key are under the sheet while it is open: not drawn, so they cannot spill past the floor onto the rail */
+  .floor[data-sheet="true"] .queue,
+  .floor[data-sheet="true"] .legend {
+    display: none;
+  }
 }
 @media (min-width: 1001px) {
   .inspector .close {
@@ -474,6 +469,10 @@
   color: var(--ink);
   font-weight: var(--w-heading);
 }
+/* the yellow square the Runs list uses for "Waits for you": a person is needed, so yellow is allowed; with none waiting there is no square */
+.topbar .needs .mark {
+  margin-right: 6px;
+}
 @media (max-width: 760px) {
   .topbar .needs a {
     padding-block: 13px;
@@ -526,6 +525,10 @@
 .queue .task {
   color: var(--ink);
 }
+/* the working run's link is a target of the row's height (24 px or more at desk width, 44 at phone width) and looks as it did: its line is as tall as the row */
+.queue li > a {
+  line-height: var(--row);
+}
 .queue .state {
   font-size: var(--text-label);
 }
@@ -541,5 +544,31 @@
   .map-side .map:not(.overlaid) {
     width: max(calc(var(--w) * 1px), min(100%, calc(var(--w) * 1.5px)));
     height: auto;
+  }
+}
+/* the Diagram and JSON switch: the selected half is quiet (panel fill, ink at 600, a 2px ink line under it), so that Save is the only ink fill */
+.segmented.view button {
+  min-height: calc(var(--row) - 2px); /* with the frame, the height of the buttons beside it */
+  background: var(--ground);
+  color: var(--ink-soft);
+  font-weight: var(--w-text);
+}
+.segmented.view button[aria-pressed="true"],
+.segmented.view button[aria-pressed="true"]:hover {
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: var(--w-heading);
+  border-bottom: 2px solid var(--ink);
+}
+.segmented.view button[aria-pressed="true"]:focus-visible {
+  outline-color: var(--ink);
+}
+/* at phone width each half is a target of 44 px; the frame's two pixels are taken back from its margin so the bar keeps its height */
+@media (max-width: 760px) {
+  .segmented.view {
+    margin-block: -1px;
+  }
+  .segmented.view button {
+    min-height: var(--row);
   }
 }
