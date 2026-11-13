@@ -20,6 +20,10 @@
   font-weight: var(--w-medium);
   overflow-wrap: anywhere;
 }
+/* what is decided reads first; what approving starts is a plainer line under it */
+.decide .asks.next {
+  font-weight: var(--w-text);
+}
 .decide .field {
   max-width: 72ch;
 }

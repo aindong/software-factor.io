@@ -104,6 +104,7 @@ wait_for "the command's description is under the bar" "$ahead" 'Pushes the run b
 expect "with the run's branch" "$(js "$ahead")" "$branch"
 expect "and the command's name" "$(js "$ahead")" 'ship'
 expect "it is under the buttons" "$(js "() => { const a = document.querySelector('.decide .ahead'); return !!(document.querySelector('.decide .choices').compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING); }")" '^true$'
+expect "what is decided reads before the line about what approving starts, which is quieter" "$(js "() => { const w = (e) => Number(getComputedStyle(e).fontWeight); const a = document.querySelector('.decide .asks:not(.next)'); const n = document.querySelector('.decide .asks.next'); return w(n) < w(a); }")" '^true$'
 expect "the one key stays" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve a \| Reject r$'
 shot inbox-ahead-light-1440
 pw resize 390 844
