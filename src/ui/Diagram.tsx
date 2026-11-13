@@ -145,6 +145,7 @@ const RAN: Partial<Record<StopState, { word: string; mark: string }>> = {
   fail: { word: "failed in this run", mark: "M-3.500-3.500l7 7M3.500-3.500l-7 7" },
   asked: { word: "asked a person in this run", mark: "M0-4.500v5M0 4v.01" },
   here: { word: "at work in this run", mark: "" },
+  stopped: { word: "stopped by a person in this run", mark: "M-4 0h8" },
 };
 
 export function Diagram({
