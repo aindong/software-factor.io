@@ -36,3 +36,9 @@
   border-bottom: 1px solid var(--rule);
   color: var(--ink-soft);
 }
+/* a finger needs 44 px */
+@media (max-width: 760px) {
+  .runfilter button {
+    min-height: var(--row);
+  }
+}
