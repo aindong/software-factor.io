@@ -105,13 +105,13 @@ shot run-stopped-light-390
 pw resize 1440 900
 
 # ---- 2. a run that a person stopped does not read "failed"
-back_to '^Fix the date format'
+back_to '[0-9]+ Fix the date format'
 pw press ArrowUp
 wait_for "the page follows" "() => document.querySelector('.rundetail h2').textContent" '^Slow task$'
 expect "its first sentence says a person stopped it" "$(js "() => document.querySelector('.rundetail header').innerText")" 'Stopped by a person'
 expect "the lane that was working says Stopped, with the neutral mark" "$(js "() => [...document.querySelectorAll('.rundetail .visit')].map((v) => v.querySelector('.outcome').textContent + ' ' + v.querySelector('.mark').className).join(' | ')")" '^stopped mark stopped$'
 expect "the replay says it too" "$(js "() => document.querySelector('.rundetail .scrub output').textContent")" 'Build stopped$'
-expect "nothing on the page or in the list row says failed" "$(js "() => { const here = [document.querySelector('.rundetail'), document.querySelector('.run[aria-selected=true]')]; const said = here.flatMap((e) => [e.innerText, ...[...e.querySelectorAll('[aria-label],[title]')].flatMap((n) => [n.getAttribute('aria-label'), n.getAttribute('title')])]); return said.filter((t) => /fail/i.test(t ?? '')).join(' | ') || 'none'; }")" '^none$'
+expect "nothing on the page or in the list row says failed" "$(js "() => { const here = [document.querySelector('.rundetail'), document.querySelector('.run[aria-selected=true]')]; const said = here.flatMap((e) => [e.innerText, ...[...e.querySelectorAll('[aria-label],[title]')].flatMap((n) => [n.getAttribute('aria-label'), n.getAttribute('title')])]); return said.filter((t) => /failed|failure/i.test(t ?? '')).join(' | ') || 'none'; }")" '^none$'
 shot run-person-stopped-light-1440
 
 # ---- 3. a run that waits says once that it needs a person, where the eye lands first

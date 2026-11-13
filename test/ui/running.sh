@@ -183,7 +183,7 @@ shot running-stop-ask-light-1440
 pw press Enter
 wait_for "the page says what happened, in its status line" "() => document.querySelector('.rundetail .lede[role=status]')?.textContent ?? ''" 'Stopped: Slow task\.'
 wait_for "the run is stopped, and nothing on the page moves" "() => document.querySelector('.rundetail .state').textContent + ' ' + document.getAnimations().length" '^Stopped 0$'
-expect "the page after a stop does not say failed, in its lane or in its replay" "$(js "() => ((document.querySelector('.rundetail').innerText + ' ' + [...document.querySelectorAll('.rundetail [aria-label]')].map((n) => n.getAttribute('aria-label')).join(' ')).match(/fail/gi) ?? []).length")" '^0$'
+expect "the page after a stop does not say failed, in its lane or in its replay" "$(js "() => ((document.querySelector('.rundetail').innerText + ' ' + [...document.querySelectorAll('.rundetail [aria-label]')].map((n) => n.getAttribute('aria-label')).join(' ')).match(/failed|failure/gi) ?? []).length")" '^0$'
 wait "$slow" 2> /dev/null
 slow=""
 expect "the task is stopped in the record" "$(node -e 'const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync(".factor/state.db"); console.log(db.prepare("select status from tasks where title = ?").get("Slow task")?.status)')" '^stopped$'

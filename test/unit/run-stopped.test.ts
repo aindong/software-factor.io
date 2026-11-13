@@ -3,14 +3,20 @@ import { describe, expect, it } from "vitest";
 import { stoppedVisit } from "../../src/core/runs/stopped.ts";
 import { trackOf } from "../../src/core/runs/track.ts";
 
-const visit = (id: number, outcome: "pass" | "fail" | null, note: string | null = null) => ({ id, outcome, note });
+const visit = (id: number, outcome: "pass" | "fail" | null, note: string | null = null) => ({
+  id,
+  outcome,
+  note,
+});
 
 describe("the visit a person stopped", () => {
   const person = "stopped_by_person";
   it("is the last one, when the run was stopped by a person and it ended in the stop's own words", () => {
     const visits = [visit(1, "pass"), visit(2, "fail", "stopped by a person")];
     expect(stoppedVisit(person, visits)).toBe(2);
-    expect(stoppedVisit(person, [visit(1, "fail", "stopped by a person, after its process had died")])).toBe(1);
+    expect(stoppedVisit(person, [visit(1, "fail", "stopped by a person, after its process had died")])).toBe(
+      1,
+    );
   });
   it("is none for a lane that failed on its own, in a run that was stopped by a person later", () => {
     expect(stoppedVisit(person, [visit(1, "fail", "gate verify failed")])).toBeUndefined();

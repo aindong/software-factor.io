@@ -18,7 +18,12 @@ export interface ProofProps {
   at: (node: HTMLDivElement | null) => void;
 }
 const OUTCOME = { pass: "pass", fail: "fail", needsPerson: "asked" } as const;
-export const stateOf = (outcome: keyof typeof OUTCOME | null) => (outcome ? OUTCOME[outcome] : "here");
+export const stateOf = (outcome: keyof typeof OUTCOME | null, stopped?: boolean) =>
+  stopped ? "stopped" : outcome ? OUTCOME[outcome] : "here";
+
+const GateMark = ({ status }: { status: string }) => (
+  <span className={`mark ${status === "pass" ? "pass" : "fail"}`} aria-hidden="true" />
+);
 
 /** "5 gates passed", or "4 gates passed, verify failed": the line a reader needs before any record. */
 export function gatesLine(gates: Lane["gates"]): string {
@@ -51,7 +56,7 @@ export function LaneVisit(props: {
 }) {
   const { lane, runId, files, proof, show } = props;
   const rounds = gateRounds(lane);
-  const state = stateOf(lane.outcome);
+  const state = stateOf(lane.outcome, lane.stopped);
   const baseOf = (output: string) => output.replace(/\.log$/, ".base.log");
   const parts = [
     lane.claims.length ? `${lane.claims.length} ${lane.claims.length === 1 ? "claim" : "claims"}` : "",
@@ -161,12 +166,7 @@ export function LaneVisit(props: {
                 <Fragment key={gate.output}>
                   <Proof
                     {...proof(gate.output)}
-                    mark={
-                      <span
-                        className={`mark ${gate.status === "pass" ? "pass" : "fail"}`}
-                        aria-hidden="true"
-                      />
-                    }
+                    mark={<GateMark status={gate.status} />}
                     label={`Gate ${gate.gate} ${gate.status === "pass" ? "passed" : "failed"}${props.what?.(gate.gate) ? `: ${props.what(gate.gate)}` : ""}`}
                     meta={[
                       gate.exitCode === null ? "" : `exit ${gate.exitCode}`,
@@ -179,7 +179,12 @@ export function LaneVisit(props: {
                     <FileView runId={runId} path={gate.output} name="output.log" />
                   </Proof>
                   {files.some((f) => f.path === baseOf(gate.output)) ? (
-                    <Proof {...proof(baseOf(gate.output))} label={`Gate ${gate.gate} on the base commit`}>
+                    // its record belongs to this gate's verdict: it has the same mark
+                    <Proof
+                      {...proof(baseOf(gate.output))}
+                      mark={<GateMark status={gate.status} />}
+                      label={`Gate ${gate.gate} on the base commit`}
+                    >
                       <FileView runId={runId} path={baseOf(gate.output)} name="output.log" />
                     </Proof>
                   ) : null}
