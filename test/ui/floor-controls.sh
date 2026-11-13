@@ -69,7 +69,7 @@ script 0
 sf run > "$work/run1.log" 2>&1; [ $? -eq 3 ] || fail "the first run should wait for approval: $(cat "$work/run1.log")"
 waiting=$(sf runs 2> /dev/null | awk 'NR == 1 { print $1 }')
 [ -n "$waiting" ] || fail "no run id in: $(sf runs 2>&1)"
-script 120000 # long enough for a busy machine
+script 900000 # the checks below take minutes, and the run must still work at the last of them
 sf run > "$work/run2.log" 2>&1 &
 slow=$!
 
@@ -86,6 +86,13 @@ expect "the count that waits for a person has the yellow square, weight 600, and
 expect "the yellow square is the signal yellow the Runs list uses" "$(js "() => { const m = document.querySelector('.topbar .needs .mark.asked'); const p = document.createElement('i'); p.style.background = 'var(--signal)'; document.body.append(p); const want = getComputedStyle(p).backgroundColor; p.remove(); return m && getComputedStyle(m).backgroundColor === want ? 'signal' : 'not signal'; }")" '^signal$'
 pw resize 390 844
 expect "at phone width the mark is there too" "$(js "() => document.querySelectorAll('.topbar .needs .mark.asked').length")" '^1$'
+pw resize 1440 900
+
+# ---- F12: the working run's link in the strip is a target of 24 px at desk width and 44 at phone width, by hit area
+link='() => { const r = document.querySelector(".queue li.working a").getBoundingClientRect(); return Math.round(r.width) + "x" + Math.round(r.height); }'
+expect "at desk width the working run's link is at least 24 px high" "$(js "$link")" '^[0-9]+x(2[4-9]|[3-9][0-9])$'
+pw resize 390 844
+expect "at phone width it is at least 44 px high" "$(js "$link")" '^[0-9]+x(4[4-9]|[5-9][0-9])$'
 pw resize 1440 900
 
 # ---- F6: the switch's selected half is quiet (panel fill, ink text at 600, a 2px ink line under it), so with a
