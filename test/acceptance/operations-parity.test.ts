@@ -162,6 +162,7 @@ describe("the factory's operations", () => {
       roles_bind: { role: "author", account: "work" },
       runs_requeue: { run: "abc" },
       runs_resume: { run: "abc" },
+      runs_stop: { run: "abc" },
       ladder_accept: { lane: "build" },
     };
     const cases = [

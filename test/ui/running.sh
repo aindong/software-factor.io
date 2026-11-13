@@ -149,6 +149,38 @@ tab_to '^Waits for you'
 pw press Enter
 wait_for "the map is scrolled to the lane the run waits at" "() => { const s = document.querySelector('.rundetail .map .station[aria-label*=\" is here\"]')?.getBoundingClientRect(), b = document.querySelector('.rundetail .map-scroll')?.getBoundingClientRect(); return s && b ? String(s.left >= b.left - 1 && s.right <= b.right + 1) : 'no map'; }" '^true$'
 
+# ---- 7. a run that works is stopped from its page, after one question, by keyboard
+printf -- '- [ ] Slow task\n' >> .factor/tasks.md
+script 120000
+sf run > "$work/run4.log" 2>&1 &
+slow=$!
+pw resize 1440 900
+section Runs
+wait_for "the new run works" "$rows" '^Working \|'
+tab_to '^Working.*[0-9]+ Slow task'
+pw press Enter
+expect "Enter goes into the run that works" "$(js "$focused")" '^Slow task$'
+expect "the terminal command stays in the text" "$(js "() => document.querySelector('.rundetail .actions')?.textContent ?? ''")" 'softwarefactor stop [0-9a-f]+'
+tab_to '^Stop$'
+expect "Stop is a button" "$(js "() => document.activeElement.tagName")" '^BUTTON$'
+shot running-stop-light-1440
+pw press Enter
+expect "it asks once, in the page, and the keyboard is on the safe answer" "$(js "() => document.querySelector('.rundetail .ask')?.textContent + ' | ' + document.activeElement.textContent")" '^Stop this run\?.*Yes, stop it.*Keep it working \| Keep it working$'
+pw press Escape
+expect "Escape leaves the question and the run still works" "$(js "() => document.querySelectorAll('.rundetail .ask').length + ' ' + document.querySelector('.rundetail .state').textContent")" '^0 Working$'
+tab_to '^Stop$'
+pw press Enter
+pw press Tab
+expect "the next stop is the one that stops" "$(js "$focused")" '^Yes, stop it$'
+shot running-stop-ask-light-1440
+pw press Enter
+wait_for "the page says what happened, in its status line" "() => document.querySelector('.rundetail .lede[role=status]')?.textContent ?? ''" 'Stopped: Slow task\.'
+wait_for "the run is stopped, and nothing on the page moves" "() => document.querySelector('.rundetail .state').textContent + ' ' + document.getAnimations().length" '^Stopped 0$'
+wait "$slow" 2> /dev/null
+slow=""
+expect "the task is stopped in the record" "$(node -e 'const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync(".factor/state.db"); console.log(db.prepare("select status from tasks where title = ?").get("Slow task")?.status)')" '^stopped$'
+expect "its page now offers to try again" "$(js "() => [...document.querySelectorAll('.rundetail .actions button')].map((b) => b.textContent).join('|')")" '^Try again$'
+
 playwright-cli -s="$session" close > /dev/null 2>&1
 kill "$server" 2> /dev/null
 echo "running: ok"

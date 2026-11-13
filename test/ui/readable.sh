@@ -58,6 +58,52 @@ tab_to '^Gate verify passed'
 pw press Enter
 wait_for "and a gate's record by keyboard" "() => document.querySelector('.visits .proof .shown .output')?.textContent ?? ''" '.'
 shot readable-open-light-1440
+# ---- a run that stops on a gate: its evidence opens on the gate that failed, the latest round first
+node -e '
+const fs = require("fs");
+const file = ".factor/workflows/starter.json";
+const w = JSON.parse(fs.readFileSync(file));
+w.gates.verify.onFail = "repair";
+w.gates.verify.description = "floor: the number of tests must not go down";
+w.lanes[0].limits = { repairRounds: 2 };
+fs.writeFileSync(file, JSON.stringify(w, null, 2) + "\n");
+const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.commands.verify = "echo the tests went down; exit 1"; fs.writeFileSync(".factor/factory.json", JSON.stringify(f, null, 2));
+'
+printf -- '- [ ] Second\n' >> .factor/tasks.md
+git add -A && git commit -q -m "a gate that fails"
+sf run > "$work/run2.log" 2>&1; [ $? -eq 1 ] || fail "the second run should stop on its gate: $(cat "$work/run2.log")"
+wait_for "the stopped run is in the list" "() => [...document.querySelectorAll('.run .state')].map((m) => m.textContent).join(' | ')" '^Stopped \| Waits for you$'
+back_to '^Skip to the list$'
+pw press Enter
+pw press ArrowUp
+wait_for "the stopped run is shown" "() => document.querySelector('.rundetail h2')?.textContent ?? ''" '^Second$'
+tab_to '^Evidence for Work'
+pw press Enter
+rows="() => [...document.querySelectorAll('.visits .shown .proof > button')].map((b) => b.querySelector('.what').textContent + (b.getAttribute('aria-expanded') === 'true' ? ' (open)' : '')).filter((t) => t.startsWith('Gate')).join(' | ')"
+wait_for "the gate that failed is the first row, and is open, with what it checks in plain words" "$rows" '^Gate verify failed: floor: the number of tests must not go down \(open\) \| '
+expect "the rows are grouped by round, the latest first" "$(js "() => [...document.querySelectorAll('.visits .shown .round')].map((h) => h.textContent).join(' | ')")" '^Round 3 \| Round 2 \| Round 1$'
+expect "the first gate row of every round is the one that failed" "$(js "() => [...document.querySelectorAll('.visits .shown .round + .proof .what')].map((w) => w.textContent.replace(/:.*/, '')).join(' | ')")" '^Gate verify failed \| Gate verify failed \| Gate verify failed$'
+expect "the stop sentence says what the gate checks" "$(js "() => document.querySelector('.rundetail header').textContent")" 'verify.*floor: the number of tests must not go down'
+wait_for "its output is shown without another key" "() => document.querySelector('.visits .shown .proof .shown .output')?.textContent ?? ''" 'the tests went down'
+shot run-stopped-evidence-light-1440
+pw resize 390 844
+fits "a stopped run with its evidence open"
+shot run-stopped-evidence-light-390
+pw resize 1440 900
+# ---- the stopped run is tried again from its page, by keyboard
+queued() { node -e 'const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync(".factor/state.db"); console.log(db.prepare("select status from tasks where title = ?").get(process.argv[1])?.status)' "$1"; }
+[ "$(queued 'Second')" = "stopped" ] || fail "the stopped run's task should be stopped: $(queued 'Second')"
+expect "the terminal command stays in the text" "$(js "() => document.querySelector('.rundetail .actions')?.textContent ?? ''")" 'softwarefactor requeue [0-9a-f]+'
+back_to '^Try again$'
+expect "Try again is a button" "$(js "() => document.activeElement.tagName")" '^BUTTON$'
+shot run-stopped-light-1440
+pw press Enter
+wait_for "the page says what happened, in its status line" "() => document.querySelector('.rundetail .lede[role=status]')?.textContent ?? ''" 'Queued again: Second\.'
+[ "$(queued 'Second')" = "queued" ] || fail "Try again should put the task back in the queue: $(queued 'Second')"
+expect "the keyboard goes to the page's heading, not nowhere" "$(js "$focused")" '^Second$'
+tab_to '^Try again$'
+pw press Enter
+wait_for "a second press is refused in words, and nothing changes" "() => document.querySelector('.rundetail .lede[role=status]')?.textContent ?? ''" 'Not queued again: Second\. .*already queued'
 theme Dark
 shot readable-dark-1440
 pw resize 390 844
