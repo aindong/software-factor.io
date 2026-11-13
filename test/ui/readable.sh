@@ -153,8 +153,8 @@ back_to '^Put back in the queue$'
 expect "the button says what it does, and is a button" "$(js "() => document.activeElement.tagName")" '^BUTTON$'
 shot run-stopped-light-1440
 pw press Enter
-wait_for "the page's status says the task is queued again and what starts it" "() => document.querySelector('.rundetail .lede[role=status]')?.textContent ?? ''" 'queued again: the Run button on the Floor or softwarefactor run starts it\.$'
-expect "the command is shown as code, on the page and in the run's row" "$(js "() => document.querySelector('.rundetail .lede code')?.textContent + ' | ' + [...document.querySelectorAll('.run')].find((r) => r.textContent.includes('Second')).querySelector('.sentence code')?.textContent")" '^softwarefactor run \| softwarefactor run$'
+wait_for "the page's status says the task is queued again and what starts it" "() => document.querySelector('.rundetail .lede[role=status]')?.textContent ?? ''" 'queued again: the Run button on the Floor or softwarefactor run starts it\. Open the Floor$'
+expect "the command is shown as code on the page, and the run's row says only that it is queued again, once" "$(js "() => { const row = [...document.querySelectorAll('.run')].find((r) => r.textContent.includes('Second')); return document.querySelector('.rundetail .lede code')?.textContent + ' | ' + row.querySelector('.state').textContent + ' | ' + (row.querySelector('.sentence')?.textContent ?? 'no sentence'); }")" '^softwarefactor run \| Stopped.*queued again \| Stopped: .*$'
 [ "$(queued 'Second')" = "queued" ] || fail "Put back in the queue should queue the task: $(queued 'Second')"
 expect "the button is not offered again while the task is queued" "$(js "() => [...document.querySelectorAll('.rundetail button')].filter((b) => /queue/i.test(b.textContent)).length")" '^0$'
 expect "the keyboard goes to the page's heading, not nowhere" "$(js "$focused")" '^Second$'

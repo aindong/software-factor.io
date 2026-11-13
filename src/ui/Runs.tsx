@@ -17,8 +17,9 @@ import { RunFilter } from "./RunFilter.tsx";
 import { go, openIn, usePath, useSearch } from "./route.ts";
 import { State } from "./State.tsx";
 import { Strip } from "./Strip.tsx";
+import { pageSays } from "./says.ts";
 import { Coded } from "./Words.tsx";
-import { ago, cost, detail, standing, tokens } from "./words.ts";
+import { ago, cost, standing, tokens } from "./words.ts";
 import "./runs.css";
 
 /** Each workflow the runs name, as far as it can be drawn. Read once for each name. */
@@ -199,9 +200,9 @@ export function Runs() {
                             </>
                           ) : null}
                         </span>
-                        {detail(run) ? (
+                        {pageSays(run) ? (
                           <span className="sentence">
-                            <Coded sentence={detail(run)} />
+                            <Coded sentence={pageSays(run)} />
                           </span>
                         ) : null}
                       </div>

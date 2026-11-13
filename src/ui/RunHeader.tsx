@@ -54,6 +54,20 @@ export function RunHeader(props: {
               <span className={said.needs ? "needs" : "quiet"}>
                 {hold ? null : queued ? <Coded sentence={QUEUED} /> : said.line}
               </span>
+              {queued && !hold ? (
+                <>
+                  {" "}
+                  <a
+                    href="/"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      go("/");
+                    }}
+                  >
+                    Open the Floor
+                  </a>
+                </>
+              ) : null}
               {told?.text ? <span className={told.bad ? "needs" : ""}> {told.text}</span> : null}
             </p>
           )}

@@ -93,6 +93,12 @@
   font-weight: var(--w-text);
 }
 
+/* a stopped run whose task is queued again keeps its mark; this is said beside its state word */
+.state .again {
+  color: var(--ink-soft);
+  font-weight: var(--w-text);
+}
+
 /* how a run, a lane or a gate stands: a shape and a colour, never the colour alone */
 .mark {
   flex: none;

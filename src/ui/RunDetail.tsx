@@ -220,14 +220,22 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
         laneName={nameOf(row.at ?? "")}
         gateWords={
           // what the gate checks is said under "What failed" when the page shows that
-          !failure && stopGate && what(stopGate.gate) ? { id: stopGate.gate, what: what(stopGate.gate) ?? "" } : undefined
+          !failure && stopGate && what(stopGate.gate)
+            ? { id: stopGate.gate, what: what(stopGate.gate) ?? "" }
+            : undefined
         }
       >
         {detail && !deciding ? <Waits detail={detail} runId={row.id} nameOf={nameOf} /> : null}
       </RunHeader>
 
       {detail && failure && stopGate ? (
-        <Failed lane={nameOf(failure.lane)} gate={stopGate} what={what(stopGate.gate)} runId={row.id} proof={proof} />
+        <Failed
+          lane={nameOf(failure.lane)}
+          gate={stopGate}
+          what={what(stopGate.gate)}
+          runId={row.id}
+          proof={proof}
+        />
       ) : null}
       {detail && lead ? (
         <Lead

@@ -8,6 +8,10 @@ export function State({ run }: { run: RunRow }) {
     <span className="state">
       <span className={`mark ${mark}`} aria-hidden="true" />
       <b>{word}</b>
+      {/* the run did fail or was stopped, and its mark says so: the word says that its task is waiting to start again */}
+      {run.taskStatus === "queued" && (run.status === "stopped" || run.status === "dropped") ? (
+        <span className="again">queued again</span>
+      ) : null}
     </span>
   );
 }

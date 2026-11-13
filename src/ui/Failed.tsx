@@ -26,7 +26,9 @@ export function Failed(props: {
         {...proof}
         mark={<span className="mark fail" aria-hidden="true" />}
         label={`Output of gate ${gate.gate}`}
-        meta={[gate.exitCode === null ? "" : `exit ${gate.exitCode}`, span(gate.durationMs)].filter(Boolean).join(", ")}
+        meta={[gate.exitCode === null ? "" : `exit ${gate.exitCode}`, span(gate.durationMs)]
+          .filter(Boolean)
+          .join(", ")}
       >
         <FileView runId={props.runId} path={gate.output} name="output.log" />
       </Proof>

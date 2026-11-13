@@ -192,8 +192,26 @@ if want 5; then
     expect "$theme: the row that waits has its title and state word in ink at 600" "$(js "() => ($look)('Show the cost')")" '^600, ink, 600, ink$'
     expect "$theme: a done row steps back: title and state word in the quiet ink at 400" "$(js "() => ($look)('Add an export')")" '^400, soft, 400, soft$'
     shot "runs-$(echo "$theme" | tr '[:upper:]' '[:lower:]')-1440"
+    pw resize 390 844
+    back_to '^All runs$|just now|min ago|h ago'
+    [ "$(js "$focused")" = "All runs" ] && pw press Enter
+    wait_for "the list is shown at phone width" "() => getComputedStyle(document.querySelector('.runlist')).display" '^block$'
+    shot "runs-$(echo "$theme" | tr '[:upper:]' '[:lower:]')-390"
+    pw resize 1440 900
   done
+  # the stopped run's page in both themes at both widths, for a look
+  theme Dark
+  to_list
+  open_run "Fix the date format"
+  shot run-dark-1440
+  pw resize 390 844
+  shot run-dark-390
+  pw resize 1440 900
   theme Light
+  shot run-light-1440
+  pw resize 390 844
+  shot run-light-390
+  pw resize 1440 900
 fi
 
 # ---- F14: a run whose task is queued again says so beside its state (the diamond stays: the run did fail) and links to the Floor
