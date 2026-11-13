@@ -207,6 +207,7 @@ wait_for "the three tables" "() => [...document.querySelectorAll('.page h2')].ma
 total=$(sf cost | grep '^Total' | sed -E 's/.* ([0-9]+) tokens +\$([0-9.]+).*/\1 \2/')
 expect "the whole is the command line's, in cents" "$(js "() => document.querySelector('.topbar .where span').textContent.replace(/,/g, '')")" "^${total% *} tokens \\\$$(printf '%.2f' "${total#* }")\$"
 expect "no amount on the page has more than two decimals" "$(js "() => /[$][0-9,]+[.][0-9][0-9][0-9]/.test(document.body.innerText)")" '^false$' 
+expect "the cache hit rate and the cost per landed task are on the page" "$(js "() => document.querySelector('.page').innerText")" 'Cache hit rate(.|\n)*Cost per landed task'
 expect "each lane has its row" "$(js "() => [...document.querySelectorAll('.costs')][0].querySelectorAll('tbody tr').length")" '^2$'
 shot costs-light-1440
 

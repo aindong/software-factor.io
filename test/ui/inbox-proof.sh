@@ -75,6 +75,7 @@ expect "its evidence is open without a key press" "$(js "() => ${lead}.querySele
 expect "with its claim and its gate and their results" "$(js "() => ${lead}.innerText")" 'The button exists\.(.|\n)*Gate verify passed'
 expect "the other lanes follow without repeating it" "$(js "() => [...document.querySelectorAll('.deciding .visits h4')].map((h) => h.textContent).join(' | ')")" '^Sort$'
 expect "in the tab order the lane comes before the map" "$(js "() => { const t = ${tabbable}; return t.findIndex((e) => ${lead}.contains(e)) < t.findIndex((e) => e.closest('.runmap')); }")" '^true$'
+expect "the bar says what approving starts" "$(js "() => document.querySelector('.decide .asks').textContent")" 'Approve: Ship it starts next\.'
 shot inbox-proof-light-1440
 pw resize 390 844
 sleep 0.4
@@ -128,8 +129,9 @@ theme Light
 tab_to '^[0-9]+ Add an export button'
 pw press Enter
 wait_for "Enter opens the item" "() => getComputedStyle(document.querySelector('.deciding')).display" '^grid$'
+expect "at phone width the decision's buttons come before the rail in the Tab order" "$(js "() => { const t = ${tabbable}; return t.findIndex((e) => /^Approve/.test(e.textContent)) < t.findIndex((e) => e.closest('.rail')); }")" '^true$'
 pw press a
-wait_for "now a approves it" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Add an export button'
+wait_for "now a approves it, and the answer says what starts" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Add an export button\. Ship it starts\.$'
 
 # ---- at phone width the item is shown in place of the list, so after a decision by key the keyboard
 # goes to the next item's heading (as Enter on a row puts it there), not to a row that is not shown.
