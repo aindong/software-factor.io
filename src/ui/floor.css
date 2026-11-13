@@ -548,7 +548,7 @@
 }
 /* the Diagram and JSON switch: the selected half is quiet (panel fill, ink at 600, a 2px ink line under it), so that Save is the only ink fill */
 .segmented.view button {
-  min-height: var(--row);
+  min-height: calc(var(--row) - 2px); /* with the frame, the height of the buttons beside it */
   background: var(--ground);
   color: var(--ink-soft);
   font-weight: var(--w-text);
@@ -562,4 +562,13 @@
 }
 .segmented.view button[aria-pressed="true"]:focus-visible {
   outline-color: var(--ink);
+}
+/* at phone width each half is a target of 44 px; the frame's two pixels are taken back from its margin so the bar keeps its height */
+@media (max-width: 760px) {
+  .segmented.view {
+    margin-block: -1px;
+  }
+  .segmented.view button {
+    min-height: var(--row);
+  }
 }
