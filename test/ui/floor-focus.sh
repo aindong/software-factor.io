@@ -2,7 +2,7 @@
 # Where the keyboard is after the Floor's two most repeated actions (round two, F1): after Save, and after Run on
 # a queued task, it does not fall to the page. After Save it stays on "Add a lane" (at desk width); after Run it
 # goes to the next queued task's Run button, and when none is left to the strip's heading or, if the strip is
-# gone, to the map. Driven by keys only; the page's focus is never set by script.
+# gone, to Add a lane. Driven by keys only; the page's focus is never set by script.
 # Needs playwright-cli and a built command (pnpm run build).
 # Usage: bash test/ui/floor-focus.sh [folder for screenshots]
 # Prints "floor-focus: ok" and exits 0, or says which step failed and exits 1.
@@ -59,7 +59,7 @@ wait_for "the second task has left the queue" "() => document.querySelectorAll('
 expect "and on the next again" "$(js "$focused")" '^Run Third chore$'
 pw press Enter
 wait_for "no task is queued" "() => document.querySelectorAll('.queue li.queued').length" '^0$'
-expect "with none left the keyboard is on the strip's heading, or the map when the strip is gone" "$(js "$focused")" '^(Working now and queued|Lane Ship.*)$'
+expect "with none left the keyboard is on the strip's heading, or Add a lane when the strip is gone" "$(js "$focused")" '^(Working now and queued|Add a lane)$'
 
 playwright-cli -s="$session" close > /dev/null 2>&1
 kill "$server" 2> /dev/null
