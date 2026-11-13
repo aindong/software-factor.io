@@ -62,6 +62,23 @@ pre,
   outline-offset: 2px;
 }
 
+/* a heading the page puts the keyboard on (tabindex -1) is not a control: no ring, which would make it look like one */
+:is(h1, h2)[tabindex="-1"]:focus-visible,
+.page[tabindex="-1"]:focus-visible {
+  outline: none;
+}
+/* a command is read whole: its hyphens are not places to break the line */
+.page code.whole {
+  white-space: nowrap;
+}
+/* Costs: the two figures the command prints under its tables */
+.figures > div {
+  flex-wrap: wrap;
+}
+.figures dd.quiet {
+  color: var(--ink-soft);
+}
+
 /* ---- controls */
 button,
 input,

@@ -6,7 +6,10 @@
 import { type KeyboardEvent as ReactKey, useEffect, useRef, useState } from "react";
 import type { Decision, InboxItem } from "../core/views.ts";
 import { op } from "./api.ts";
+import { InboxNote } from "./InboxNote.tsx";
+import { InboxRow } from "./InboxRow.tsx";
 import { useRuns } from "./live.ts";
+import { nextStop } from "./next-lane.ts";
 import { Offline } from "./Offline.tsx";
 import { DOING, DONE, HINT, type Said, typing, useDecidingKeyOutside, useTakesKeyboard } from "./outside.ts";
 import { RunView } from "./RunDetail.tsx";
@@ -120,6 +123,7 @@ export function Inbox() {
   }, [current?.id]);
   const row = runs?.find((r) => r.id === current?.run);
   const question = current?.kind === "question";
+  const next = current && nextStop(workflows[row?.workflow ?? ""], current);
   useTakesKeyboard(Boolean(opened && current && row), head);
 
   const decide = async (decision: Decision, words = "") => {
@@ -129,7 +133,7 @@ export function Inbox() {
     setFieldSaid(undefined);
     // known before the answer: the record may show the item gone first, and that is this page's doing
     decided.current = current.id;
-    const { status, body } = await op<{ state?: string }>("inbox_decide", {
+    const { status, body } = await op<{ state?: string; run?: string }>("inbox_decide", {
       run: current.run,
       item: current.id, // the item that was on show: the decision is for it and for nothing the run waits on later
       decision,
@@ -137,7 +141,14 @@ export function Inbox() {
     });
     setSending(undefined);
     if (status === 200) {
-      const after = body.state === "going" ? "The run goes on." : "The run has moved on.";
+      // what the pass route sets going, when it is known; a run that has stopped or been dropped since is said as it is
+      const gone = body.state === "ended" && (body.run === "stopped" || body.run === "dropped");
+      const after =
+        decision === "approve" && next && !gone
+          ? `${next[0]?.toUpperCase()}${next.slice(1)}.`
+          : body.state === "going"
+            ? "The run goes on."
+            : "The run has moved on.";
       setSaid({ text: `${DONE[decision]}: ${current.task}. ${after}`, bad: false });
       setNoting(undefined);
       setNote("");
@@ -260,36 +271,23 @@ export function Inbox() {
               {items.map((item, at) => {
                 const run = runs?.find((r) => r.id === item.run);
                 return (
-                  <div
+                  <InboxRow
                     key={item.id}
-                    ref={(node) => {
+                    item={item}
+                    run={run}
+                    node={(node) => {
                       if (node) rows.current.set(item.id, node);
                       else rows.current.delete(item.id);
                     }}
-                    role="option"
-                    className="run"
-                    aria-selected={item.id === current?.id}
-                    tabIndex={item.id === (current?.id ?? items[0]?.id) ? 0 : -1}
+                    selected={item.id === current?.id}
+                    stop={item.id === (current?.id ?? items[0]?.id)}
                     onFocus={() => choose(item)}
                     onClick={() => {
                       choose(item);
                       go(`/inbox/${item.run}`);
                     }}
                     onKeyDown={(event) => onRowKey(event, at)}
-                  >
-                    <span
-                      className="mark asked"
-                      role="img"
-                      aria-label={item.kind === "question" ? "A question" : "An approval"}
-                    />
-                    <span className="task" title={item.task}>
-                      {run ? <span className="number data">{run.taskId}</span> : null} {item.task}
-                    </span>
-                    <span className="when data">{item.kind === "question" ? "question" : "approval"}</span>
-                    <span className="sentence">
-                      {item.kind === "question" ? item.body : (run?.sentence ?? item.body)}
-                    </span>
-                  </div>
+                  />
                 );
               })}
             </div>
@@ -300,45 +298,24 @@ export function Inbox() {
               <fieldset className="decide">
                 <legend className="sr">Decide on {current.task}</legend>
                 <p className="asks">{question ? current.body : (row?.sentence ?? current.body)}</p>
+                {next ? (
+                  <p className="asks next">Approve: {next.endsWith("starts") ? `${next} next` : next}.</p>
+                ) : null}
                 {question || noting ? (
-                  <label className="field">
-                    <span className="label">
-                      {question
-                        ? "Your answer"
-                        : noting === "reject"
-                          ? "Why (optional)"
-                          : "What should change"}
-                    </span>
-                    <textarea
-                      ref={box}
-                      rows={2}
-                      value={note}
-                      aria-invalid={fieldSaid !== undefined}
-                      onChange={(event) => {
-                        setNote(event.target.value);
-                        setFieldSaid(undefined);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.nativeEvent.isComposing) return; // Enter that ends a composition is not "send"
-                        if (event.key === "Enter" && !event.shiftKey) {
-                          event.preventDefault();
-                          send();
-                        } else if (event.key === "Escape" && !question) {
-                          setNoting(undefined);
-                          rows.current.get(current.id)?.focus();
-                        }
-                      }}
-                    />
-                    {fieldSaid ? (
-                      <span className="hint bad" role="alert">
-                        {fieldSaid}
-                      </span>
-                    ) : (
-                      <span className="hint">
-                        Enter sends. Shift and Enter makes a new line.{question ? "" : " Escape leaves it."}
-                      </span>
-                    )}
-                  </label>
+                  <InboxNote
+                    question={question}
+                    noting={noting}
+                    box={box}
+                    note={note}
+                    setNote={setNote}
+                    fieldSaid={fieldSaid}
+                    setFieldSaid={setFieldSaid}
+                    send={send}
+                    leave={() => {
+                      setNoting(undefined);
+                      rows.current.get(current.id)?.focus();
+                    }}
+                  />
                 ) : null}
                 <div className="choices">
                   {question ? (

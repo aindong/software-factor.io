@@ -1,5 +1,5 @@
 // The shell: the navy rail with the six sections, and the section that is open.
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Accounts } from "./Accounts.tsx";
 import { hasKey, takeKey } from "./api.ts";
 import { Costs } from "./Costs.tsx";
@@ -28,6 +28,17 @@ const typing = (target: EventTarget | null) =>
   target instanceof HTMLTextAreaElement ||
   target instanceof HTMLInputElement ||
   target instanceof HTMLSelectElement;
+
+const NARROW = "(max-width: 760px)";
+const useNarrow = () =>
+  useSyncExternalStore(
+    (tell) => {
+      const query = matchMedia(NARROW);
+      query.addEventListener("change", tell);
+      return () => query.removeEventListener("change", tell);
+    },
+    () => matchMedia(NARROW).matches,
+  );
 
 const THEMES = ["auto", "light", "dark"] as const;
 type Theme = (typeof THEMES)[number];
@@ -118,58 +129,69 @@ export function App() {
   const nextTheme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? "auto";
   useEffect(() => showInTab(section.name, waits, working), [section.name, waits, working]);
 
+  const list = section.path === "/runs" || section.path === "/inbox";
+  // a phone's rail is under the content: on the inbox the decision's buttons come before it in the Tab order too
+  const late = useNarrow() && section.path === "/inbox" && hasKey;
+  const skip = () => {
+    const main = document.querySelector<HTMLElement>("main:not([hidden])");
+    const to =
+      main?.querySelector<HTMLElement>('[role="listbox"] [tabindex="0"], .map-scroll [tabindex="0"]') ??
+      main?.querySelector<HTMLElement>(".page") ??
+      main;
+    if (to && to.tabIndex < 0) to.tabIndex = -1;
+    to?.focus();
+  };
+  const rail = (
+    <nav className={`rail${armed ? " armed" : ""}`} aria-label="Sections">
+      {SECTIONS.map((s) => (
+        <a
+          key={s.path}
+          href={s.path}
+          aria-current={s.path === section.path ? "page" : undefined}
+          aria-keyshortcuts={`g ${s.key}`}
+          data-key={s.key}
+          title={`${s.name}: g then ${s.key}`}
+          onClick={(event) => {
+            event.preventDefault();
+            go(s.path);
+          }}
+        >
+          {icons[s.icon]}
+          {s.name}
+          {s.path === "/" && unsaved ? (
+            <span className="unsaved" role="img" aria-label=", not saved" />
+          ) : null}
+          {s.path === "/runs" && working > 0 ? (
+            <span className="mark working live" role="img" aria-label={`${working} working`} />
+          ) : null}
+          {s.path === "/inbox" && waits > 0 ? (
+            <span className="count">
+              {waits}
+              <span className="sr"> {waits === 1 ? "waits" : "wait"} for you</span>
+            </span>
+          ) : null}
+        </a>
+      ))}
+      <span className="spacer" />
+      <button
+        type="button"
+        onClick={() => setTheme(nextTheme)}
+        title={`Theme: ${theme}. Switch to ${nextTheme}.`}
+      >
+        {icons.theme}
+        {theme === "auto" ? "Auto" : theme === "light" ? "Light" : "Dark"}
+      </button>
+    </nav>
+  );
   return (
     <div className="shell">
-      {hasKey && (section.path === "/runs" || section.path === "/inbox") ? (
-        // the list is the first thing after the rail: one Tab from here instead of seven
-        <button
-          type="button"
-          className="skip"
-          onClick={() => document.querySelector<HTMLElement>('main [role="listbox"] [tabindex="0"]')?.focus()}
-        >
-          Skip to the list
+      {hasKey ? (
+        // the first stop of the Tab order on every screen: one Tab from here instead of the rail and the toolbar
+        <button type="button" className="skip" onClick={skip}>
+          {section.path === "/" ? "Skip to the map" : list ? "Skip to the list" : "Skip to the content"}
         </button>
       ) : null}
-      <nav className={`rail${armed ? " armed" : ""}`} aria-label="Sections">
-        {SECTIONS.map((s) => (
-          <a
-            key={s.path}
-            href={s.path}
-            aria-current={s.path === section.path ? "page" : undefined}
-            aria-keyshortcuts={`g ${s.key}`}
-            data-key={s.key}
-            title={`${s.name}: g then ${s.key}`}
-            onClick={(event) => {
-              event.preventDefault();
-              go(s.path);
-            }}
-          >
-            {icons[s.icon]}
-            {s.name}
-            {s.path === "/" && unsaved ? (
-              <span className="unsaved" role="img" aria-label=", not saved" />
-            ) : null}
-            {s.path === "/runs" && working > 0 ? (
-              <span className="mark working live" role="img" aria-label={`${working} working`} />
-            ) : null}
-            {s.path === "/inbox" && waits > 0 ? (
-              <span className="count">
-                {waits}
-                <span className="sr"> {waits === 1 ? "waits" : "wait"} for you</span>
-              </span>
-            ) : null}
-          </a>
-        ))}
-        <span className="spacer" />
-        <button
-          type="button"
-          onClick={() => setTheme(nextTheme)}
-          title={`Theme: ${theme}. Switch to ${nextTheme}.`}
-        >
-          {icons.theme}
-          {theme === "auto" ? "Auto" : theme === "light" ? "Light" : "Dark"}
-        </button>
-      </nav>
+      {!late && rail}
       {refused ? (
         <label className="keyless" role="alert">
           <span>
@@ -218,6 +240,7 @@ export function App() {
           <Floor shown={section.path === "/"} onUnsaved={setUnsaved} />
         </>
       )}
+      {late && rail}
     </div>
   );
 }

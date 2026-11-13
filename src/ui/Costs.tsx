@@ -1,9 +1,11 @@
 // Costs: where the tokens and the money went, by lane, by task and by account, from the session
 // records. A cost that is not known is said to be not known: it is never shown as nothing spent.
 import { type ReactNode, useEffect, useState } from "react";
+import type { CostReport } from "../core/cost.ts";
 import { money } from "../core/text.ts";
-import type { CostLine, CostsView } from "../core/views.ts";
+import type { CostLine } from "../core/views.ts";
 import { op } from "./api.ts";
+import { figures } from "./costs-figures.ts";
 import { useRuns } from "./live.ts";
 import { Breakable, Coded } from "./Words.tsx";
 import { dollars } from "./words.ts";
@@ -75,13 +77,13 @@ function Table({
 
 export function Costs() {
   const { runs } = useRuns();
-  const [costs, setCosts] = useState<CostsView>();
+  const [costs, setCosts] = useState<CostReport>();
   // read again when a run has used more
   const used = (runs ?? []).reduce((sum, r) => sum + r.tokens, 0);
   // biome-ignore lint/correctness/useExhaustiveDependencies: asked again when the runs have used more
   useEffect(() => {
     let left = false;
-    op<CostsView>("costs").then(({ status, body }) => {
+    op<CostReport>("costs").then(({ status, body }) => {
       if (!left && status === 200) setCosts(body);
     });
     return () => {
@@ -89,6 +91,7 @@ export function Costs() {
     };
   }, [used]);
   const total = costs?.total;
+  const seen = costs ? figures(costs) : undefined;
   return (
     <main className="work">
       <div className="topbar">
@@ -104,6 +107,20 @@ export function Costs() {
         </div>
       </div>
       <div className="page">
+        {seen ? (
+          <dl className="facts figures">
+            <div>
+              <dt>Cache hit rate</dt>
+              <dd className="data">{seen.cache}</dd>
+              <dd className="quiet">{seen.cacheNote}</dd>
+            </div>
+            <div>
+              <dt>Cost per landed task</dt>
+              <dd className="data">{seen.perTask}</dd>
+              <dd className="quiet">{seen.perTaskNote}</dd>
+            </div>
+          </dl>
+        ) : null}
         {!costs ? (
           <p className="quiet">Reading the session records.</p>
         ) : costs.total.sessions === 0 ? (

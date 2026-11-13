@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import type { PluginsView } from "../core/views.ts";
 import { op } from "./api.ts";
 import { Coded } from "./Words.tsx";
+import { coded } from "./words.ts";
 import "./runs.css";
 import "./sections.css";
 
+const SHORT = 40;
 const KINDS: [keyof Pick<PluginsView, "lanes" | "gates" | "collectors" | "agents">, string, string][] = [
   ["lanes", "Lane types", "The kinds of lane you can add: `uses` in a lane."],
   ["gates", "Gate types", "Checks the host runs on a lane's work: `uses` in a gate."],
@@ -68,7 +70,16 @@ export function Plugins() {
               </div>
             </section>
             <p className="quiet">
-              <Coded sentence={built.installing} />
+              {coded(built.installing).map((part) =>
+                part.code ? (
+                  // a short command is read whole: no break at its hyphens (a long one has to wrap, or the page scrolls sideways)
+                  <code key={part.text} className={part.text.length <= SHORT ? "whole" : undefined}>
+                    {part.text}
+                  </code>
+                ) : (
+                  part.text
+                ),
+              )}
             </p>
           </>
         )}

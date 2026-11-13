@@ -207,6 +207,7 @@ wait_for "the three tables" "() => [...document.querySelectorAll('.page h2')].ma
 total=$(sf cost | grep '^Total' | sed -E 's/.* ([0-9]+) tokens +\$([0-9.]+).*/\1 \2/')
 expect "the whole is the command line's, in cents" "$(js "() => document.querySelector('.topbar .where span').textContent.replace(/,/g, '')")" "^${total% *} tokens \\\$$(printf '%.2f' "${total#* }")\$"
 expect "no amount on the page has more than two decimals" "$(js "() => /[$][0-9,]+[.][0-9][0-9][0-9]/.test(document.body.innerText)")" '^false$' 
+expect "the cache hit rate and the cost per landed task are on the page" "$(js "() => document.querySelector('.page').innerText")" 'Cache hit rate(.|\n)*Cost per landed task'
 expect "each lane has its row" "$(js "() => [...document.querySelectorAll('.costs')][0].querySelectorAll('tbody tr').length")" '^2$'
 shot costs-light-1440
 
@@ -242,7 +243,7 @@ expect "Cancel leaves the note, with the keyboard back on the item" "$(js "() =>
 pw press r
 expect "r puts the keyboard in a note that may stay empty" "$(js "() => document.activeElement.tagName + ' ' + document.activeElement.labels[0].textContent")" '^TEXTAREA Why \(optional\)'
 pw press Enter
-wait_for "the item is rejected and leaves the list" "() => (document.querySelector('.said')?.textContent ?? '') + ' | ' + [...document.querySelectorAll('.run .task')].map((t) => t.textContent.replace(/^[0-9]+ /, '')).join(' | ')" '^Rejected: Ship the docs\..* \| Ship the hotfix$'
+wait_for "the item is rejected and leaves the list" "() => (document.querySelector('.said')?.textContent ?? '') + ' | ' + [...document.querySelectorAll('.run .task')].map((t) => t.textContent.replace(/^[0-9]+ /, '')).join(' | ')" '^Rejected: Ship the docs\. The run [a-z ]+\. \| Ship the hotfix$'
 expect "the page moved to the next item, with the keyboard on it" "$(js "$focused")" '^[0-9]+ Ship the hotfix'
 sf runs | grep -A1 "Ship the docs" | grep -q "Stopped" || fail "the rejected run did not stop: $(sf runs)"
 shot inbox-dark-1440

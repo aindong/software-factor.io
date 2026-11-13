@@ -38,6 +38,12 @@ pw open "$address" || fail "the browser did not open"
 pw resize 1440 900
 wait_for "the workflow is drawn" "() => document.querySelectorAll('.station.lane').length" '^1$'
 
+# ---- 0. the first stop of the Tab order is a skip link that leads to the screen's main content
+pw press Tab
+expect "the Floor: the first Tab stop is the skip link" "$(js "$focused")" '^Skip to the map$'
+pw press Enter
+expect "the Floor: it leads into the map" "$(js "() => String(!!document.activeElement.closest('.map-scroll'))")" '^true$'
+
 # ---- 1. the server is started again while the floor holds a change
 tab_to '^Lane '
 pw press Enter
@@ -113,6 +119,8 @@ wait_for "and the third change is saved" "() => document.querySelector('.topbar 
 section Inbox
 wait_for "the inbox is on the page" "() => document.querySelector('h1').textContent" '^Inbox'
 expect "the keyboard is at the section's name: nothing is chosen for the person" "$(js "$focused")" '^Inbox$'
+ring='() => getComputedStyle(document.activeElement).outlineStyle'
+expect "a heading the page itself focused shows no ring: it is not a control" "$(js "$ring")" '^none$'
 pw press a
 hint='() => { const s = document.querySelector(".said"); return s && s.getClientRects().length > 0 ? s.textContent : ""; }'
 wait_for "a deciding key outside the list says what to do" "$hint" '^Choose an item first'
@@ -120,6 +128,9 @@ expect "and decides nothing" "$(js "() => document.querySelectorAll('.runlist .r
 [ -n "$shots" ] && pw screenshot --filename="$shots/restart-inbox-choose-light-1440.png"
 pw press Tab
 expect "the list is one Tab away" "$(js "$focused")" '^[0-9]+ First'
+expect "what a person can Tab to keeps its ring" "$(js "$ring")" '^solid$'
+back_to '^Skip to the list$'
+expect "the Inbox: the skip link is the first stop of the Tab order" "$(js "() => ${tabbable}[0].textContent")" '^Skip to the list$'
 wait_for "the hint goes once an item is chosen" "$hint" '^$'
 # in a narrow window the list stands alone: the answer must be on show there too
 pw resize 390 800
@@ -135,14 +146,40 @@ wait_for "on the item, a approves it" "() => document.querySelector('.said')?.te
 # ---- 5. arriving on an item from a run's page: the item is on show, so the keyboard works on it
 for _ in $(seq 1 40); do sf run > "$work/second.log" 2>&1 && break; [ $? -eq 3 ] && break; sleep 0.5; done
 sf inbox 2> /dev/null | grep -q Second || fail "the second task does not wait: $(sf inbox)"
+# a third task whose lane says something else: the list tells the two waiting items apart
+printf -- '- [ ] Third\n' >> .factor/tasks.md
+sed -i.bak 's/Added FACTOR-HELLO.md./Added the other file./' .factor/local.json && rm -f .factor/local.json.bak
+sf run > "$work/third.log" 2>&1; [ $? -eq 3 ] || fail "the third task should wait: $(cat "$work/third.log")"
+section Inbox
+wait_for "each waiting item carries what its own lane said" "() => [...document.querySelectorAll('.runlist .sentence')].map((s) => s.textContent).join(' | ')" 'Added FACTOR-HELLO\.md\..*\|.*Added the other file\.'
+shot inbox-summaries-light-1440
 section Runs
-tab_to 'Second'
+tab_to 'Third'
 pw press Enter
 tab_to '^Decide in the inbox$'
 pw press Enter
 wait_for "the inbox shows the run's item" "() => location.pathname.startsWith('/inbox/') && document.querySelectorAll('.deciding').length === 1" '^true$'
 pw press a
-wait_for "a approves the item on show, and does not say to choose one" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Second'
+wait_for "a approves the item on show, and does not say to choose one" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Third'
+
+# ---- 6. Costs and Plugins: the skip link, the figures, and a command that is not broken across lines
+section Costs
+wait_for "Costs is on the page" "() => document.querySelector('h1')?.textContent ?? ''" '^Costs$'
+back_to '^Skip to the content$'
+expect "Costs: the skip link is the first stop of the Tab order" "$(js "() => ${tabbable}[0].textContent")" '^Skip to the content$'
+pw press Enter
+expect "Costs: it leads into the page" "$(js "() => String(!!document.activeElement.closest('.page'))")" '^true$'
+page='() => document.querySelector(".page").innerText.replace(/\s+/g, " ")'
+expect "the cache hit rate says none yet when no session could read a cache" "$(js "$page")" 'Cache hit rate[[:space:]]+none yet'
+per=$(sf cost | sed -nE 's/^ *cost per landed task +([^ ]+) .*/\1/p')
+[ -n "$per" ] || fail "the command prints no cost per landed task: $(sf cost)"
+expect "the cost per landed task is the one the command prints" "$(js "$page")" "Cost per landed task[[:space:]]+${per//\$/\\\$}"
+shot costs-figures-light-1440
+pw resize 390 800
+section Plugins
+wait_for "what is built in" "$page" 'core/agent@1'
+expect "no inline code is broken across lines" "$(js "() => { const c = [...document.querySelectorAll('.page code')].filter((e) => e.textContent.length <= 40); return c.some((e) => /--available/.test(e.textContent)) && c.every((e) => e.getClientRects().length === 1) ? 'one line' : c.map((e) => e.textContent + ' ' + e.getClientRects().length).join('; '); }")" '^one line$'
+shot plugins-code-light-390
 
 playwright-cli -s="$session" close > /dev/null 2>&1
 kill "$server" 2> /dev/null
