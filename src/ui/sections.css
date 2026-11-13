@@ -55,11 +55,6 @@
 .run.bare .task {
   grid-column: 2 / -1;
 }
-@keyframes said-away {
-  to {
-    visibility: hidden;
-  }
-}
 /* what the factory answered, where the decision was made */
 .said {
   max-width: 80ch;
@@ -346,7 +341,7 @@
   .listside > .said {
     border-right: 0;
   }
-  /* with an item open, the last confirmation floats over its top edge for a while: it takes no room
+  /* with an item open, the last confirmation floats over its top edge (the page takes it away after a few seconds): it takes no room
      from the item's decision, and it is plainly not a line of the item. Clicks pass through it. */
   .runs.inbox[data-inside="true"] {
     position: relative;
@@ -360,7 +355,6 @@
     background: var(--panel);
     border-bottom: 1px solid var(--ink);
     pointer-events: none;
-    animation: said-away 0s linear 7s forwards;
   }
   /* the decision is under the thumb, after the proof */
   .deciding {

@@ -45,6 +45,17 @@ export function useDecidingKeyOutside(
   }, [on, say, act]);
 }
 
+/** `clear` runs a few seconds after `key` last changed; nothing runs while `key` is undefined. */
+export function useExpires(key: string | undefined, clear: () => void): void {
+  const latest = useRef(clear);
+  latest.current = clear;
+  useEffect(() => {
+    if (key === undefined) return;
+    const timer = setTimeout(() => latest.current(), 7000);
+    return () => clearTimeout(timer);
+  }, [key]);
+}
+
 /** The width at which an item is shown in place of the list. */
 const ALONE = "(max-width: 1000px)";
 export const useListAlone = () =>

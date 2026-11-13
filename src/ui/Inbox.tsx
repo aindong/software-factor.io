@@ -5,8 +5,8 @@
 // itself. What the factory answered is said where the decision was made, by the task's name.
 import { type KeyboardEvent as ReactKey, useEffect, useRef, useState } from "react";
 import type { Decision, InboxItem } from "../core/views.ts";
-import { op } from "./api.ts";
 import { AheadNote } from "./AheadNote.tsx";
+import { op } from "./api.ts";
 import { InboxNote, KeyHint } from "./InboxNote.tsx";
 import { InboxRow } from "./InboxRow.tsx";
 import { useRuns } from "./live.ts";
@@ -20,6 +20,7 @@ import {
   type Said,
   typing,
   useDecidingKeyOutside,
+  useExpires,
   useListAlone,
   useTakesKeyboard,
 } from "./outside.ts";
@@ -34,8 +35,7 @@ export function Inbox() {
   const { runs, live } = useRuns();
   const workflows = useWorkflows(runs);
   const [items, setItems] = useState<InboxItem[]>();
-  // The item that was entered is in the address, by its run (`/inbox/<run>`). Until one is
-  // entered, an item is only picked.
+  // The entered item is in the address, by its run (`/inbox/<run>`); until then an item is only picked.
   const opened = openIn(usePath(), "/inbox");
   const [picked, setPicked] = useState<number>();
   const [noting, setNoting] = useState<"reject" | "send-back">(); // which decision the note box is for
@@ -57,6 +57,7 @@ export function Inbox() {
   const guard = useRef(0); // until when deciding rests, after the page itself moved to another item
   const own = useRef<number>(undefined); // the item the page itself moved to after a decision: what was said is still about the last one
   const alone = useListAlone();
+  useExpires(opened && alone && !said?.bad ? said?.text : undefined, () => setSaid(undefined));
   const moving = useRef(false); // the page itself is putting the keyboard on the next item
   const list = useRef(items); // the list as it is now, for an answer that comes back later
   list.current = items;
@@ -79,10 +80,8 @@ export function Inbox() {
   const inside = opened !== undefined; // on a narrow screen the item is shown in place of the list
   const current = opened ? items?.find((i) => i.run === opened) : items?.find((i) => i.id === picked);
   const chosen = opened ? current?.id : picked;
-  // What is on show changes only in ways the person can follow. After their own decision the page
-  // moves to the next item, and deciding rests a moment so a second press does not land on it.
-  // When the item was decided elsewhere, nothing is chosen: a key must never decide on what was
-  // not read.
+  // After the person's own decision the page moves to the next item, and deciding rests a moment.
+  // An item decided elsewhere leaves nothing chosen: a key must never decide on what was not read.
   useEffect(() => {
     if (!items) return;
     if (current) {

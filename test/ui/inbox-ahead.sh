@@ -135,6 +135,7 @@ expect "the page does not scroll" "$(js "() => document.documentElement.scrollHe
 expect "the confirmation is not inside the next item" "$(js "() => !document.querySelector('.deciding').contains(document.querySelector('.said'))")" '^true$'
 expect "and takes no room above it" "$(js "() => document.querySelector('.deciding').getBoundingClientRect().top <= document.querySelector('.topbar').getBoundingClientRect().bottom + 1")" '^true$'
 shot inbox-approved-light-390
+wait_for "the confirmation goes by itself after a few seconds" "$said" '^$'
 
 playwright-cli -s="$session" console error > "$work/console.log" 2>&1
 grep -E "^\[ERROR\]" "$work/console.log" > "$work/errors.log"
