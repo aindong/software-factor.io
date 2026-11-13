@@ -6,12 +6,21 @@
 import { type KeyboardEvent as ReactKey, useEffect, useRef, useState } from "react";
 import type { Decision, InboxItem } from "../core/views.ts";
 import { op } from "./api.ts";
-import { InboxNote } from "./InboxNote.tsx";
+import { InboxNote, KeyHint } from "./InboxNote.tsx";
 import { InboxRow } from "./InboxRow.tsx";
 import { useRuns } from "./live.ts";
-import { nextStop } from "./next-lane.ts";
+import { barWords, nextStop } from "./next-lane.ts";
 import { Offline } from "./Offline.tsx";
-import { DOING, DONE, HINT, type Said, typing, useDecidingKeyOutside, useTakesKeyboard } from "./outside.ts";
+import {
+  DOING,
+  DONE,
+  HINT,
+  type Said,
+  typing,
+  useDecidingKeyOutside,
+  useListAlone,
+  useTakesKeyboard,
+} from "./outside.ts";
 import { RunView } from "./RunDetail.tsx";
 import { useWorkflows } from "./Runs.tsx";
 import { go, openIn, usePath } from "./route.ts";
@@ -44,6 +53,8 @@ export function Inbox() {
   const decided = useRef<number>(undefined); // the item this page just decided on
   const lost = useRef(false); // the item on show was decided elsewhere: nothing is chosen until the person chooses
   const guard = useRef(0); // until when deciding rests, after the page itself moved to another item
+  const own = useRef<number>(undefined); // the item the page itself moved to after a decision: what was said is still about the last one
+  const alone = useListAlone();
   const moving = useRef(false); // the page itself is putting the keyboard on the next item
   const list = useRef(items); // the list as it is now, for an answer that comes back later
   list.current = items;
@@ -96,6 +107,7 @@ export function Inbox() {
       });
     }
     decided.current = undefined;
+    own.current = opened ? next?.id : undefined;
     setPicked(next?.id);
     if (opened) go(next ? `/inbox/${next.run}` : "/inbox", true);
     requestAnimationFrame(() => {
@@ -114,6 +126,13 @@ export function Inbox() {
     setPicked(item.id);
     if (opened) go(`/inbox/${item.run}`, true); // the address follows the item on show
   };
+  // an item the person opens is not what the last confirmation was about
+  // biome-ignore lint/correctness/useExhaustiveDependencies: when the item on show changes
+  useEffect(() => {
+    if (!opened || !current) return;
+    if (own.current === current.id) own.current = undefined;
+    else setSaid((now) => (now?.bad ? now : undefined));
+  }, [current?.id, opened]);
   // a note belongs to the item it was begun for
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset when another item is chosen
   useEffect(() => {
@@ -183,7 +202,12 @@ export function Inbox() {
   // decision and its proof (a click on the proof to read it keeps the keyboard there). Not from the
   // rest of the page: a key pressed with nothing chosen by the person must not decide. Not while
   // typing (letters in a note are letters), not with a modifier, not for a key held down.
-  const onKey = (event: ReactKey) => {
+  const onKey = (
+    event: Pick<
+      KeyboardEvent,
+      "target" | "key" | "metaKey" | "ctrlKey" | "altKey" | "repeat" | "preventDefault"
+    >,
+  ) => {
     if (!current || typing(event.target) || event.metaKey || event.ctrlKey || event.altKey || event.repeat)
       return;
     if (!bar.current?.getClientRects().length) {
@@ -221,7 +245,16 @@ export function Inbox() {
   };
   // A refusal is said in the decision bar of the item it is about. What went well is said above the
   // list, where the item was: inside the next item's bar it would read as being about that item.
-  useDecidingKeyOutside(current !== undefined, () => setSaid({ text: HINT, bad: false }));
+  // an item that is open and on show is chosen, wherever the keyboard is on the page
+  useDecidingKeyOutside(
+    current !== undefined,
+    () => setSaid({ text: HINT, bad: false }),
+    (event) => {
+      if (!opened || !bar.current?.getClientRects().length) return false;
+      onKey(event);
+      return true;
+    },
+  );
   const refusal = said?.bad && (said.item === undefined || said.item === current?.id);
   const answer =
     said && (said.bad ? refusal : true) ? (
@@ -279,7 +312,7 @@ export function Inbox() {
                       if (node) rows.current.set(item.id, node);
                       else rows.current.delete(item.id);
                     }}
-                    selected={item.id === current?.id}
+                    selected={item.id === current?.id && (!alone || inside)}
                     stop={item.id === (current?.id ?? items[0]?.id)}
                     onFocus={() => choose(item)}
                     onClick={() => {
@@ -291,6 +324,7 @@ export function Inbox() {
                 );
               })}
             </div>
+            <KeyHint things="items" />
           </div>
           {current ? (
             // it takes the keyboard when its text is clicked, so the deciding keys go on working while the proof is read
@@ -298,9 +332,7 @@ export function Inbox() {
               <fieldset className="decide">
                 <legend className="sr">Decide on {current.task}</legend>
                 <p className="asks">{question ? current.body : (row?.sentence ?? current.body)}</p>
-                {next ? (
-                  <p className="asks next">Approve: {next.endsWith("starts") ? `${next} next` : next}.</p>
-                ) : null}
+                {next ? <p className="asks next">{barWords(next)}</p> : null}
                 {question || noting ? (
                   <InboxNote
                     question={question}
