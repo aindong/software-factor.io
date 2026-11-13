@@ -207,6 +207,8 @@ keyboard is on the section's name, one Tab before the list, and nothing is chose
 pressed there says "Choose an item first" above the list and decides nothing: no key decides on an item you
 did not choose. The line goes once you are on an item. An item you entered, from a run's "Decide in the
 inbox", a reload or a link, is on show, so the keyboard goes onto it and the keys work at once.
+At phone width the list stands alone until an item is opened: there `a`, `r` and `s` decide nothing and say "Open the item
+first: Enter opens it." The keys decide only while the item's decision bar is displayed.
 
 A decision is the command line's own command, started by the server in a process of its own (docs/operations.md).
 It is made on the item that is on show and on nothing the run waits on later. After your decision the page

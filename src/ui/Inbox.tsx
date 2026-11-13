@@ -8,25 +8,13 @@ import type { Decision, InboxItem } from "../core/views.ts";
 import { op } from "./api.ts";
 import { useRuns } from "./live.ts";
 import { Offline } from "./Offline.tsx";
-import { DOING, DONE, HINT, useDecidingKeyOutside, useTakesKeyboard } from "./outside.ts";
+import { DOING, DONE, HINT, type Said, typing, useDecidingKeyOutside, useTakesKeyboard } from "./outside.ts";
 import { RunView } from "./RunDetail.tsx";
 import { useWorkflows } from "./Runs.tsx";
 import { go, openIn, usePath } from "./route.ts";
 import { standing } from "./words.ts";
 import "./runs.css";
 import "./sections.css";
-
-const typing = (target: EventTarget | null) =>
-  target instanceof HTMLTextAreaElement ||
-  target instanceof HTMLInputElement ||
-  target instanceof HTMLSelectElement;
-interface Said {
-  text: string;
-  fix?: string;
-  bad: boolean;
-  /** The item a refusal is about: it is said at that item and at no other. */
-  item?: number;
-}
 
 export function Inbox() {
   const { runs, live } = useRuns();
@@ -49,6 +37,7 @@ export function Inbox() {
     if (!opened) top.current?.focus();
   }, []);
   const box = useRef<HTMLTextAreaElement>(null);
+  const bar = useRef<HTMLDivElement>(null); // the item's decision and proof: not displayed in the narrow list
   const decided = useRef<number>(undefined); // the item this page just decided on
   const lost = useRef(false); // the item on show was decided elsewhere: nothing is chosen until the person chooses
   const guard = useRef(0); // until when deciding rests, after the page itself moved to another item
@@ -184,6 +173,11 @@ export function Inbox() {
   const onKey = (event: ReactKey) => {
     if (!current || typing(event.target) || event.metaKey || event.ctrlKey || event.altKey || event.repeat)
       return;
+    if (!bar.current?.getClientRects().length) {
+      if (!"ars".includes(event.key)) return;
+      setSaid({ text: "Open the item first: Enter opens it.", bad: false });
+      return event.preventDefault();
+    }
     const can = (d: Decision) => current.decisions.includes(d);
     if (event.key === "a" && can("approve")) decide("approve");
     else if (event.key === "r" && can("reject")) ask("reject");
@@ -300,7 +294,7 @@ export function Inbox() {
           </div>
           {current ? (
             // it takes the keyboard when its text is clicked, so the deciding keys go on working while the proof is read
-            <div className="deciding" tabIndex={-1}>
+            <div className="deciding" tabIndex={-1} ref={bar}>
               <fieldset className="decide">
                 <legend className="sr">Decide on {current.task}</legend>
                 <p className="asks">{question ? current.body : (row?.sentence ?? current.body)}</p>
