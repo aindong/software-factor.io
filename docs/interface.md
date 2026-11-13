@@ -212,7 +212,8 @@ first: Enter opens it." The keys decide only while the item's decision bar is di
 
 A decision is the command line's own command, started by the server in a process of its own (docs/operations.md).
 It is made on the item that is on show and on nothing the run waits on later. After your decision the page
-moves to the next item and the keys rest for a moment. When the item you were reading is decided elsewhere,
+moves to the next item and the keys rest for a moment. The keyboard goes with it: to its row, or, on a narrow
+screen where the item stands in place of the list, to its heading. When the item you were reading is decided elsewhere,
 nothing is chosen until you choose.
 When the factory refuses, for example because every slot is busy, its message and its fix are shown.
 

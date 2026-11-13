@@ -97,7 +97,9 @@ export function Inbox() {
     if (opened) go(next ? `/inbox/${next.run}` : "/inbox", true);
     requestAnimationFrame(() => {
       moving.current = true;
-      if (next) rows.current.get(next.id)?.focus();
+      const row = next && rows.current.get(next.id);
+      // with the item in place of the list the row is not shown: its heading, or the page's, takes the keyboard
+      (row?.getClientRects().length ? row : next ? head.current : opened ? top.current : null)?.focus();
       moving.current = false;
     });
   }, [items, current, chosen, opened]);

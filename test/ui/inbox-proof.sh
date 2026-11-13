@@ -104,6 +104,10 @@ expect "its evidence is open" "$(js "() => ${lead}.querySelector('.proof > butto
 expect "it comes before the map" "$(js "() => !!(${lead}.compareDocumentPosition(document.querySelector('.deciding .runmap')) & Node.DOCUMENT_POSITION_FOLLOWING)")" '^true$'
 shot inbox-proof-before-light-1440
 
+# a second task, so that after one decision another waits
+echo "- [ ] Add a search box" >> .factor/tasks.md
+sf run > "$work/run2.log" 2>&1; [ $? -eq 3 ] || fail "the second run should wait for a person: $(cat "$work/run2.log")"
+
 # ---- at phone width, with the list showing, a deciding key decides nothing: the bar and the proof are not on show
 # (at 1440 a on a focused row approves: restart.sh, "on the item, a approves it")
 pw resize 390 844
@@ -115,7 +119,7 @@ tab_to '^[0-9]+ Add an export button'
 pw press a
 refused='() => { const s = document.querySelector(".said"); return s && s.getClientRects().length > 0 ? s.textContent : ""; }'
 wait_for "a on a row of the list says to open the item first" "$refused" '^Open the item first: Enter opens it\.$'
-expect "and the item still waits" "$(js "$tasks")" '^Add an export button$'
+expect "and the items still wait" "$(js "$tasks")" '^Add an export button \| Add a search box$'
 expect "and the sentence does not cover the row" "$(js "() => document.querySelector('.said').getBoundingClientRect().bottom <= document.querySelector('.runlist .run').getBoundingClientRect().top")" '^true$'
 shot inbox-key-refused-light-390
 theme Dark
@@ -126,6 +130,23 @@ pw press Enter
 wait_for "Enter opens the item" "() => getComputedStyle(document.querySelector('.deciding')).display" '^grid$'
 pw press a
 wait_for "now a approves it" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Add an export button'
+
+# ---- at phone width the item is shown in place of the list, so after a decision by key the keyboard
+# goes to the next item's heading (as Enter on a row puts it there), not to a row that is not shown.
+# (at 1440 it goes to the next row: inbox.sh, "a approves, and the keyboard is on the next row")
+wait_for "the page moves on to the next item" "() => document.querySelector('.rundetail h2')?.textContent ?? ''" 'Add a search box'
+expect "the keyboard is on the next item's heading, not on the page" "$(js "$focused")" 'Add a search box'
+shot inbox-focus-next-light-390
+pw press a
+wait_for "a second a, with no Tab, approves the next item" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Add a search box'
+# its run now waits before Ship it: the last item. It may arrive after the page moved on, so enter it from the list
+wait_for "the same task waits again, before Ship it" "() => ${lead}?.querySelector('h3')?.textContent ?? ''" '^What ran before this approval$'
+tab_to '^[0-9]+ Add a search box'
+pw press Enter
+wait_for "Enter opens it" "() => getComputedStyle(document.querySelector('.deciding')).display" '^grid$'
+pw press a
+wait_for "the last item is approved" "() => document.querySelector('.plain')?.textContent ?? ''" 'Nothing waits for you'
+expect "with no item left the keyboard is on the Inbox heading, not on the page" "$(js "$focused")" '^Inbox$'
 
 playwright-cli -s="$session" console error > "$work/console.log" 2>&1
 grep -E "^\[ERROR\]" "$work/console.log" > "$work/errors.log"
