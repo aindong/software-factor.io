@@ -128,6 +128,7 @@ expect "and decides nothing" "$(js "() => document.querySelectorAll('.runlist .r
 [ -n "$shots" ] && pw screenshot --filename="$shots/restart-inbox-choose-light-1440.png"
 pw press Tab
 expect "the list is one Tab away" "$(js "$focused")" '^[0-9]+ First'
+expect "the list says how its rows move" "$(js "() => document.querySelector('.listside').innerText")" '↑ ↓ move between items, Enter opens'
 expect "what a person can Tab to keeps its ring" "$(js "$ring")" '^solid$'
 back_to '^Skip to the list$'
 expect "the Inbox: the skip link is the first stop of the Tab order" "$(js "() => ${tabbable}[0].textContent")" '^Skip to the list$'
@@ -136,6 +137,8 @@ wait_for "the hint goes once an item is chosen" "$hint" '^$'
 pw resize 390 800
 section Runs
 section Inbox
+shown='() => document.querySelector(".runlist .run").getAttribute("aria-selected") + " " + getComputedStyle(document.querySelector(".runlist .run")).boxShadow + " " + document.querySelector(".listside").innerText.includes("move between")'
+expect "at phone width no row is marked while no item is open, and the arrow keys are not explained" "$(js "$shown")" '^false none false$'
 pw press a
 wait_for "at phone width the answer is on show, not in a part that is hidden" "$hint" '^Choose an item first'
 pw resize 1440 900
@@ -161,6 +164,14 @@ pw press Enter
 wait_for "the inbox shows the run's item" "() => location.pathname.startsWith('/inbox/') && document.querySelectorAll('.deciding').length === 1" '^true$'
 pw press a
 wait_for "a approves the item on show, and does not say to choose one" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Third'
+# the next item is on show and the keyboard is on its row; the window becomes a phone's, the row goes, and so does the keyboard
+wait_for "the next item is on show" "() => location.pathname.startsWith('/inbox/') && document.querySelector('.rundetail h2')?.textContent.includes('Second')" '^true$'
+pw resize 390 800
+sleep 0.4
+expect "the keyboard has nowhere to be but the page" "$(js "$focused")" '^\(nothing\)$'
+pw press a
+wait_for "a approves the item on show wherever the keyboard is" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Second'
+pw resize 1440 900
 
 # ---- 6. Costs and Plugins: the skip link, the figures, and a command that is not broken across lines
 section Costs
@@ -179,6 +190,7 @@ pw resize 390 800
 section Plugins
 wait_for "what is built in" "$page" 'core/agent@1'
 expect "no inline code is broken across lines" "$(js "() => { const c = [...document.querySelectorAll('.page code')].filter((e) => e.textContent.length <= 40); return c.some((e) => /--available/.test(e.textContent)) && c.every((e) => e.getClientRects().length === 1) ? 'one line' : c.map((e) => e.textContent + ' ' + e.getClientRects().length).join('; '); }")" '^one line$'
+expect "no line of the lists of names begins with a separator" "$(js "() => { const li = [...document.querySelectorAll('.names li')]; const first = li.filter((e, i) => i === 0 || e.getBoundingClientRect().top > li[i - 1].getBoundingClientRect().top + 2); return li.length > 3 && first.length < li.length ? (first.some((e) => getComputedStyle(e, '::before').content.includes('\u00b7')) ? 'a line begins with a separator' : 'none') : 'the names do not wrap: ' + li.length; }")" '^none$'
 shot plugins-code-light-390
 
 playwright-cli -s="$session" close > /dev/null 2>&1

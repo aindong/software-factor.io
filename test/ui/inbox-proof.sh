@@ -75,7 +75,7 @@ expect "its evidence is open without a key press" "$(js "() => ${lead}.querySele
 expect "with its claim and its gate and their results" "$(js "() => ${lead}.innerText")" 'The button exists\.(.|\n)*Gate verify passed'
 expect "the other lanes follow without repeating it" "$(js "() => [...document.querySelectorAll('.deciding .visits h4')].map((h) => h.textContent).join(' | ')")" '^Sort$'
 expect "in the tab order the lane comes before the map" "$(js "() => { const t = ${tabbable}; return t.findIndex((e) => ${lead}.contains(e)) < t.findIndex((e) => e.closest('.runmap')); }")" '^true$'
-expect "the bar says what approving starts" "$(js "() => document.querySelector('.decide .next')?.textContent")" 'Approve: Ship it starts next\.'
+expect "the bar says what approving starts" "$(js "() => document.querySelector('.decide .next')?.textContent")" 'Approve: Ship it waits for you next\.'
 shot inbox-proof-light-1440
 pw resize 390 844
 sleep 0.4
@@ -99,7 +99,9 @@ expect "and opens it again" "$(js "() => ${lead}.querySelector('.proof > button[
 
 # ---- an approval before a lane: the last lane that ran comes first (a, heard from the proof, approves Build)
 pw press a
+wait_for "the answer says Ship it waits for the person, as it asks before it runs" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Add an export button\. Ship it waits for you\.$'
 wait_for "approved, and the run waits before Ship it" "() => ${lead}?.querySelector('h3')?.textContent ?? ''" '^What ran before this approval$'
+expect "approving what waits before Ship it says it starts: it has been asked" "$(js "() => document.querySelector('.decide .next')?.textContent")" '^Approve: Ship it starts next\.$'
 expect "the last lane that ran is Build" "$(js "() => ${lead}.querySelector('h4').textContent")" '^Build$'
 expect "its evidence is open" "$(js "() => ${lead}.querySelector('.proof > button[aria-expanded]').getAttribute('aria-expanded')")" '^true$'
 expect "it comes before the map" "$(js "() => !!(${lead}.compareDocumentPosition(document.querySelector('.deciding .runmap')) & Node.DOCUMENT_POSITION_FOLLOWING)")" '^true$'
@@ -139,6 +141,14 @@ wait_for "now a approves it, and the answer says what starts" "() => document.qu
 wait_for "the page moves on to the next item" "() => document.querySelector('.rundetail h2')?.textContent ?? ''" 'Add a search box'
 expect "the keyboard is on the next item's heading, not on the page" "$(js "$focused")" 'Add a search box'
 shot inbox-focus-next-light-390
+# the answer to a decision is about the item that was decided: once the person opens another, it goes
+back_to '^Inbox$'
+pw press Enter
+wait_for "Back shows the list" "() => getComputedStyle(document.querySelector('.deciding')).display" '^none$'
+tab_to '^[0-9]+ Add a search box'
+pw press Enter
+wait_for "Enter opens the next item" "() => getComputedStyle(document.querySelector('.deciding')).display" '^grid$'
+expect "the confirmation of the other item is not on show beside it" "$(js "() => [...document.querySelectorAll('.said')].filter((s) => s.getClientRects().length).map((s) => s.textContent).join('')")" '^$'
 pw press a
 wait_for "a second a, with no Tab, approves the next item" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Add a search box'
 # its run now waits before Ship it: the last item. It may arrive after the page moved on, so enter it from the list
