@@ -55,9 +55,9 @@ shot() { # a screenshot named <screen>-<theme>-<width> is checked to be of that 
   pw screenshot --filename="$shots/$1.png" || fail "screenshot $1"
 }
 theme() { # the rail's own theme button, by keyboard: it is the last stop before the section
-  back_to '^(Auto|Light|Dark)$'
+  back_to '^Theme: (auto|light|dark)\. Press for'
   for _ in 1 2 3; do
-    if [ "$(js "$focused")" = "$1" ]; then
+    if [ "$(js "() => document.activeElement.textContent.trim()")" = "$1" ]; then
       expect "the page is in the $1 theme" "$(js "() => { const l = /oklch\\(([0-9.]+)/.exec(getComputedStyle(document.body).backgroundColor)?.[1]; return l === undefined ? 'no ground colour read' : Number(l) > 0.6 ? 'Light' : 'Dark'; }")" "^$1$"
       return 0
     fi
@@ -143,8 +143,8 @@ unpainted() { # no hit area of a map paints anything: it is there to be pressed,
 centres_free() { # no hit area of a map covers the centre of another's
   expect "$1: no hit area covers the centre of another" "$(js "() => { const r = [...document.querySelectorAll('svg.map .hit')].map((e) => e.getBoundingClientRect()); const out = []; for (const [i, a] of r.entries()) for (const [j, b] of r.entries()) { const [x, y] = [a.x + a.width / 2, a.y + a.height / 2]; if (i !== j && x > b.left && x < b.right && y > b.top && y < b.bottom) out.push(i + ' covers ' + j); } return out.length ? out.join(', ') : 'free'; }")" '^free$'
 }
-# the Floor's map at desk width: drawn up to the canvas's width, and at most 1.5 times its natural size
-map_fill='() => { const m = document.querySelector(".map-scroll svg.map"); const w = m.getBoundingClientRect().width; const natural = m.viewBox.baseVal.width; const want = Math.min(document.querySelector(".map-scroll").clientWidth, natural * 1.5); return Math.abs(w - want) <= 2 ? "fills" : Math.round(w) + " px wide, wanted " + Math.round(want); }'
+# the Floor's map at desk width: drawn up to the canvas's width, at most 1.5 times its natural size, and never narrower than it is
+map_fill='() => { const m = document.querySelector(".map-scroll svg.map"); const w = m.getBoundingClientRect().width; const natural = m.viewBox.baseVal.width; const want = Math.max(natural, Math.min(document.querySelector(".map-scroll").clientWidth, natural * 1.5)); return Math.abs(w - want) <= 2 ? "fills" : Math.round(w) + " px wide, wanted " + Math.round(want); }'
 # the tasks of the rows on show, by name (each row also carries its task's number)
 tasks='() => [...document.querySelectorAll(".run .task")].map((t) => t.textContent.replace(/^[0-9]+ /, "")).join(" | ")'
 said='() => document.querySelector(".said")?.textContent ?? ""'

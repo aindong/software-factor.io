@@ -326,6 +326,10 @@ a.button {
 .map .station.ran-fail .body {
   fill: var(--return);
 }
+/* a lane a person stopped is not a failure: the ground disc with its ink outline, and an ink bar */
+.map .station.ran-stopped .mark {
+  stroke: var(--ink);
+}
 .map .station.ran-asked .body {
   fill: var(--signal);
 }

@@ -40,11 +40,15 @@ wait_for "the tables" "() => [...document.querySelectorAll('.page h2')].map((h) 
 expect "the totals say what period they cover" "$(js "() => document.querySelector('.topbar .where').textContent")" 'all sessions, on [A-Z][a-z]{2} [0-9]+, [0-9]{4}$'
 expect "the task of the By task table is a link to its run" "$(js "() => { const a = document.querySelector('.costs a'); return a ? a.textContent.trim() + ' ' + a.getAttribute('href') : 'no link'; }")" '^Say hello /runs/[0-9a-z]+$'
 expect "the total is what the eye lands on: heavier and darker than the period beside it" "$(js "() => { const [t, p] = ['.where span:not(.quiet)', '.where span.quiet'].map((q) => getComputedStyle(document.querySelector('.topbar ' + q))); return Number(t.fontWeight) > Number(p.fontWeight) && t.color !== p.color ? 'stands out' : 'same as the period: ' + t.fontWeight + ' ' + t.color; }")" '^stands out$'
+expect "the cost per landed task is not a bare figure when none landed: it says so in a phrase" "$(js "() => [...document.querySelectorAll('.figures > div')].find((d) => d.querySelector('dt').textContent === 'Cost per landed task')?.querySelector('dd').textContent ?? 'no figure'")" '^none landed yet$'
+links="() => { const h = [...document.querySelectorAll('.costs a')].map((a) => a.getBoundingClientRect().height); return h.length > 0 && h.every((x) => x >= LEAST - 0.5) ? 'ok' : h.map(Math.round).join(' ') + ' too short'; }"
+expect "a task's link is 24 px high at least at desk width" "$(js "${links/LEAST/24}")" '^ok$'
 shot costs-light-1440
 theme Dark
 shot costs-dark-1440
 pw resize 390 844
 fits "costs"
+expect "a task's link is 44 px high at least at phone width" "$(js "${links/LEAST/44}")" '^ok$'
 shot costs-dark-390
 theme Light
 shot costs-light-390

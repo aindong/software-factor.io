@@ -2,7 +2,7 @@
 .floor {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) 352px;
   grid-template-rows: minmax(0, 1fr); /* its parts scroll, it does not grow */
   min-height: 0;
 }
@@ -129,8 +129,7 @@
   stroke-width: 2;
   opacity: 0;
 }
-.map .station[aria-pressed="true"] .ring,
-.map .station:focus-visible .ring {
+.map .station[aria-pressed="true"] .ring {
   opacity: 1;
 }
 .map .station.bad .flag {
@@ -571,4 +570,14 @@
   .segmented.view button {
     min-height: var(--row);
   }
+}
+/* the keyboard's mark: a ring 2 px outside the selection's, so that a selected station still shows where the keyboard is */
+.map .station .focus {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+  opacity: 0;
+}
+.map .station:focus-visible .focus {
+  opacity: 1;
 }

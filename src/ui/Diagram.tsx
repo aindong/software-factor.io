@@ -15,6 +15,7 @@ import {
 } from "react";
 import type { Floor, Line, Outcome, Point, Station } from "../core/floor/layout.ts";
 import { type StopState, travelledOf } from "../core/runs/track.ts";
+import { badgeLift, type Lift } from "./badges.ts";
 import { type Ink, type Placed, placeNames } from "./labels.ts";
 import { type Train, TrainMark } from "./TrainMark.tsx";
 
@@ -174,6 +175,8 @@ export function Diagram({
   // Names and role lines are placed clear of each other, of the routes and of the edge. The widths are
   // measured, for the face and the names are the owner's: nothing here knows how wide a name is until it is drawn.
   const [placed, setPlaced] = useState<Placed>();
+  // how far each station's badge steps out to keep clear of the labels of the lines
+  const [lift, setLift] = useState<Record<string, Lift>>({});
   // how many pixels a unit of the map is drawn as: a hit area is as large in pixels as a finger needs, whatever the scale
   const [scale, setScale] = useState(1);
   useLayoutEffect(() => {
@@ -221,7 +224,9 @@ export function Diagram({
         .filter((t) => typeof t.getBBox === "function")
         .map((t) => t.getBBox());
       const next = placeNames(floor, inks, tags);
+      const out = badgeLift(floor, tags, off, 6 / scale);
       if (live) setPlaced((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
+      if (live) setLift((was) => (JSON.stringify(was) === JSON.stringify(out) ? was : out));
     };
     place();
     document.fonts?.ready.then(place); // the face may arrive after the first drawing
@@ -346,6 +351,7 @@ export function Diagram({
         const here = trains.filter((t) => t.lane === s.id);
         // trains wait on the side of the station its name is not on
         const up = s.labelSide === "below" ? -1 : 1;
+        const [out, across] = [off + (lift[s.id]?.out ?? 0), lift[s.id]?.across ?? 0];
         const about =
           s.kind === "end"
             ? `${s.label}, an end of the run`
@@ -360,6 +366,7 @@ export function Diagram({
             }}
             className={`station ${s.kind}${s.kind === "end" ? ` ${END_CLASS[s.id] ?? ""}` : ""}${s.missing ? " missing" : ""}${flagged.has(s.id) ? " bad" : ""}${ran ? ` ran-${states?.[s.id]}` : ""}${far ? " far" : ""}${here.some((t) => t.working) ? " working" : ""}`}
             transform={`translate(${s.x} ${s.y})`}
+            data-badge={`${across} ${up * out}`}
             role="button"
             tabIndex={s.id === tabStop ? 0 : -1}
             aria-pressed={s.id === selected}
@@ -382,6 +389,12 @@ export function Diagram({
             ) : (
               <circle className="ring" r="17" />
             )}
+            {/* the keyboard's mark: a second ring, 2 px outside the first, which a selected station already shows */}
+            {capsule ? (
+              <rect className="focus" x="-30" y="-21" width="60" height="42" rx="21" />
+            ) : (
+              <circle className="focus" r="21" />
+            )}
             {capsule ? (
               <rect className="body" x="-20" y="-11" width="40" height="22" rx="11" />
             ) : (
@@ -403,10 +416,10 @@ export function Diagram({
                   }}
                   onKeyDown={(event) => event.stopPropagation()}
                 >
-                  <TrainMark train={train} y={up * (off + k * step)} hit={badge} />
+                  <TrainMark train={train} x={across} y={up * (out + k * step)} hit={badge} />
                 </a>
               ) : (
-                <TrainMark key={train.label} train={train} y={up * (off + k * step)} hit={badge} />
+                <TrainMark key={train.label} train={train} x={across} y={up * (out + k * step)} hit={badge} />
               ),
             )}
             {flagged.has(s.id) ? (

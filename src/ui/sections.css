@@ -385,3 +385,17 @@
     padding: var(--md);
   }
 }
+/* a task's link in the table is a target: 24 px high at desk width, 44 at phone width; the row grows, the text does not */
+.costs tbody th a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--hit);
+}
+.costs {
+  --hit: 24px;
+}
+@media (max-width: 600px) {
+  .costs {
+    --hit: 44px;
+  }
+}

@@ -228,7 +228,7 @@ textarea {
 /* the shell keeps to the window at every width: the rail and the top bar stay, each part scrolls by itself */
 .shell {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   height: 100dvh;
 }
@@ -398,9 +398,11 @@ textarea {
     flex-direction: row;
     justify-content: space-around;
   }
+  /* each item is as wide as its word and 4 px on each side, and shares what is left: no label touches the next */
   .rail a,
   .rail button {
-    flex: 1;
+    flex: 1 1 auto;
+    padding-inline: var(--xs);
     border-left: 0;
     border-top: 2px solid transparent;
   }
@@ -476,7 +478,7 @@ textarea {
 /* A tab kept with a key the server no longer takes: said over every section, with the way out in it. */
 .keyless {
   position: fixed;
-  inset: auto 0 0 64px;
+  inset: auto 0 0 72px;
   z-index: 20;
   display: flex;
   flex-wrap: wrap;
