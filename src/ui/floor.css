@@ -469,6 +469,11 @@
   padding-block: 3px;
   margin-block: -3px;
 }
+/* of the counts, the one that is a person's to act on is read first: darker and heavier than the rest */
+.topbar .needs a[href="/inbox"] {
+  color: var(--ink);
+  font-weight: var(--w-heading);
+}
 @media (max-width: 760px) {
   .topbar .needs a {
     padding-block: 13px;
@@ -499,7 +504,7 @@
 .queue ul {
   display: grid;
   gap: var(--xs);
-  max-width: 62ch;
+  max-width: 46ch; /* a title and its button stay within one glance of each other */
   margin: 0;
   padding: 0;
   list-style: none;

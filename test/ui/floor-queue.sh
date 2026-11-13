@@ -46,6 +46,7 @@ wait_for "the line of counts says what is queued" "$needs" '^1 waits for you · 
 expect "the strip below the map lists the queued tasks" "$(js "$rows")" '^First chore.*queued.*Run \| Second chore.*queued.*Run$'
 shot floor-queue-light-1440
 in_window "the Floor with a queue"
+expect "a title and its button stay within one glance: the list is at most 560 px wide" "$(js "() => document.querySelector('.queue ul').getBoundingClientRect().width <= 560")" '^true$'
 
 # a stopped run's task put back in the queue is counted, and listed, without a reload
 sf requeue "$broke" > /dev/null || fail "requeue"
