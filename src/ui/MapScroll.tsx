@@ -8,7 +8,7 @@ export function MapScroll({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     const look = () => {
       const edge = box.current?.getBoundingClientRect().right ?? 0;
-      const out = [...(box.current?.querySelectorAll(".station") ?? [])].filter(
+      const out = [...(box.current?.querySelectorAll(".station .body") ?? [])].filter(
         (s) => s.getBoundingClientRect().right > edge + 0.5,
       ).length;
       setMore(out);
