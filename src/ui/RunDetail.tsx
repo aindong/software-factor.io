@@ -215,8 +215,9 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
         gateWords={
           stopGate && what(stopGate.gate) ? { id: stopGate.gate, what: what(stopGate.gate) ?? "" } : undefined
         }
-      />
-      {detail && !deciding ? <Waits detail={detail} runId={row.id} nameOf={nameOf} /> : null}
+      >
+        {detail && !deciding ? <Waits detail={detail} runId={row.id} nameOf={nameOf} /> : null}
+      </RunHeader>
 
       {detail && lead ? (
         <Lead

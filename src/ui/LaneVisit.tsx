@@ -65,7 +65,8 @@ export function LaneVisit(props: {
   ].filter(Boolean);
   const panel = lane.note ? verdicts(lane.note) : null;
   const said = lane.note && !panel ? lead(lane.note) : null;
-  const repeats = !!said && !!props.says && props.says.includes(said.head);
+  const repeats =
+    !!said && !!props.says && props.says.toLowerCase().includes(said.head.toLowerCase().replace(/\.$/, ""));
   const failing = panel?.filter((v) => !v.pass) ?? [];
   const hasMore = parts.length > 0 || lane.output || lane.handoff || panel || said?.more;
   const spent = [lane.durationMs ? howLong(lane.durationMs) : "", lane.usd ? dollars(lane.usd) : ""].filter(

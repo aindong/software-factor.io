@@ -41,6 +41,21 @@ describe("a lane that a person stopped", () => {
     expect(html).not.toMatch(/failed|mark fail/);
     expect(STATE_WORD[stateOf("fail", true)]).toBe("stopped");
   });
+  it("is not said twice: the page's first sentence already says it, in other case", () => {
+    const l = lane({ stopped: true, note: "stopped by a person" });
+    const html = renderToStaticMarkup(
+      <LaneVisit
+        lane={l}
+        name="Plan"
+        runId="r"
+        files={[]}
+        proof={proof}
+        show={() => {}}
+        says="Stopped by a person."
+      />,
+    );
+    expect(html).not.toContain("stopped by a person");
+  });
   it("is still failed when it failed", () => {
     expect(card(lane({}))).toContain("failed");
   });

@@ -122,6 +122,8 @@ shot run-waits-light-1440
 expect "the sentences say once that a person is needed" "$(js "() => (document.querySelector('.rundetail').innerText.match(/needs you|waiting for a decision|waits for your approval|asks:/gi) ?? []).length")" '^1$'
 expect "it is said in the block that holds the way to decide, and the head keeps only its state" "$(js "() => document.querySelector('.rundetail .waits')?.innerText.includes('waits for your approval') && !/needs you|waiting for a decision/.test(document.querySelector('.rundetail header').innerText) && /Waits for you/.test(document.querySelector('.rundetail header .state').textContent) ? 'once' : 'not so'")" '^once$'
 
+expect "what waits for a person comes before the facts, in the head" "$(js "() => { const w = document.querySelector('.rundetail header .waits'); const f = document.querySelector('.rundetail header .facts'); return w && f && (w.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING) ? 'first' : 'not first'; }")" '^first$'
+
 # ---- 4. what is opened near the bottom of the page is brought into view
 pw resize 1440 600
 tab_to '^The diff of the whole run'

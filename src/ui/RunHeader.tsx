@@ -1,6 +1,6 @@
 // The head of a run's page: its title, what it is doing or how it ended in plain words, whether it needs a
 // person, and a short line of facts. The run's id and branch, which only a developer looks for, come last.
-import { type RefObject, useState } from "react";
+import { type ReactNode, type RefObject, useState } from "react";
 import { QUEUED } from "../core/runs/sentence.ts";
 import type { RunDetail, RunRow } from "./api.ts";
 import { Elapsed } from "./Elapsed.tsx";
@@ -22,6 +22,8 @@ export function RunHeader(props: {
   laneName: string;
   /** What the gate that stopped the run checks, in the workflow's own words, with the gate's id. */
   gateWords?: { id: string; what: string };
+  /** What waits for a person, with the way to decide: the first thing under the title, before the facts. */
+  children?: ReactNode;
 }) {
   const { row, detail } = props;
   const [told, setTold] = useState<Said>();
@@ -42,13 +44,15 @@ export function RunHeader(props: {
       {props.deciding ? null : (
         <>
           <State run={row} />
-          <p className="lede" role="status">
-            {hold ? null : said.says}{" "}
-            <span className={said.needs ? "needs" : "quiet"}>
-              {hold ? null : queued ? <Coded sentence={QUEUED} /> : said.line}
-            </span>
-            {told?.text ? <span className={told.bad ? "needs" : ""}> {told.text}</span> : null}
-          </p>
+          {hold && !told?.text ? null : (
+            <p className="lede" role="status">
+              {hold ? null : said.says}{" "}
+              <span className={said.needs ? "needs" : "quiet"}>
+                {hold ? null : queued ? <Coded sentence={QUEUED} /> : said.line}
+              </span>
+              {told?.text ? <span className={told.bad ? "needs" : ""}> {told.text}</span> : null}
+            </p>
+          )}
           {/* what waits says it in its own block below, with the way to decide; the sentence is the record's own, for a developer */}
           {props.asking || !more ? null : (
             <p className="sentence quiet">
@@ -63,6 +67,7 @@ export function RunHeader(props: {
           ) : null}
         </>
       )}
+      {props.children}
       {props.deciding ? null : <RunActions row={row} headRef={props.headRef} say={setTold} />}
       <dl className="facts">
         <div>
