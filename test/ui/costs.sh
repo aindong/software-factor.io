@@ -39,9 +39,15 @@ section Costs
 wait_for "the tables" "() => [...document.querySelectorAll('.page h2')].map((h) => h.textContent).join(' | ')" '^By lane \| By task \| By account$'
 expect "the totals say what period they cover" "$(js "() => document.querySelector('.topbar .where').textContent")" 'all sessions, on [A-Z][a-z]{2} [0-9]+, [0-9]{4}$'
 expect "the task of the By task table is a link to its run" "$(js "() => { const a = document.querySelector('.costs a'); return a ? a.textContent.trim() + ' ' + a.getAttribute('href') : 'no link'; }")" '^Say hello /runs/[0-9a-z]+$'
-shot costs-link-light-1440
+expect "the total is what the eye lands on: heavier and darker than the period beside it" "$(js "() => { const [t, p] = ['.where span:not(.quiet)', '.where span.quiet'].map((q) => getComputedStyle(document.querySelector('.topbar ' + q))); return Number(t.fontWeight) > Number(p.fontWeight) && t.color !== p.color ? 'stands out' : 'same as the period: ' + t.fontWeight + ' ' + t.color; }")" '^stands out$'
+shot costs-light-1440
+theme Dark
+shot costs-dark-1440
 pw resize 390 844
 fits "costs"
+shot costs-dark-390
+theme Light
+shot costs-light-390
 expect "the period is on the page at phone width too" "$(js "() => document.querySelector('.topbar .where').textContent")" 'all sessions'
 tab_to '^Say hello$'
 pw press Enter
