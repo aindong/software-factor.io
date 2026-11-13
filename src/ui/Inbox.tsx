@@ -144,7 +144,7 @@ export function Inbox() {
       // what the pass route sets going, when it is known; a run that has stopped or been dropped since is said as it is
       const gone = body.state === "ended" && (body.run === "stopped" || body.run === "dropped");
       const after =
-        next && !gone
+        decision === "approve" && next && !gone
           ? `${next[0]?.toUpperCase()}${next.slice(1)}.`
           : body.state === "going"
             ? "The run goes on."
