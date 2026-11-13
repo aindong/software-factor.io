@@ -118,8 +118,9 @@ shot run-person-stopped-light-1440
 pw press ArrowDown
 pw press ArrowDown
 wait_for "the page follows" "() => document.querySelector('.rundetail h2').textContent" '^Add an export button$'
-expect "it is said once" "$(js "() => (document.querySelector('.rundetail').innerText.match(/waits? for (your|you)|needs? (you|a person)|Needs you/gi) ?? []).length")" '^1$'
 shot run-waits-light-1440
+expect "the sentences say once that a person is needed" "$(js "() => (document.querySelector('.rundetail').innerText.match(/needs you|waiting for a decision|waits for your approval|asks:/gi) ?? []).length")" '^1$'
+expect "it is said in the block that holds the way to decide, and the head keeps only its state" "$(js "() => document.querySelector('.rundetail .waits')?.innerText.includes('waits for your approval') && !/needs you|waiting for a decision/.test(document.querySelector('.rundetail header').innerText) && /Waits for you/.test(document.querySelector('.rundetail header .state').textContent) ? 'once' : 'not so'")" '^once$'
 
 # ---- 4. what is opened near the bottom of the page is brought into view
 pw resize 1440 600

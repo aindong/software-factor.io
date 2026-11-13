@@ -28,6 +28,8 @@ export function RunHeader(props: {
   const said = lede(row, props.laneName);
   const queued = row.taskStatus === "queued" && (row.status === "stopped" || row.status === "dropped");
   const more = pageSays(row);
+  // a run that waits says so in the block that holds the way to decide, which is yellow and follows: the head keeps its state
+  const hold = said.needs && (!detail || props.asking);
   return (
     <header>
       <button type="button" className="button back" onClick={props.onBack}>
@@ -41,9 +43,9 @@ export function RunHeader(props: {
         <>
           <State run={row} />
           <p className="lede" role="status">
-            {said.says}{" "}
+            {hold ? null : said.says}{" "}
             <span className={said.needs ? "needs" : "quiet"}>
-              {queued ? <Coded sentence={QUEUED} /> : said.line}
+              {hold ? null : queued ? <Coded sentence={QUEUED} /> : said.line}
             </span>
             {told?.text ? <span className={told.bad ? "needs" : ""}> {told.text}</span> : null}
           </p>
