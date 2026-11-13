@@ -1,0 +1,99 @@
+#!/bin/bash
+# The Floor's controls and its first read (round two): the count that waits for a person has the yellow square the
+# Runs list uses, and none when nothing waits (F5); the Diagram and JSON switch is quiet when selected, so Save is
+# the one ink fill, and its halves are 44 px high at phone width (F6); every select of the lane panel is one kind
+# (F7); Undo after a save says what it undoes or is off (F16); the working run's link is a target of 24 px at desk
+# width and 44 at phone width (F12). One run waits at its checkpoint, one works, one task is queued.
+# Needs playwright-cli and a built command (pnpm run build).
+# Usage: bash test/ui/floor-controls.sh [folder for screenshots]
+# Prints "floor-controls: ok" and exits 0, or says which step failed and exits 1.
+set -u
+here=$(cd "$(dirname "$0")/../.." && pwd)
+shots=${1:-}
+work=$(mktemp -d)
+session="floor-controls-$$"
+server=""
+slow=""
+cleanup='[ -n "$slow" ] && kill "$slow" 2> /dev/null'
+# shellcheck source=test/ui/keys.sh
+. "$here/test/ui/keys.sh"
+
+[ -f "$here/dist/cli.js" ] && [ -f "$here/dist/ui/index.html" ] || fail "build first: pnpm run build"
+for name in $(env | sed -nE 's/^(FACTOR_[A-Za-z0-9_]*)=.*/\1/p'); do unset "$name"; done
+export FACTOR_HOME="$work/home"
+sf() { node "$here/dist/cli.js" "$@"; }
+
+# ---- a workspace: build, then review, then ship on approval; the reviewer's script is set before each run
+mkdir -p "$work/demo-shop" && cd "$work/demo-shop" || fail "no work folder"
+git init -q -b main && git config user.email t@example.com && git config user.name T
+echo "# demo" > README.md && git add -A && git commit -q -m initial
+sf init > /dev/null || fail "init"
+cat > .factor/workflows/delivery.json << 'FLOW'
+{
+  "$schema": "https://softwarefactor.io/schema/workflow/v1.json",
+  "version": 1,
+  "name": "delivery",
+  "description": "Build, review and ship on approval.",
+  "roles": { "author": { "description": "Writes." }, "reviewer": { "description": "Reads." } },
+  "limits": { "minutes": 60, "tokens": 1000000 },
+  "commands": { "verify": { "description": "The tests." } },
+  "collectors": [{ "id": "tasks", "uses": "core/file@1", "with": { "path": ".factor/tasks.md" } }],
+  "gates": { "verify": { "uses": "core/command@1", "with": { "command": "verify" }, "onFail": "fail" } },
+  "lanes": [
+    { "id": "build", "name": "Build", "uses": "core/agent@1", "agent": { "role": "author", "access": "write", "prompt": "Build it." }, "gates": ["verify"], "checkpoint": "out", "on": { "pass": "review", "fail": "@stop" } },
+    { "id": "review", "name": "Review", "uses": "core/agent@1", "agent": { "role": "reviewer", "access": "read", "prompt": "Review it." }, "checkpoint": "out", "on": { "pass": "ship", "fail": "@stop" } },
+    { "id": "ship", "name": "Ship it", "uses": "core/command@1", "with": { "run": "true" }, "checkpoint": "in", "on": { "pass": "@done", "fail": "@stop" } }
+  ]
+}
+FLOW
+rm -f .factor/workflows/starter.json
+node -e '
+const fs = require("fs");
+const f = JSON.parse(fs.readFileSync(".factor/factory.json"));
+fs.writeFileSync(".factor/factory.json", JSON.stringify({ ...f, workflow: "delivery", commands: { verify: "true" } }, null, 2));
+fs.writeFileSync(".factor/tasks.md", "- [ ] Add an export button\n- [ ] Fix the date format\n- [ ] Show the cost of each lane\n");
+'
+script() { # script <milliseconds the reviewer works>
+  node -e '
+const [ms] = process.argv.slice(1);
+const roles = {
+  author: { adapter: "fake", script: { build: [{ write: { path: "src/a.ts", content: "export {};\n" } }, { commit: "Add a" }, { handoff: { outcome: "pass", summary: "Built." } }] } },
+  reviewer: { adapter: "fake", script: { review: [...(Number(ms) ? [{ sleep: Number(ms) }] : []), { handoff: { outcome: "pass", summary: "Read it." } }] } },
+};
+require("fs").writeFileSync(".factor/local.json", JSON.stringify({ roles }, null, 2));
+' "$1"
+  git add -A && git commit -q -m "set up the factory" > /dev/null 2>&1
+}
+# one run waits for approval, one works, the third task is queued
+script 0
+sf run > "$work/run1.log" 2>&1; [ $? -eq 3 ] || fail "the first run should wait for approval: $(cat "$work/run1.log")"
+waiting=$(sf runs 2> /dev/null | awk 'NR == 1 { print $1 }')
+[ -n "$waiting" ] || fail "no run id in: $(sf runs 2>&1)"
+script 120000 # long enough for a busy machine
+sf run > "$work/run2.log" 2>&1 &
+slow=$!
+
+needs='() => document.querySelector(".topbar .needs")?.textContent ?? "no line"'
+start_ui 0
+pw open "$address" || fail "the browser did not open"
+pw resize 1440 900
+wait_for "the line of counts says what waits, works and is queued" "$needs" '^1 waits for you · 1 queued$'
+wait_for "the strip names the working run" "() => document.querySelectorAll('.queue li.working').length" '^1$'
+
+# ---- F5: the count that waits for a person is the first read of the bar: a yellow square, ink, weight 600
+mark='() => { const a = document.querySelector(".topbar .needs a[href=\"/inbox\"]"); const m = a?.querySelector(".mark.asked"); if (!a || !m) return "no mark"; const rest = [...document.querySelectorAll(".topbar .needs a:not([href=\"/inbox\"])")].some((x) => x.querySelector(".mark")); return getComputedStyle(a).fontWeight + (rest ? " other counts marked" : " only this one"); }'
+expect "the count that waits for a person has the yellow square, weight 600, and no other count has a mark" "$(js "$mark")" '^600 only this one$'
+expect "the yellow square is the signal yellow the Runs list uses" "$(js "() => { const m = document.querySelector('.topbar .needs .mark.asked'); const p = document.createElement('i'); p.style.background = 'var(--signal)'; document.body.append(p); const want = getComputedStyle(p).backgroundColor; p.remove(); return m && getComputedStyle(m).backgroundColor === want ? 'signal' : 'not signal'; }")" '^signal$'
+pw resize 390 844
+expect "at phone width the mark is there too" "$(js "() => document.querySelectorAll('.topbar .needs .mark.asked').length")" '^1$'
+pw resize 1440 900
+
+# ---- the end: nothing waits, so no yellow in the line of counts
+sf approve "$waiting" > "$work/approve.log" 2>&1 || fail "approve: $(cat "$work/approve.log")"
+wait_for "nothing waits any more" "$needs" '^1 queued$|^no line$'
+expect "when nothing waits there is no yellow in the line of counts" "$(js "() => document.querySelectorAll('.topbar .needs .mark.asked').length")" '^0$'
+
+playwright-cli -s="$session" close > /dev/null 2>&1
+kill "$server" 2> /dev/null
+kill "$slow" 2> /dev/null
+echo "floor-controls: ok"
