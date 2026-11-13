@@ -132,7 +132,8 @@ reload and a shared link keep it, and the heading says "1 working, 1 shown of 3"
 says "No run is working." with a button back to All. A run that is open stays open when it no longer matches:
 the list says that it is not among those shown.
 
-The arrow keys move through the list and Enter goes into a run. A run shows:
+The arrow keys move through the list and Enter goes into a run. A stopped run can be put back in the
+queue from its page, and a working one stopped. A run shows:
 
 - **Its map.** The workflow's diagram, read only, with what the run did at each station and the lines it took
   lit. The Replay control steps through the run with the arrow keys: at each step the map shows the run as it
@@ -149,8 +150,8 @@ The arrow keys move through the list and Enter goes into a run. A run shows:
   took and its cost, then what its agent said as whole sentences (the record keeps the first 500 characters and
   adds dots; the page drops the unfinished last sentence) and one line on its gates ("5 gates passed", or which
   one failed). Under that, one button, "Evidence for Build", opens in place the lane's claims with each
-  reference (it says whether the host checked it, and one that names a file opens that file), each gate with
-  its command, exit code and output, the hand-off, and what the agent printed, with its tokens. Nothing
+  reference (it says whether the host checked it; a commit or a changed file opens the diff), each gate with
+  its command, exit code and output, the hand-off as lines, and what the agent printed, with its tokens. Nothing
   technical is on the page until that button is pressed. A gate that also ran on the base commit shows that
   output beside its own. Several pieces of evidence can be open at once. A station on the run's map leads to
   that lane's part.
@@ -204,7 +205,7 @@ Runs keeps its own order.
 
 The keys work while the keyboard is in the inbox: on an item, or in its decision and proof. On arrival the
 keyboard is on the section's name, one Tab before the list, and nothing is chosen for you. A deciding key
-pressed there says "Choose an item first" above the list and decides nothing: no key decides on an item you
+pressed there, with no item open, says "Choose an item first" and decides nothing: no key decides on an item you
 did not choose. The line goes once you are on an item. An item you entered, from a run's "Decide in the
 inbox", a reload or a link, is on show, so the keyboard goes onto it and the keys work at once.
 At phone width the list stands alone until an item is opened: there `a`, `r` and `s` decide nothing and say "Open the item

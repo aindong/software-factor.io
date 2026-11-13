@@ -9,12 +9,24 @@ export function nextStop(
 ): string | undefined {
   if (item.kind === "question") return undefined;
   const find = (id: string) => workflow?.lanes.find((l) => l.id === id);
-  const named = (id: string) => `${find(id)?.name ?? id} starts`;
+  const named = (id: string, asks = false) => `${find(id)?.name ?? id} ${asks ? "waits for you" : "starts"}`;
+  const asksFirst = (id: string) => {
+    const l = find(id);
+    return l?.checkpoint === "in" && (l.uses !== "core/agent@1" || l.oneWay === true);
+  };
   // work that was not done yet is approved before its lane: that lane is what starts
   if (!item.decisions.includes("send-back")) return find(item.lane) ? named(item.lane) : undefined;
   const lane = find(item.lane);
   const pass = lane?.on.pass;
   const step = typeof pass === "string" ? { to: pass, when: undefined } : pass?.[0];
   if (!step || step.when) return undefined;
-  return step.to === "@done" ? "the run ends done" : find(step.to) ? named(step.to) : undefined;
+  return step.to === "@done"
+    ? "the run ends done"
+    : find(step.to)
+      ? named(step.to, asksFirst(step.to))
+      : undefined;
 }
+
+/** The bar's words: the lane that starts or waits comes "next"; the end of the run does not. */
+export const barWords = (next: string) =>
+  `Approve: ${/ (starts|waits for you)$/.test(next) ? `${next} next` : next}.`;

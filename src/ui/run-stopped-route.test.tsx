@@ -23,6 +23,7 @@ const row = (status: RunRow["status"], outcome: "pass" | "fail"): RunRow => ({
   own: false,
   at: status === "done" ? null : "build",
   sentence: "",
+  taskStatus: null,
   tokens: 0,
   usd: 0,
   usdUnknown: false,

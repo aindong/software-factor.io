@@ -50,14 +50,20 @@ fs.writeFileSync(".factor/workflows/delivery.json", JSON.stringify(workflow, nul
 const f = JSON.parse(fs.readFileSync(".factor/factory.json"));
 fs.writeFileSync(".factor/factory.json", JSON.stringify({ ...f, workflow: "delivery", commands: { verify: "true" } }, null, 2));
 '
+echo "- [ ] Publish the release" > .factor/ships.md
 git add -A && git commit -q -m "set up the factory"
 sf check > "$work/check.log" 2>&1 || fail "the workflow does not pass the checker: $(cat "$work/check.log")"
 
+sf run > "$work/run.log" 2>&1; [ $? -eq 3 ] || fail "the run should wait for a person: $(cat "$work/run.log")"
 start_ui 0
 pw open "$address" || fail "the browser did not open"
 pw resize 1440 900
 wait_for "the workflow is drawn" "() => document.querySelectorAll('.station.lane').length" '^5$'
 expect "the map has its conditional routes" "$(js "() => document.querySelectorAll('svg.map .line.conditional').length")" '^3$'
+wait_for "the run that waits is a train on the map" "() => document.querySelectorAll('g.train').length" '^1$'
+expect "the map is drawn up to the canvas, at most 1.5 times its natural size" "$(js "$map_fill")" '^fills$'
+expect "each task badge has a hit area of at least 24 by 24 px at desk width" "$(hits 'g.train .hit' 24 24)" '^ok$'
+centres_free "the conditional map at 1440"
 shot maps-light-1440
 labels_apart "the conditional map, light at 1440"
 names_belong "the conditional map, light at 1440"
@@ -69,6 +75,17 @@ wait_for "the map is drawn at phone width" "() => document.querySelectorAll('.st
 labels_apart "the conditional map, dark at 390"
 theme Light
 labels_apart "the conditional map, light at 390"
+expect "at phone width the map is drawn as it was, and scrolls" "$(js "() => { const m = document.querySelector('.map-scroll svg.map'); return Math.abs(m.getBoundingClientRect().width - m.viewBox.baseVal.width) <= 1 ? 'natural' : 'scaled'; }")" '^natural$'
+expect "each task badge has a hit area of at least 44 by 44 px at phone width" "$(hits 'g.train .hit' 44 44)" '^ok$'
+expect "every station of the Floor is 44 px wide at least" "$(hits '.station .hit' 44 1)" '^ok$'
+centres_free "the conditional map at 390"
+# a run's own map, at phone width: every station is at least 44 px wide to touch
+section Runs
+tab_to 'Publish the release'
+pw press Enter
+wait_for "the run's map is drawn" "() => document.querySelectorAll('svg.map.overlaid .station').length" '^[1-9]'
+expect "every station of a run's map is 44 px wide at least" "$(hits 'svg.map.overlaid .station .hit' 44 1)" '^ok$'
+centres_free "the run's map at 390"
 
 playwright-cli -s="$session" close > /dev/null 2>&1
 kill "$server" 2> /dev/null

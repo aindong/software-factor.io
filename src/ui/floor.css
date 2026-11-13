@@ -450,3 +450,22 @@
     display: none;
   }
 }
+/* what needs the person, counted over every workflow: quiet, in the top bar; at phone width under the title, not behind Tools */
+.topbar .needs {
+  margin: 0;
+  color: var(--ink-soft);
+  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font);
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .topbar .needs {
+    flex-basis: 100%;
+  }
+}
+/* at desk width the map is drawn up to its canvas's width, at most 1.5 times its natural size (--w): a vector, so the text stays sharp */
+@media (min-width: 601px) {
+  .map-side .map:not(.overlaid) {
+    width: max(calc(var(--w) * 1px), min(100%, calc(var(--w) * 1.5px)));
+    height: auto;
+  }
+}

@@ -21,6 +21,8 @@ export function RunActions(props: {
   const keep = useRef<HTMLButtonElement>(null);
   const again = row.status === "stopped" || row.status === "dropped";
   if (!again && row.status !== "running") return null;
+  // once the task is in the queue the button has done its work: the page says what starts it
+  if (again && row.taskStatus === "queued") return null;
 
   const act = async (name: "runs_stop" | "runs_requeue", done: string, not: string) => {
     if (doing) return;
@@ -55,12 +57,12 @@ export function RunActions(props: {
             onClick={() =>
               act(
                 "runs_requeue",
-                `Queued again: ${row.task}. The next softwarefactor run takes it.`,
-                "Not queued again",
+                "", // the page's status line then says that the task is queued, and what starts it
+                "Not put back in the queue",
               )
             }
           >
-            {doing === "again" ? "Queuing..." : "Try again"}
+            {doing === "again" ? "Putting back..." : "Put back in the queue"}
           </button>
           <span className="quiet">
             or in your terminal: <code>softwarefactor requeue {row.id}</code>

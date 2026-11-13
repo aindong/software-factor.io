@@ -22,12 +22,22 @@ export async function decide(
   /** The inbox item the person decided on, when they named it: a decision is not carried over to the next checkpoint. */
   onItem?: number,
 ): Promise<RunSummary> {
-  preflight(ws);
   const db = openDb(ws.dbPath);
   try {
     const run = store.getRun(db, runId);
-    if (!run)
+    if (!run) {
+      preflight(ws); // the refusals of the factory itself come first, as before
       throw new UserError(`There is no run "${runId}".`, "See the run ids with `softwarefactor status`.");
+    }
+    // A run goes on with the workflow this process loaded: its lanes, prompts and roles. Another
+    // workflow in use now would carry it on with lanes it never had, so a waiting run is refused.
+    if (run.status === "waiting" && run.workflow !== ws.workflow.name) {
+      throw new UserError(
+        `Run ${runId} waits in the workflow "${run.workflow}", and this workspace now uses "${ws.workflow.name}".`,
+        `Make "${run.workflow}" the workflow in use again (the "workflow" in .factor/local.json or .factor/factory.json), then decide.`,
+      );
+    }
+    preflight(ws);
     const item = store.openInboxFor(db, runId);
     if (run.status !== "waiting" || !item) {
       throw new UserError(

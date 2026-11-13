@@ -14,6 +14,7 @@ import { Ladder } from "./Ladder.tsx";
 import { AddLane, caretToLane, Fold, Legend, trainsOf } from "./Legend.tsx";
 import { useRuns } from "./live.ts";
 import { MapScroll } from "./MapScroll.tsx";
+import { Needs } from "./Needs.tsx";
 import { go } from "./route.ts";
 import { statusOf } from "./status.ts";
 
@@ -285,6 +286,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
             <span className="code">{name}</span>
           )}
         </div>
+        <Needs />
         <Fold>
           <button type="button" className="button narrow-only" onClick={() => open(undefined)}>
             Workflow settings

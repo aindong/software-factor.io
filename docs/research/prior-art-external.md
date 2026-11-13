@@ -55,12 +55,14 @@ Source: https://www.aihero.dev/cohorts/software-factories-for-real-engineers-xdy
 
 ## 5. IndyDevDan: Tiny Software Factories
 
-Sources: .agent/sources/tiny-software-factories.md (from the two video descriptions only, transcripts not read), plus https://agenticengineer.com and https://agenticengineer.com/tactical-agentic-coding.
+Sources: the two videos, "Tiny Software Factories: Agentic Engineering DONE WRONG" (https://www.youtube.com/watch?v=1v7ldJiyH-Y) and "ZERO to RUNNING Software Factory In 16 Minutes (LIQUID Software)" (https://www.youtube.com/watch?v=GRlcm3wmOqs), from their descriptions and, since 2026-11-13, from transcripts of both read in full (the first stops at about 18 minutes, the second walks through three of its 14 features); plus https://agenticengineer.com and https://agenticengineer.com/tactical-agentic-coding.
 
-- **From the local notes.** In the loop, near the loop, out of the loop. Proactive agents: a durable agent plus a trigger. Cron prompts: a name, a schedule, a prompt. Agent access parity: what a person can click, the agent can call. The core four: context, model, prompt, tools. Specialised sub-agents with their own model, tools, and hard time and spend budgets, every run traced. A data flywheel from every human signal. Liquid software that person and agent can reshape. The agent can change its own settings, which is risky.
-- **Stance.** "Done wrong" on purpose: ship fast with one agent, cron, a JSON config and SQLite on one box.
+- **The definition.** "A software factory built to solve one specific problem, where a proactive agent works around the clock in a durable environment, with you near the loop instead of in it." In the loop you prompt; near the loop you respond: "it works for you, then waits".
+- **What the factory is made of.** A template (the "empty factory") that is mounted beside a codebase with one command and then configured from a written plan (init, configure, specialise). A list on the left, the focus in the centre, an agent on the right. Agentic access parity: "every control in the UI has a matching agent tool". The core four: context, model, prompt, tools, with model tiers by job. An agent built from stacked harnesses that can be switched. Cron prompts: a name, a schedule, a prompt. Sub-agents with their own model tier, prompt, tools and hard time and spend budgets, every run readable. Tool summaries: a small model turns tool calls into sentences. A data flywheel from every human signal. "Liquid software" that person and agent reshape.
+- **Stance.** "Done wrong" on purpose: patterns "that will not scale", to get "from zero to value at the cost of basically everything except getting the job done". It is about near-loop work; fully autonomous systems are left to another course. It does not argue for one agent that does everything: the second lesson ends that "one super agent ... is not the right way" and that specialisation is the advantage, and the third is announced as small agent teams.
+- **A risk he names.** In one prompt the agent turned off its own tools and raised its own thinking level; he calls that "very dangerous if you don't control it properly".
 - **From his public pages.** The course page describes moving from "In the Loop" prompting to "Out of the Loop" systems. It describes AI developer workflows that join deterministic code with agents. It teaches "Closed Loop Prompts" so agents correct their own work, and a review step kept apart from testing. It lists the core four.
-- **Gaps.** The home page names only three: context, prompt, model. Neither page uses the words "tiny software factory", "near the loop" or "liquid software": Not verified from the site. No numbers or results are given.
+- **Gaps.** No numbers or results are given in either video or on the pages. "A JSON config and SQLite on one box" is in the descriptions and not in the transcripts read.
 
 ## 6. Other write-ups with real numbers
 
@@ -100,7 +102,7 @@ Sources: .agent/sources/tiny-software-factories.md (from the two video descripti
 - Letting an agent edit the tests, gates, judge or lessons that grade its own run.
 - An LLM judge as the only check, or one with no evals behind it.
 - Collectors that file without a triage and dedupe step.
-- "Ship at all costs" from the Tiny Software Factories videos. We keep JSON and SQLite and put gates, evidence and bounded loops before speed.
+- "Ship at all costs" from the Tiny Software Factories videos. We keep the small, local shape and put gates, evidence and bounded loops before speed.
 - Publishing volume alone (PRs per week) with no merge rate or cost.
 - Following instructions found in fetched pages. They are data.
 

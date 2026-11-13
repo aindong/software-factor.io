@@ -3,7 +3,7 @@
 // met with silence. `g` and the key after it never come here: the shell takes them first.
 // On arrival the inbox puts the keyboard on its heading, one Tab before the list: nothing is
 // chosen yet, and the first item is one key away.
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef, useSyncExternalStore } from "react";
 import type { Decision } from "../core/views.ts";
 
 export const DONE: Record<Decision, string> = {
@@ -21,19 +21,37 @@ export const DOING: Record<Decision, string> = {
 /** What a deciding key pressed outside the list is answered with. It goes once an item is chosen. */
 export const HINT = "Choose an item first: Tab moves to the list.";
 
-export function useDecidingKeyOutside(on: boolean, say: () => void): void {
+/** `act` decides on the item on show, from where the keyboard is on the page but not in the list or its proof; it says whether it can. */
+export function useDecidingKeyOutside(
+  on: boolean,
+  say: () => void,
+  act: (event: KeyboardEvent) => boolean,
+): void {
   useEffect(() => {
     if (!on) return;
     const hear = (event: KeyboardEvent) => {
       const at = event.target as Element | null;
       if (!["a", "r", "s"].includes(event.key) || event.metaKey || event.ctrlKey || event.altKey) return;
       if (at?.closest?.(".inbox, input, textarea, select, [contenteditable]")) return;
+      if (at && (at === document.body || at.closest("main")) && act(event)) return;
       say();
     };
     addEventListener("keydown", hear);
     return () => removeEventListener("keydown", hear);
-  }, [on, say]);
+  }, [on, say, act]);
 }
+
+/** The width at which an item is shown in place of the list. */
+const ALONE = "(max-width: 1000px)";
+export const useListAlone = () =>
+  useSyncExternalStore(
+    (tell) => {
+      const query = matchMedia(ALONE);
+      query.addEventListener("change", tell);
+      return () => query.removeEventListener("change", tell);
+    },
+    () => matchMedia(ALONE).matches,
+  );
 
 /**
  * An item entered from elsewhere (a run's "Decide in the inbox", a reload, a link) is on show, so

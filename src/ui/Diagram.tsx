@@ -3,10 +3,22 @@
 // map, Enter opens a station, `c` connects it. Dragging from a station's handle draws a line.
 // Runs are drawn over it and never change it: what a run did at each station, the lines it
 // took, and a train where each run is. Without `onConnect` the map is only read.
-import { type KeyboardEvent, type PointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { Floor, Line, Outcome, Point, Station } from "../core/floor/layout.ts";
-import { type StopState, travelledOf, type Visit } from "../core/runs/track.ts";
+import { type StopState, travelledOf } from "../core/runs/track.ts";
 import { type Ink, type Placed, placeNames } from "./labels.ts";
+import { type Train, TrainMark } from "./TrainMark.tsx";
+
+export type { Train };
 
 const BEND = 12;
 const WORD: Record<Outcome, string> = { pass: "pass", fail: "fail", needsPerson: "asks" };
@@ -107,36 +119,6 @@ const subOf = (s: Station) =>
           ? "wait"
           : (s.uses ?? "");
 
-export interface Train {
-  lane: string;
-  /** What the train carries: the task's number. */
-  label: string;
-  title: string;
-  /** The run waits for a person here. */
-  asks?: boolean;
-  /** Work is going on in the lane now: an agent or a gate is working. */
-  working?: boolean;
-  /** The lanes its run has been in, to find the line it came along. */
-  visits?: Visit[];
-  /** Where the train leads: its run, or the inbox when it waits for a person. */
-  href?: string;
-}
-/** A run on the map: a capsule with the task's number, beside the station it is at. */
-function TrainMark({ train, y }: { train: Train; y: number }) {
-  return (
-    <g
-      className={`train${train.asks ? " asks" : ""}${train.working ? " working" : ""}`}
-      transform={`translate(0 ${y})`}
-    >
-      <title>{train.title}</title>
-      <rect x="-17" y="-9" width="34" height="18" rx="9" />
-      <text y="4" textAnchor="middle">
-        {train.label}
-      </text>
-    </g>
-  );
-}
-
 export interface DiagramProps {
   floor: Floor;
   selected?: string;
@@ -191,6 +173,33 @@ export function Diagram({
   // Names and role lines are placed clear of each other, of the routes and of the edge. The widths are
   // measured, for the face and the names are the owner's: nothing here knows how wide a name is until it is drawn.
   const [placed, setPlaced] = useState<Placed>();
+  // how many pixels a unit of the map is drawn as: a hit area is as large in pixels as a finger needs, whatever the scale
+  const [scale, setScale] = useState(1);
+  useLayoutEffect(() => {
+    const node = svg.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const look = () => {
+      const [w, whole] = [node.getBoundingClientRect().width, node.viewBox.baseVal.width];
+      if (w > 0 && whole > 0) setScale(Math.round((w / whole) * 100) / 100);
+    };
+    look();
+    const watch = new ResizeObserver(look);
+    watch.observe(node);
+    return () => watch.disconnect();
+  }, []);
+  const phone = useSyncExternalStore(
+    (tell) => {
+      const query = matchMedia("(max-width: 600px)");
+      query.addEventListener("change", tell);
+      return () => query.removeEventListener("change", tell);
+    },
+    () => matchMedia("(max-width: 600px)").matches,
+    () => false,
+  );
+  const stationW = Math.max(52, 44 / scale);
+  const badge = { w: Math.max(34, (phone ? 44 : 24) / scale), h: Math.max(18, (phone ? 44 : 24) / scale) };
+  const step = Math.max(20, badge.h / 2 + 1); // trains in one lane: no hit area covers the centre of the next
+  const off = Math.max(30, badge.h / 2 + 1); // and none covers the centre of its station
   useLayoutEffect(() => {
     let live = true;
     const place = () => {
@@ -252,7 +261,10 @@ export function Diagram({
 
   const pointOf = (event: PointerEvent) => {
     const box = svg.current?.getBoundingClientRect();
-    return { x: event.clientX - (box?.left ?? 0) - left, y: event.clientY - (box?.top ?? 0) - top };
+    return {
+      x: (event.clientX - (box?.left ?? 0)) / scale - left,
+      y: (event.clientY - (box?.top ?? 0)) / scale - top,
+    };
   };
   const drop = (event: PointerEvent) => {
     if (!drag) return;
@@ -275,10 +287,11 @@ export function Diagram({
       height={floor.height + top + bottom}
       viewBox={`${-left} ${-top} ${floor.width + left + right} ${floor.height + top + bottom}`}
       // a run's map is read whole: it is drawn smaller to fit its box, down to seven tenths, and scrolls after that
+      // the Floor's own map is drawn larger at desk width (floor.css), from its natural width
       style={
         states
           ? { maxWidth: "100%", minWidth: (floor.width + left + right) * 0.7, height: "auto" }
-          : undefined
+          : ({ "--w": floor.width + left + right } as CSSProperties)
       }
       role="group"
       aria-label={
@@ -361,8 +374,8 @@ export function Diagram({
                 <circle className="pulse" r="22" />
               )
             ) : null}
-            {/* the touch target: 52 by 44 px, wider than what is drawn */}
-            <rect className="hit" x="-26" y="-22" width="52" height="44" />
+            {/* the touch target: 44 px high, 52 wide and never under 44 px wide as drawn, wider than what is drawn */}
+            <rect className="hit" x={-stationW / 2} y="-22" width={stationW} height="44" />
             {capsule ? (
               <rect className="ring" x="-26" y="-17" width="52" height="34" rx="17" />
             ) : (
@@ -389,10 +402,10 @@ export function Diagram({
                   }}
                   onKeyDown={(event) => event.stopPropagation()}
                 >
-                  <TrainMark train={train} y={up * (30 + k * 20)} />
+                  <TrainMark train={train} y={up * (off + k * step)} hit={badge} />
                 </a>
               ) : (
-                <TrainMark key={train.label} train={train} y={up * (30 + k * 20)} />
+                <TrainMark key={train.label} train={train} y={up * (off + k * step)} hit={badge} />
               ),
             )}
             {flagged.has(s.id) ? (
