@@ -27,6 +27,8 @@ sf init > /dev/null || fail "init"
 cp "$here/workflows/full-loop.json" .factor/workflows/
 node -e 'const fs = require("fs"); const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.workflow = "full-loop"; fs.writeFileSync(".factor/factory.json", JSON.stringify(f, null, 2));'
 
+elsewhere 2 1 # two runs wait at a lane and one is stopped, in workflows other than the one on show
+
 # how far below the top of the floor's section the map begins, in whole pixels
 gap='() => { const m = document.querySelector(".map-scroll"); if (!m || m.getClientRects().length === 0) return "no map"; return Math.round(m.getBoundingClientRect().top - m.closest(".work").getBoundingClientRect().top); }'
 room() { # room <when>: the map begins within 160 px, and has the rest of the window
@@ -78,6 +80,18 @@ expect "the map says how much of it is out of sight" "$(js "() => document.query
 expect "no key hints where there are no arrow keys" "$(js "() => [...document.querySelectorAll('.legend kbd')].filter((k) => k.getClientRects().length > 0).length")" '^0$'
 expect "every station is at least 44 px square to touch" "$(js "() => { const s = [...document.querySelectorAll('.station.lane .hit')].map((e) => e.getBoundingClientRect()).filter((r) => r.width < 44 || r.height < 44); return s.length === 0 && document.querySelectorAll('.station.lane .hit').length === 6 ? 'ok' : s.length + ' too small'; }")" '^ok$'
 shot floor-phone-folded
+expect "the line that says what needs the person is on the top bar, not behind Tools" "$(js "() => { const n = document.querySelector('.topbar .needs'); return n && n.getClientRects().length > 0 && !n.closest('#floor-tools') ? n.textContent : 'not shown'; }")" '^2 wait for you · 1 stopped$'
+reach "with the controls folded" "2 wait for you" "1 stopped"
+# task badges: with the runs that wait shown on the map, each has a hit area of 44 by 44 at phone width
+tab_to '^Workflow$'
+pw type "gate"
+wait_for "the workflow with two runs waiting shows two task badges" "() => document.querySelectorAll('g.train').length" '^2$'
+expect "each task badge has a hit area of at least 44 by 44 px" "$(hits 'g.train .hit' 44 44)" '^ok$'
+centres_free "the Floor with two task badges at phone width"
+pw type "full"
+wait_for "the workflow is drawn again" "() => document.querySelectorAll('.station.lane').length" '^6$'
+pw reload # the keyboard starts from the top of the page again
+wait_for "the workflow is drawn once more" "() => document.querySelectorAll('.station.lane').length" '^6$'
 
 # 3. the button that folds them is reached by Tab, says it is closed, and opens with Enter
 to_fold Tab

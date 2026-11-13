@@ -34,6 +34,7 @@ sf init > /dev/null || fail "init"
 cp "$here/workflows/full-loop.json" .factor/workflows/
 node -e 'const fs = require("fs"); const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.workflow = "full-loop"; fs.writeFileSync(".factor/factory.json", JSON.stringify(f, null, 2));'
 file=.factor/workflows/full-loop.json
+elsewhere 2 1 # two runs wait at a lane and one is stopped, in workflows other than the one on show
 
 start_ui 0
 pw open "$address" || fail "the browser did not open"
@@ -44,6 +45,32 @@ wait_for "the workflow is drawn" "() => document.querySelectorAll('.station.lane
 shot floor-light-1440
 labels_apart "the floor, floor-light-1440"
 names_belong "the floor, floor-light-1440"
+
+# the top bar says whether anything needs the person, counted over every workflow and not only the one on show
+needs='() => document.querySelector(".topbar .needs")?.textContent ?? "no line"'
+wait_for "the top bar says what needs the person, across workflows" "$needs" '^2 wait for you · 1 stopped$'
+expect "the two counts are links to the Inbox and to the stopped runs" "$(js "() => [...document.querySelectorAll('.topbar .needs a')].map((a) => a.getAttribute('href')).join(' ')")" '^/inbox /runs\?show=stopped$'
+expect "the map is drawn up to the canvas, at most 1.5 times its natural size" "$(js "$map_fill")" '^fills$'
+expect "the map is wider than 900 px and no wider than its canvas" "$(js "() => { const w = document.querySelector('.map-scroll svg.map').getBoundingClientRect().width; return w > 900 && w <= document.querySelector('.map-scroll').clientWidth ? 'ok' : Math.round(w) + ' px'; }")" '^ok$'
+tab_to '^2 wait for you$'
+pw press Enter
+wait_for "the count of runs that wait leads to the Inbox" "() => document.querySelector('h1').textContent" '^Inbox$'
+pw press g && pw press f
+wait_for "g then f is back on the Floor" "() => document.querySelector('h1').textContent" '^Floor$'
+tab_to '^1 stopped$'
+pw press Enter
+wait_for "the count of stopped runs leads to Runs" "() => document.querySelector('h1').textContent + ' ' + location.search" '^Runs \?show=stopped$'
+expect "with the stopped filter on" "$(js "() => document.querySelector('.runfilter [aria-pressed=true]')?.textContent.trim() ?? 'no filter'")" '^Stopped'
+pw press g && pw press f
+wait_for "the Floor again" "() => document.querySelector('h1').textContent" '^Floor$'
+# task badges: with the runs that wait shown on the map, each has a hit area of 24 by 24 at desk width
+tab_to '^Workflow$'
+pw type "gate"
+wait_for "the workflow with two runs waiting shows two task badges" "() => document.querySelectorAll('g.train').length" '^2$'
+expect "each task badge has a hit area of at least 24 by 24 px" "$(hits 'g.train .hit' 24 24)" '^ok$'
+centres_free "the Floor with two task badges"
+pw reload # the keyboard starts from the top of the page again
+wait_for "the workflow is drawn again" "() => document.querySelectorAll('.station.lane').length" '^6$'
 
 # the purpose box shows the whole description, not four lines of it
 expect "the workflow's purpose is shown whole" "$(js "() => { const t = document.querySelector('.inspector textarea'); return t.scrollHeight <= t.clientHeight + 1 ? 'whole' : 'cut at ' + t.clientHeight + ' of ' + t.scrollHeight; }")" '^whole$'
