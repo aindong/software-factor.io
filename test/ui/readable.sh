@@ -133,7 +133,7 @@ wait_for "the gate that failed is the first row, and is open, with what it check
 expect "the rows are grouped by round, the latest first" "$(js "() => [...document.querySelectorAll('.visits .shown .round')].map((h) => h.textContent).join(' | ')")" '^Round 3, the latest \| Round 2 \| Round 1$'
 expect "the first gate row of every round is the one that failed" "$(js "() => [...document.querySelectorAll('.visits .shown .round + .proof .what')].map((w) => w.textContent.replace(/:.*/, '')).join(' | ')")" '^Gate verify failed \| Gate verify failed \| Gate verify failed$'
 expect "the lane's card does not say again what the page's sentence says" "$(js "() => { const said = document.querySelector('.rundetail header .sentence').textContent; return [...document.querySelectorAll('.visits .note')].filter((n) => said.includes(n.textContent.trim())).length + ' ' + (document.querySelector('.visits .gates-line')?.textContent ?? 'no gate line'); }")" '^0 .*verify failed$'
-expect "the stop sentence says what the gate checks" "$(js "() => document.querySelector('.rundetail header').textContent")" 'That gate, verify, checks: the number of tests must not go down'
+expect "the page says what the gate checks, under what failed" "$(js "() => document.querySelector('.rundetail .failed').textContent")" 'verify, which checks: the number of tests must not go down'
 wait_for "its output is shown without another key" "() => document.querySelector('.visits .shown .proof .shown .output')?.textContent ?? ''" 'the tests went down'
 js "() => { document.querySelector('.visits .proof button').scrollIntoView({ block: 'start' }); return 'scrolled'; }" > /dev/null
 shot run-stopped-evidence-light-1440
