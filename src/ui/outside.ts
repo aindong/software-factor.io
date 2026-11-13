@@ -48,3 +48,15 @@ export function useTakesKeyboard(ready: boolean, node: RefObject<HTMLElement | n
     if (!document.activeElement || document.activeElement === document.body) node.current?.focus();
   }, [ready, node]);
 }
+
+export const typing = (target: EventTarget | null) =>
+  target instanceof HTMLTextAreaElement ||
+  target instanceof HTMLInputElement ||
+  target instanceof HTMLSelectElement;
+export interface Said {
+  text: string;
+  fix?: string;
+  bad: boolean;
+  /** The item a refusal is about: it is said at that item and at no other. */
+  item?: number;
+}
