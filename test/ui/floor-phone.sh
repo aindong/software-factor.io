@@ -63,6 +63,8 @@ pw resize 1440 900
 wait_for "the workflow is drawn" "() => document.querySelectorAll('.station.lane').length" '^6$'
 expect "no button folds the controls at desk width" "$(js "() => (${shown})(${fold})")" '^false$'
 reach "at desk width" Diagram JSON "Runs on map" Agent Command Wait
+expect "no cue at desk width, where the map fits" "$(js "() => document.querySelector('.map-more') === null")" '^true$'
+expect "the key hints show at desk width" "$(js "() => [...document.querySelectorAll('.legend kbd')].some((k) => k.getClientRects().length > 0)")" '^true$'
 
 # 2. at phone width the map begins within 160 px of the top, with the controls folded
 pw resize 390 844
@@ -72,6 +74,9 @@ expect "the floor is saved" "$(status)" '^Saved$'
 room "at phone width"
 expect "the folded controls are not stops of the Tab order while folded" "$(js "() => ${tabbable}.some((e) => e.closest('.topbar') && /^(Agent|Command|Wait)$/.test(e.textContent.trim()))")" '^false$'
 narrow "the floor with its controls folded"
+expect "the map says how much of it is out of sight" "$(js "() => document.querySelector('.map-more')?.textContent ?? 'no cue'")" '^[1-9][0-9]* more stations? to the right$'
+expect "no key hints where there are no arrow keys" "$(js "() => [...document.querySelectorAll('.legend kbd')].filter((k) => k.getClientRects().length > 0).length")" '^0$'
+expect "every station is at least 44 px square to touch" "$(js "() => { const s = [...document.querySelectorAll('.station.lane .hit')].map((e) => e.getBoundingClientRect()).filter((r) => r.width < 44 || r.height < 44); return s.length === 0 && document.querySelectorAll('.station.lane .hit').length === 6 ? 'ok' : s.length + ' too small'; }")" '^ok$'
 shot floor-phone-folded
 
 # 3. the button that folds them is reached by Tab, says it is closed, and opens with Enter

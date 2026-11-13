@@ -148,3 +148,21 @@ clear_map='() => {
 labels_apart() { # on every map: no two texts meet, no lane name or role line is crossed by a route, and no text leaves the map's box
   expect "$1: the texts of the map are clear of each other, of the routes and of the map's edge" "$(js "$clear_map")" '^clear$'
 }
+# every lane name and end name belongs to its station at a glance: centred over (or under) it, or standing close beside it
+names_at_stations='() => {
+  const out = [];
+  for (const g of document.querySelectorAll("svg.map .station")) {
+    const body = g.querySelector(".body")?.getBoundingClientRect();
+    const rs = [...g.querySelectorAll("text.name, text.sub")].map((t) => t.getBoundingClientRect());
+    if (!body || rs.length === 0) continue;
+    const [l, r, t, b] = [Math.min(...rs.map((x) => x.left)), Math.max(...rs.map((x) => x.right)), Math.min(...rs.map((x) => x.top)), Math.max(...rs.map((x) => x.bottom))];
+    const cx = body.left + body.width / 2;
+    const centred = Math.abs((l + r) / 2 - cx) <= 8;
+    const beside = r <= cx + 2 && cx - r <= 30 && Math.max(t - body.bottom, body.top - b) <= 24;
+    if (!centred && !beside) out.push(g.getAttribute("aria-label") + " (its name is " + Math.round((l + r) / 2 - cx) + " px from its station, " + Math.round(Math.max(t - body.bottom, body.top - b)) + " px clear)");
+  }
+  return out.length > 0 ? out.join("; ") : "tied";
+}'
+names_belong() { # on every map: each name is over its own station, or close beside it
+  expect "$1: every name is tied to its station" "$(js "$names_at_stations")" '^tied$'
+}

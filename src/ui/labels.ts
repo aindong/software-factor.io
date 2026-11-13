@@ -27,6 +27,8 @@ export interface Tag {
 export interface Placed {
   /** The baseline of each name, from its station. */
   y: Record<string, number>;
+  /** A name that stands beside its station when it can, and is centred over it once it is raised. */
+  centred: Record<string, boolean>;
   /** How far the map must reach past the lines and stations to hold the text, on each side. */
   top: number;
   bottom: number;
@@ -52,11 +54,17 @@ export function placeNames(floor: Floor, inks: Record<string, Ink>, tags: Tag[])
     }),
   );
   const taken: Box[] = tags.map((t) => [t.x - 2, t.y - 2, t.x + t.width + 2, t.y + t.height + 2]);
-  const placed: Placed = { y: {}, top: 0, bottom: 0, left: 0, right: 0 };
+  const placed: Placed = { y: {}, centred: {}, top: 0, bottom: 0, left: 0, right: 0 };
   let [x0, x1, y0, y1] = [0, floor.width, 0, floor.height];
   for (const s of [...floor.stations].sort((a, b) => a.x - b.x)) {
-    const ink = inks[s.id];
-    if (!ink) continue;
+    const drawn = inks[s.id];
+    if (!drawn) continue;
+    // beside, a name ends 18 px left of its station; raised, it is centred over it so that a reader sees whose it is
+    const wide = (drawn.right - drawn.left) / 2;
+    const beside = s.labelSide === "beside";
+    const sat: Ink = beside ? { ...drawn, left: -18 - 2 * wide, right: -18 } : drawn;
+    const over: Ink = { ...drawn, left: -wide, right: wide };
+    let ink = sat;
     const base = FIRST[s.labelSide];
     const up = s.labelSide !== "below";
     const box = (y: number): Box => [
@@ -68,10 +76,15 @@ export function placeNames(floor: Floor, inks: Record<string, Ink>, tags: Tag[])
     const free = (b: Box) =>
       !taken.some((t) => meets(b, t)) && !dots.some(([x, y]) => x > b[0] && x < b[2] && y > b[1] && y < b[3]);
     let y: number = base;
-    for (let tier = 1; tier <= 12 && !free(box(y)); tier += 1)
+    for (let tier = 1; tier <= 12 && !free(box(y)); tier += 1) {
+      if (beside) {
+        ink = over;
+        placed.centred[s.id] = true;
+      }
       y = up
         ? Math.min(base - tier * TIER, railTop - s.y - 44 - (tier - 1) * TIER)
         : Math.max(base + tier * TIER, railBottom - s.y + 28 + (tier - 1) * TIER);
+    }
     const b = box(y);
     taken.push(b);
     placed.y[s.id] = y;

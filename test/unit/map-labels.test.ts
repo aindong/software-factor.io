@@ -28,8 +28,10 @@ describe.each(["workflows/full-loop.json"])("the names on the map of %s", (file)
   });
   const placed = placeNames(floor, inks, tags);
   const boxes = floor.stations.map((s) => {
-    const [ink, y] = [inks[s.id], placed.y[s.id]];
-    if (!ink || y === undefined) throw new Error(`no place for ${s.id}`);
+    const [drawn, y] = [inks[s.id], placed.y[s.id]];
+    if (!drawn || y === undefined) throw new Error(`no place for ${s.id}`);
+    const w = (drawn.right - drawn.left) / 2;
+    const ink = placed.centred[s.id] ? { ...drawn, left: -w, right: w } : drawn;
     return {
       id: s.id,
       l: s.x + ink.left,
@@ -61,6 +63,12 @@ describe.each(["workflows/full-loop.json"])("the names on the map of %s", (file)
             expect(x > a.l && x < a.r && y > a.t && y < a.b, `${line.key} crosses ${a.id}`).toBe(false);
           }
         }
+  });
+
+  it("centres over its station every name that is raised from beside it", () => {
+    for (const s of floor.stations.filter((x) => x.labelSide === "beside"))
+      expect(placed.centred[s.id], s.id).toBe(placed.y[s.id] !== -30);
+    expect(floor.stations.some((s) => placed.centred[s.id])).toBe(true);
   });
 
   it("makes room at the edges for what reaches past the map", () => {

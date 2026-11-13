@@ -43,6 +43,10 @@ expect "the key is taken out of the address bar" "$(js '() => location.href')" '
 wait_for "the workflow is drawn" "() => document.querySelectorAll('.station.lane').length" '^6$'
 shot floor-light-1440
 labels_apart "the floor, floor-light-1440"
+names_belong "the floor, floor-light-1440"
+
+# the purpose box shows the whole description, not four lines of it
+expect "the workflow's purpose is shown whole" "$(js "() => { const t = document.querySelector('.inspector textarea'); return t.scrollHeight <= t.clientHeight + 1 ? 'whole' : 'cut at ' + t.clientHeight + ' of ' + t.scrollHeight; }")" '^whole$'
 
 # 0. a press of the mouse on a station's handle, with no drag, changes nothing
 at=$(js "() => { const b = document.querySelector('.station[aria-label^=\"Lane Build\"] .handle.pass').getBoundingClientRect(); return Math.round(b.x + b.width / 2) + ' ' + Math.round(b.y + b.height / 2); }")
@@ -151,6 +155,7 @@ expect "the name is back" "$(json '"name": "full-loop",')" '^true$'
 # 6. save by keyboard: the file is written, and the checker accepts it
 pw press Control+s
 wait_for "the save is confirmed" "() => document.querySelector('.topbar .status').textContent" '^Saved'
+wait_for "the save says when it was, and of what file" "() => document.querySelector('.topbar .status').textContent + ' | ' + document.querySelector('.topbar .status').title" '^Saved (just now|[0-9]+ min ago) \| .*full-loop\.json$'
 grep -q '"id": "docs"' "$file" || fail "the file on disk does not hold the lane typed in the JSON view"
 grep -q '"id": "lane"' "$file" || fail "the file on disk does not hold the lane added on the map"
 sf check > "$work/check.log" 2>&1 || fail "the saved workflow does not pass the checker: $(cat "$work/check.log")"
