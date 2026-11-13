@@ -525,6 +525,10 @@
 .queue .task {
   color: var(--ink);
 }
+/* the working run's link is a target of the row's height (24 px or more at desk width, 44 at phone width) and looks as it did: its line is as tall as the row */
+.queue li > a {
+  line-height: var(--row);
+}
 .queue .state {
   font-size: var(--text-label);
 }
