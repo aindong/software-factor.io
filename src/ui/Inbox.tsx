@@ -7,13 +7,13 @@ import { type KeyboardEvent as ReactKey, useEffect, useRef, useState } from "rea
 import type { Decision, InboxItem } from "../core/views.ts";
 import { AheadNote } from "./AheadNote.tsx";
 import { op } from "./api.ts";
+import { InboxChoices } from "./InboxChoices.tsx";
 import { InboxNote, KeyHint } from "./InboxNote.tsx";
 import { InboxRow } from "./InboxRow.tsx";
 import { useRuns } from "./live.ts";
-import { barWords, nextStop } from "./next-lane.ts";
+import { barWords, consequenceWords, nextStop } from "./next-lane.ts";
 import { Offline } from "./Offline.tsx";
 import {
-  DOING,
   DONE,
   hint,
   isHint,
@@ -264,7 +264,46 @@ export function Inbox() {
         {said.fix ? ` ${said.fix}` : ""}
       </p>
     ) : null;
-  const label = (decision: Decision, words: string) => (sending === decision ? DOING[decision] : words);
+  // at phone width the decision is drawn under the proof, so it comes after it in the markup too: Tab follows the page
+  const decision = current ? (
+    <fieldset className="decide">
+      <legend className="sr">Decide on {current.task}</legend>
+      <p className="asks">{question ? current.body : (row?.sentence ?? current.body)}</p>
+      {current.ahead ? <AheadNote ahead={current.ahead} /> : null}
+      {next ? <p className="asks next">{barWords(next)}</p> : null}
+      {question || noting ? (
+        <InboxNote
+          question={question}
+          noting={noting}
+          box={box}
+          note={note}
+          setNote={setNote}
+          fieldSaid={fieldSaid}
+          setFieldSaid={setFieldSaid}
+          send={send}
+          leave={() => {
+            setNoting(undefined);
+            rows.current.get(current.id)?.focus();
+          }}
+        />
+      ) : null}
+      <InboxChoices
+        question={question}
+        noting={noting}
+        sending={sending}
+        sendBack={current.decisions.includes("send-back")}
+        says={consequenceWords(workflows[row?.workflow ?? ""], current)}
+        send={send}
+        decide={decide}
+        ask={ask}
+        cancel={() => {
+          setNoting(undefined);
+          rows.current.get(current.id)?.focus();
+        }}
+      />
+      {said?.bad ? answer : null}
+    </fieldset>
+  ) : null;
 
   return (
     <main className="work">
@@ -330,97 +369,7 @@ export function Inbox() {
           {current ? (
             // it takes the keyboard when its text is clicked, so the deciding keys go on working while the proof is read
             <div className="deciding" tabIndex={-1} ref={bar}>
-              <fieldset className="decide">
-                <legend className="sr">Decide on {current.task}</legend>
-                <p className="asks">{question ? current.body : (row?.sentence ?? current.body)}</p>
-                {next ? <p className="asks next">{barWords(next)}</p> : null}
-                {question || noting ? (
-                  <InboxNote
-                    question={question}
-                    noting={noting}
-                    box={box}
-                    note={note}
-                    setNote={setNote}
-                    fieldSaid={fieldSaid}
-                    setFieldSaid={setFieldSaid}
-                    send={send}
-                    leave={() => {
-                      setNoting(undefined);
-                      rows.current.get(current.id)?.focus();
-                    }}
-                  />
-                ) : null}
-                <div className="choices">
-                  {question ? (
-                    <button
-                      type="button"
-                      className="button approve"
-                      disabled={sending !== undefined}
-                      onClick={send}
-                    >
-                      {label("answer", "Answer")}
-                    </button>
-                  ) : noting ? (
-                    <>
-                      <button
-                        type="button"
-                        className="button primary"
-                        disabled={sending !== undefined}
-                        onClick={send}
-                      >
-                        {label(noting, noting === "reject" ? "Reject" : "Send back")}
-                      </button>
-                      <button
-                        type="button"
-                        className="button"
-                        onClick={() => {
-                          setNoting(undefined);
-                          rows.current.get(current.id)?.focus();
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        className="button approve"
-                        disabled={sending !== undefined}
-                        onClick={() => decide("approve")}
-                      >
-                        {sending === "approve" ? (
-                          DOING.approve
-                        ) : (
-                          <>
-                            Approve <kbd>a</kbd>
-                          </>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        className="button"
-                        disabled={sending !== undefined}
-                        onClick={() => ask("reject")}
-                      >
-                        Reject <kbd>r</kbd>
-                      </button>
-                      {current.decisions.includes("send-back") ? (
-                        <button
-                          type="button"
-                          className="button"
-                          disabled={sending !== undefined}
-                          onClick={() => ask("send-back")}
-                        >
-                          Send back <kbd>s</kbd>
-                        </button>
-                      ) : null}
-                    </>
-                  )}
-                </div>
-                {current.ahead ? <AheadNote ahead={current.ahead} /> : null}
-                {said?.bad ? answer : null}
-              </fieldset>
+              {!alone ? decision : null}
               {row ? (
                 <RunView
                   key={row.id}
@@ -437,6 +386,7 @@ export function Inbox() {
                   }}
                 />
               ) : null}
+              {alone ? decision : null}
             </div>
           ) : (
             <div className="plain">
