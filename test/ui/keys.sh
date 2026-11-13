@@ -55,9 +55,9 @@ shot() { # a screenshot named <screen>-<theme>-<width> is checked to be of that 
   pw screenshot --filename="$shots/$1.png" || fail "screenshot $1"
 }
 theme() { # the rail's own theme button, by keyboard: it is the last stop before the section
-  back_to '^(Auto|Light|Dark)$'
+  back_to '^Theme: (auto|light|dark)\. Press for'
   for _ in 1 2 3; do
-    if [ "$(js "$focused")" = "$1" ]; then
+    if [ "$(js "() => document.activeElement.textContent.trim()")" = "$1" ]; then
       expect "the page is in the $1 theme" "$(js "() => { const l = /oklch\\(([0-9.]+)/.exec(getComputedStyle(document.body).backgroundColor)?.[1]; return l === undefined ? 'no ground colour read' : Number(l) > 0.6 ? 'Light' : 'Dark'; }")" "^$1$"
       return 0
     fi

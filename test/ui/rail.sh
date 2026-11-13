@@ -44,6 +44,7 @@ for width in 1440 390; do
   pw reload
   wait_for "the rail is drawn at $width" "() => document.querySelectorAll('.rail a').length" '^[1-9]'
   expect "every label of the rail has 4 px clear on each side at $width, in 13 px at least" "$(js "$room")" '^room$'
+  shot "rail-light-$width"
 done
 expect "the theme button's name says the mode and what a press does" "$(js "() => { const b = document.querySelector('.rail button'); return b.getAttribute('aria-label') + ' | ' + b.title + ' | ' + b.textContent.trim(); }")" '^Theme: auto\. Press for light\. \| Theme: auto\. Press for light\. \| Auto$'
 theme Light

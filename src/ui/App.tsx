@@ -127,6 +127,7 @@ export function App() {
   const waits = hasKey ? (runs ?? []).filter((r) => standing(r).mark === "asked").length : 0;
   const working = hasKey ? (runs ?? []).filter((r) => standing(r).mark === "working").length : 0;
   const nextTheme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? "auto";
+  const said = `Theme: ${theme}. Press for ${nextTheme}.`;
   useEffect(() => showInTab(section.name, waits, working), [section.name, waits, working]);
 
   const list = section.path === "/runs" || section.path === "/inbox";
@@ -176,7 +177,8 @@ export function App() {
       <button
         type="button"
         onClick={() => setTheme(nextTheme)}
-        title={`Theme: ${theme}. Switch to ${nextTheme}.`}
+        aria-label={said}
+        title={said}
       >
         {icons.theme}
         {theme === "auto" ? "Auto" : theme === "light" ? "Light" : "Dark"}
