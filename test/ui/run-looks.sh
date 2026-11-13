@@ -152,6 +152,38 @@ if want 3; then
   back_to 'just now|min ago|h ago'
 fi
 
+# ---- F10: the way back is a text link with an arrow; the chips belong to the list, not to an open run
+if want 4; then
+  to_list
+  open_run "Fix the date format"
+  pw resize 390 844
+  wait_for "the run is shown in place of the list" "() => getComputedStyle(document.querySelector('.runlist')).display" '^none$'
+  shown='() => [...document.querySelectorAll(".runfilter")].filter((e) => e.getClientRects().length > 0).length'
+  expect "an open run has no filter chips above it at phone width" "$(js "$shown")" '^0$'
+  expect "the failing output is clear of the rail now that the chips are gone" "$(js "() => String(document.querySelector('.rundetail .failed pre.output').getBoundingClientRect().top < innerHeight - 100)")" '^true$'
+  link='() => { const b = document.querySelector(".rundetail .back"); const c = getComputedStyle(b); const r = b.getBoundingClientRect(); return [c.borderTopWidth, c.backgroundColor, r.height >= 44 ? "44 high" : Math.round(r.height) + " high", b.textContent.trim(), b.querySelector("svg") ? "arrow" : "no arrow"].join(", "); }'
+  expect "the way back is a text link with an arrow, 44 px high, without a border or a fill" "$(js "$link")" '^0px, rgba\(0, 0, 0, 0\), 44 high, All runs, arrow$'
+  back_to '^All runs$'
+  pw press Enter
+  wait_for "the list is back, with its chips" "() => getComputedStyle(document.querySelector('.runlist')).display" '^block$'
+  expect "the list has its chips" "$(js "$shown")" '^1$'
+  open_run "Slow task"
+  wait_for "the working run is shown" "() => getComputedStyle(document.querySelector('.runlist')).display" '^none$'
+  expect "Stop is the only outlined button by the title" "$(js "() => [...document.querySelectorAll('.rundetail header button, .rundetail header a')].filter((e) => e.getClientRects().length > 0 && getComputedStyle(e).borderTopWidth !== '0px').map((e) => e.textContent.trim()).join(' | ')")" '^Stop$'
+  shot run-working-light-390
+  # the Inbox's way back is the same control
+  section Inbox
+  tab_to '^[0-9]+ Show the cost of each lane'
+  pw press Enter
+  wait_for "the item is shown in place of the list" "() => getComputedStyle(document.querySelector('.runlist')).display" '^none$'
+  expect "the Inbox's way back is the same text link" "$(js "$link")" '^0px, rgba\(0, 0, 0, 0\), 44 high, Inbox, arrow$'
+  shot inbox-back-light-390
+  pw resize 1440 900
+  section Runs
+  back_to '^Skip to the list$'
+  pw press Enter
+fi
+
 # ---- end
 sf stop "$working" > /dev/null 2>&1
 wait "$slow" 2> /dev/null
