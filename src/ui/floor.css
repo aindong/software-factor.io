@@ -2,7 +2,7 @@
 .floor {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) 352px;
   grid-template-rows: minmax(0, 1fr); /* its parts scroll, it does not grow */
   min-height: 0;
 }
