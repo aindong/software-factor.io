@@ -6,11 +6,12 @@ import { go } from "./route.ts";
 import { standing } from "./words.ts";
 
 export function Needs() {
-  const runs = useRuns().runs ?? [];
+  const { runs = [], queued } = useRuns();
   const waits = runs.filter((r) => standing(r).mark === "asked").length;
   const stopped = runs.filter((r) => r.status === "stopped").length;
   const link = (to: string, text: string) => (
     <a
+      key={text}
       href={to}
       onClick={(event) => {
         event.preventDefault();
@@ -20,12 +21,21 @@ export function Needs() {
       {text}
     </a>
   );
-  if (waits + stopped === 0) return null;
+  if (waits + stopped + queued.length === 0) return null;
+  const parts = [
+    waits > 0 ? link("/inbox", `${waits} ${waits === 1 ? "waits" : "wait"} for you`) : null,
+    stopped > 0 ? link(withShow("/runs", "stopped"), `${stopped} stopped`) : null,
+    // not a link: the strip under the map lists them
+    queued.length > 0 ? `${queued.length} queued` : null,
+  ].filter((part) => part !== null);
   return (
     <p className="needs">
-      {waits > 0 ? link("/inbox", `${waits} ${waits === 1 ? "waits" : "wait"} for you`) : null}
-      {waits > 0 && stopped > 0 ? " · " : null}
-      {stopped > 0 ? link(withShow("/runs", "stopped"), `${stopped} stopped`) : null}
+      {parts.map((part, i) => (
+        <span key={typeof part === "string" ? part : part.key}>
+          {i > 0 ? " · " : null}
+          {part}
+        </span>
+      ))}
     </p>
   );
 }

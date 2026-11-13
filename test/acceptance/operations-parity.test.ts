@@ -163,6 +163,7 @@ describe("the factory's operations", () => {
       runs_requeue: { run: "abc" },
       runs_resume: { run: "abc" },
       runs_stop: { run: "abc" },
+      runs_start: { task: "abc" },
       ladder_accept: { lane: "build" },
     };
     const cases = [

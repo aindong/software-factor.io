@@ -1,4 +1,5 @@
 // The interface's calls to its own server. Every call carries the token the served page holds.
+import type { Queued } from "../core/runs/queue.ts";
 import type { RunDetail, RunRow } from "../core/runs/view.ts";
 import type { Problem } from "../core/schema/parse.ts";
 
@@ -112,7 +113,7 @@ export const op = <T>(name: string, input: unknown = {}) =>
 
 // ---- runs
 
-export type { RunDetail, RunRow };
+export type { Queued, RunDetail, RunRow };
 
 const runPath = (id: string) => `/api/runs/${encodeURIComponent(id)}`;
 export const getRun = (id: string) => call<{ run?: RunDetail; error?: string }>(runPath(id));
@@ -138,7 +139,10 @@ export async function getFile(id: string, path: string): Promise<Blob | "too lar
  * browser's own event source cannot carry the token, so the stream is read by hand. When the
  * connection drops it is made again. Returns what stops the listening.
  */
-export function listen(onRuns: (runs: RunRow[]) => void, onState: (live: boolean) => void): () => void {
+export function listen(
+  onRuns: (runs: RunRow[], queued: Queued[]) => void,
+  onState: (live: boolean) => void,
+): () => void {
   const control = new AbortController();
   const stream = async () => {
     const answer = await fetch("/api/live", { headers: { "x-factor-token": token }, signal: control.signal });
@@ -160,7 +164,10 @@ export function listen(onRuns: (runs: RunRow[]) => void, onState: (live: boolean
           .map((l) => l.slice(5).trim())
           .join("\n");
         pending = pending.slice(end + 2);
-        if (data) onRuns((JSON.parse(data) as { runs: RunRow[] }).runs);
+        if (data) {
+          const sent = JSON.parse(data) as { runs: RunRow[]; queued?: Queued[] };
+          onRuns(sent.runs, sent.queued ?? []);
+        }
       }
     }
   };

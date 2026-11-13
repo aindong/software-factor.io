@@ -3,6 +3,7 @@
 import type { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { Db } from "./db.ts";
+import { listQueued } from "./runs/queue.ts";
 import { listRuns, runDetail, runDiff, runFile } from "./runs/view.ts";
 
 const LOOK_MS = 1000;
@@ -39,7 +40,7 @@ export function runRoutes(app: Hono, db: Db, root: string, closing: () => boolea
       let sent = "";
       let quiet = 0;
       while (!stream.aborted && !closing()) {
-        const now = JSON.stringify({ runs: listRuns(db, root) });
+        const now = JSON.stringify({ runs: listRuns(db, root), queued: listQueued(db) });
         if (now !== sent) {
           sent = now;
           quiet = 0;
