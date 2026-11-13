@@ -169,6 +169,12 @@ describe("costs", () => {
     for (const amount of amounts) expect(known, `$${amount}`).toContain(amount);
   });
 
+  it("names the period its totals cover: the first and the last session's start", async () => {
+    const { period } = (await op<{ period: { from: string; to: string } | null }>(ui, "costs")).body;
+    expect(period?.from).toMatch(/^\d{4}-\d\d-\d\dT/);
+    expect((period?.from ?? "") <= (period?.to ?? "")).toBe(true);
+  });
+
   it("say so when nothing has been recorded", async () => {
     sql(repo, (db) => db.exec("delete from sessions"));
     const nothing = { sessions: 0, tokens: 0, usd: null, unknown: 0 };
@@ -177,6 +183,7 @@ describe("costs", () => {
       byTask: [],
       byAccount: [],
       total: nothing,
+      period: null,
       byModel: [],
       usage: [],
       cacheRate: null,
