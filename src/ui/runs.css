@@ -257,7 +257,7 @@ a.button {
 }
 
 /* a run over the map: what it took stays, the rest steps back */
-/* the lines the run did not take step back. Their words do not fade: they turn end grey, which still reads */
+/* the lines the run did not take step back. Their words do not fade: they take the quiet ink step, 4.5:1 or better in both themes */
 .map.overlaid .line:not(.lit),
 .map.overlaid .casing:not(.lit),
 .map.overlaid .station.far .body,
@@ -266,7 +266,11 @@ a.button {
 }
 .map.overlaid .tag:not(.lit),
 .map.overlaid .station.far .name {
-  fill: var(--end);
+  fill: var(--ink-soft);
+}
+/* what the run did stands out from them: the label of a route it took is ink */
+.map.overlaid .tag.lit {
+  fill: var(--ink);
 }
 .map .station.ran-pass .body {
   fill: var(--through);
@@ -706,4 +710,49 @@ button.more {
   margin-top: var(--sm);
   color: var(--ink-soft);
   font: var(--w-strong) var(--text-data) / var(--lh-data) var(--font);
+}
+
+/* ---- a reference that cannot be opened is text, not a link; a hand-off is read as labelled lines */
+.ref.plain {
+  padding: 0;
+  border-width: 0;
+}
+.handoff {
+  display: grid;
+  gap: var(--sm);
+  margin: 0;
+  max-width: 70ch;
+  overflow-wrap: anywhere;
+}
+.handoff dt {
+  color: var(--ink-soft);
+  font-weight: var(--w-strong);
+}
+.handoff dd {
+  margin: 0;
+}
+.handoff ul {
+  margin: 0;
+  padding-left: var(--lg);
+}
+
+/* ---- the Runs list says how its rows move; a phone has no arrow keys */
+.runlist .keyhint {
+  margin: 0;
+  padding: var(--sm) var(--lg);
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-soft);
+  font-size: var(--text-label);
+}
+.keyhint kbd {
+  font: inherit;
+  padding: 0 4px;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  color: var(--ink);
+}
+@media (max-width: 760px) {
+  .runlist .keyhint {
+    display: none;
+  }
 }

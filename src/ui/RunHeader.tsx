@@ -1,13 +1,15 @@
 // The head of a run's page: its title, what it is doing or how it ended in plain words, whether it needs a
 // person, and a short line of facts. The run's id and branch, which only a developer looks for, come last.
 import { type RefObject, useState } from "react";
+import { QUEUED } from "../core/runs/sentence.ts";
 import type { RunDetail, RunRow } from "./api.ts";
 import { Elapsed } from "./Elapsed.tsx";
 import { RunActions, type Said } from "./RunActions.tsx";
 import { go } from "./route.ts";
 import { State } from "./State.tsx";
+import { pageSays } from "./says.ts";
 import { Coded } from "./Words.tsx";
-import { ago, cost, howLong, lede, detail as more } from "./words.ts";
+import { ago, cost, howLong, lede } from "./words.ts";
 
 export function RunHeader(props: {
   row: RunRow;
@@ -24,6 +26,8 @@ export function RunHeader(props: {
   const { row, detail } = props;
   const [told, setTold] = useState<Said>();
   const said = lede(row, props.laneName);
+  const queued = row.taskStatus === "queued" && (row.status === "stopped" || row.status === "dropped");
+  const more = pageSays(row);
   return (
     <header>
       <button type="button" className="button back" onClick={props.onBack}>
@@ -37,14 +41,17 @@ export function RunHeader(props: {
         <>
           <State run={row} />
           <p className="lede" role="status">
-            {said.says} <span className={said.needs ? "needs" : "quiet"}>{said.line}</span>
-            {told ? <span className={told.bad ? "needs" : ""}> {told.text}</span> : null}
+            {said.says}{" "}
+            <span className={said.needs ? "needs" : "quiet"}>
+              {queued ? <Coded sentence={QUEUED} /> : said.line}
+            </span>
+            {told?.text ? <span className={told.bad ? "needs" : ""}> {told.text}</span> : null}
           </p>
           {/* what waits says it in its own block below, with the way to decide; the sentence is the record's own, for a developer */}
-          {props.asking || !more(row) ? null : (
+          {props.asking || !more ? null : (
             <p className="sentence quiet">
               {row.status === "running" ? "Latest: " : ""}
-              {more(row)}
+              {more}
             </p>
           )}
           {props.gateWords && row.status !== "running" ? (

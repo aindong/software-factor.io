@@ -147,58 +147,67 @@ export function Runs() {
                 </button>
               </div>
             ) : (
-              <div role="listbox" aria-label="Runs, the newest first">
-                {list.map((run, at) => {
-                  // the run's own stops, as its workflow was when it started
-                  const names = new Map(run.stops.map((l) => [l.id, l.name]));
-                  const track = trackOf(
-                    run.stops.map((l) => l.id),
-                    run.visits,
-                    undefined,
-                    run.at,
-                  );
-                  const stands = standing(run);
-                  return (
-                    <div
-                      key={run.id}
-                      ref={(node) => {
-                        if (node) rows.current.set(run.id, node);
-                        else rows.current.delete(run.id);
-                      }}
-                      role="option"
-                      className="run lined"
-                      aria-selected={run.id === current?.id}
-                      tabIndex={
-                        run.id === (current && kept(current, show) ? current.id : list[0]?.id) ? 0 : -1
-                      }
-                      onClick={() => enter(run.id)}
-                      onKeyDown={(event) => onKey(event, at)}
-                    >
-                      <State run={run} />
-                      <span className="when data">{ago(run.startedAt)}</span>
-                      <span className="task" title={run.task}>
-                        <span className="number data">{run.taskId}</span>{" "}
-                        <Coded sentence={run.task || run.id} />
-                      </span>
-                      <Strip
-                        track={track}
-                        nameOf={(id) => names.get(id) ?? id}
-                        working={stands.mark === "working"}
-                      />
-                      <span className="spent data">
-                        {run.tokens > 0 ? `${tokens(run.tokens)}, ${cost(run.usd, run.usdUnknown)}` : ""}
-                        {run.tokens > 0 && run.workingSince ? ", " : ""}
-                        {run.workingSince ? (
-                          <>
-                            <Elapsed since={run.workingSince} /> at work
-                          </>
+              <>
+                <p className="keyhint">
+                  <kbd>↑</kbd> <kbd>↓</kbd> move between runs, <kbd>Enter</kbd> opens
+                </p>
+                <div role="listbox" aria-label="Runs, the newest first">
+                  {list.map((run, at) => {
+                    // the run's own stops, as its workflow was when it started
+                    const names = new Map(run.stops.map((l) => [l.id, l.name]));
+                    const track = trackOf(
+                      run.stops.map((l) => l.id),
+                      run.visits,
+                      undefined,
+                      run.at,
+                    );
+                    const stands = standing(run);
+                    return (
+                      <div
+                        key={run.id}
+                        ref={(node) => {
+                          if (node) rows.current.set(run.id, node);
+                          else rows.current.delete(run.id);
+                        }}
+                        role="option"
+                        className="run lined"
+                        aria-selected={run.id === current?.id}
+                        tabIndex={
+                          run.id === (current && kept(current, show) ? current.id : list[0]?.id) ? 0 : -1
+                        }
+                        onClick={() => enter(run.id)}
+                        onKeyDown={(event) => onKey(event, at)}
+                      >
+                        <State run={run} />
+                        <span className="when data">{ago(run.startedAt)}</span>
+                        <span className="task" title={run.task}>
+                          <span className="number data">{run.taskId}</span>{" "}
+                          <Coded sentence={run.task || run.id} />
+                        </span>
+                        <Strip
+                          track={track}
+                          nameOf={(id) => names.get(id) ?? id}
+                          working={stands.mark === "working"}
+                        />
+                        <span className="spent data">
+                          {run.tokens > 0 ? `${tokens(run.tokens)}, ${cost(run.usd, run.usdUnknown)}` : ""}
+                          {run.tokens > 0 && run.workingSince ? ", " : ""}
+                          {run.workingSince ? (
+                            <>
+                              <Elapsed since={run.workingSince} /> at work
+                            </>
+                          ) : null}
+                        </span>
+                        {detail(run) ? (
+                          <span className="sentence">
+                            <Coded sentence={detail(run)} />
+                          </span>
                         ) : null}
-                      </span>
-                      {detail(run) ? <span className="sentence">{detail(run)}</span> : null}
-                    </div>
-                  );
-                })}
-              </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
           {current ? (

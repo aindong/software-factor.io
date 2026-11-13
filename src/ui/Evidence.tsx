@@ -2,7 +2,7 @@
 // Output and hand-offs as text, the run's diff, a screenshot, a before and after side by side, a
 // recording. A file comes from the server with the page's token and is shown from memory. What
 // an agent attached is only ever text, a picture or a video here: never markup the page runs.
-import { type ReactNode, useEffect, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { kindOf } from "../core/runs/track.ts";
 import { getDiff, getFile } from "./api.ts";
 
@@ -111,6 +111,67 @@ export function FileView({ runId, path, name }: { runId: string; path: string; n
       </a>{" "}
       <span className="quiet">It is not a kind of file this page shows.</span>
     </p>
+  );
+}
+
+const FIELDS: Record<string, string> = {
+  outcome: "Outcome",
+  summary: "Summary",
+  claims: "Claims",
+  open: "Still open",
+  risk: "Risk",
+  outputs: "Outputs",
+};
+/** One field of a hand-off as lines of text: a claim with the references it gives, anything else as it is written. */
+function lines(value: unknown): string[] {
+  const one = (v: unknown): string => {
+    if (typeof v === "string") return v;
+    const c = v as { text?: unknown; evidence?: unknown } | null;
+    if (typeof c?.text === "string") {
+      return Array.isArray(c.evidence) ? `${c.text} (${c.evidence.join(", ")})` : c.text;
+    }
+    return JSON.stringify(v);
+  };
+  return Array.isArray(value) ? value.map(one) : [one(value)];
+}
+
+/** A hand-off as labelled lines. What cannot be read as a hand-off is shown as it is. */
+export function HandoffView({ runId, path }: { runId: string; path: string }) {
+  const loaded = useFile(runId, path, true);
+  if (loaded.state !== "here") return <Waiting loaded={loaded} />;
+  let fields: [string, unknown][] = [];
+  try {
+    const parsed = JSON.parse(loaded.text);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) fields = Object.entries(parsed);
+  } catch {
+    // shown as it is below
+  }
+  if (fields.length === 0) return <Text text={loaded.text} />;
+  return (
+    <dl className="handoff">
+      {fields.map(([key, value]) => {
+        const said = lines(value);
+        return (
+          <Fragment key={key}>
+            <div>
+              <dt>{FIELDS[key] ?? key}</dt>{" "}
+              <dd>
+                {said.length === 1 ? (
+                  said[0]
+                ) : (
+                  <ul>
+                    {said.map((l, i) => (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: the lines of one hand-off never move
+                      <li key={i}>{l}</li>
+                    ))}
+                  </ul>
+                )}
+              </dd>
+            </div>{" "}
+          </Fragment>
+        );
+      })}
+    </dl>
   );
 }
 

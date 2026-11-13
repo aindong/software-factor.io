@@ -4,7 +4,8 @@
 import { Fragment } from "react";
 import { memberOf } from "../core/runs/transcript.ts";
 import type { RunDetail } from "./api.ts";
-import { FileView, Proof } from "./Evidence.tsx";
+import { opensDiff } from "./changed.ts";
+import { FileView, HandoffView, Proof } from "./Evidence.tsx";
 import { gateRounds } from "./gates.ts";
 import { STATE_WORD } from "./Strip.tsx";
 import { TranscriptView } from "./Transcript.tsx";
@@ -26,7 +27,9 @@ export function gatesLine(gates: Lane["gates"]): string {
   const word = (n: number) => `${n} ${n === 1 ? "gate" : "gates"}`;
   if (failed.length === 0) return `${word(gates.length)} passed`;
   const names = [...new Set(failed.map((g) => g.gate))].join(", ");
-  return `${word(gates.length - failed.length)} passed, ${names} failed`;
+  return failed.length === gates.length
+    ? `${names} failed`
+    : `${word(gates.length - failed.length)} passed, ${names} failed`;
 }
 
 export function LaneVisit(props: {
@@ -40,6 +43,11 @@ export function LaneVisit(props: {
   show: (path: string) => void;
   /** What a gate checks, in the workflow's own words, when it says. */
   what?: (gate: string) => string | undefined;
+  /** What the page's first sentence says about the run: the card does not say it again. */
+  says?: string;
+  /** The files the run changed, once read; a reference to one of them opens the diff. */
+  changed?: string[];
+  showDiff?: () => void;
 }) {
   const { lane, runId, files, proof, show } = props;
   const rounds = gateRounds(lane);
@@ -52,6 +60,7 @@ export function LaneVisit(props: {
   ].filter(Boolean);
   const panel = lane.note ? verdicts(lane.note) : null;
   const said = lane.note && !panel ? lead(lane.note) : null;
+  const repeats = !!said && !!props.says && props.says.includes(said.head);
   const failing = panel?.filter((v) => !v.pass) ?? [];
   const hasMore = parts.length > 0 || lane.output || lane.handoff || panel || said?.more;
   const spent = [lane.durationMs ? howLong(lane.durationMs) : "", lane.usd ? dollars(lane.usd) : ""].filter(
@@ -66,7 +75,7 @@ export function LaneVisit(props: {
         <span className="outcome">{STATE_WORD[state]}</span>
         <span className="spent">{spent.join(", ")}</span>
       </div>
-      {said ? <p className="note">{said.head}</p> : null}
+      {said && !repeats ? <p className="note">{said.head}</p> : null}
       {panel ? (
         <div className="note">
           {failing.map((v) => (
@@ -82,7 +91,7 @@ export function LaneVisit(props: {
         </div>
       ) : null}
       {gatesLine(lane.gates) &&
-      !lane.gates.some((g) => g.status !== "pass" && lane.note?.includes(`"${g.gate}"`)) ? (
+      (repeats || !lane.gates.some((g) => g.status !== "pass" && lane.note?.includes(`"${g.gate}"`))) ? (
         <p className="gates-line">{gatesLine(lane.gates)}</p>
       ) : null}
       {hasMore ? (
@@ -111,31 +120,43 @@ export function LaneVisit(props: {
                 <li key={claim.text}>
                   {claim.text}{" "}
                   {claim.evidence.length === 0 ? <span className="quiet">no evidence given</span> : null}
-                  {claim.evidence.map((e) => (
-                    // each reference says whether the host found what it names, and opens it when it is a file
-                    <span key={e.ref} className="ref code">
-                      <span
-                        className={`mark ${e.ok ? "pass" : "fail"}`}
-                        role="img"
-                        aria-label={e.ok ? "The host checked this:" : "The host did not find this:"}
-                      />
-                      {e.path ? (
-                        <button type="button" onClick={() => show(e.path ?? "")}>
-                          {e.ref}
-                        </button>
-                      ) : (
-                        e.ref
-                      )}
-                    </span>
-                  ))}
+                  {claim.evidence.map((e) => {
+                    // a reference leads to what it names when this page shows that: an attached file, or the diff
+                    const go = e.path
+                      ? () => show(e.path ?? "")
+                      : opensDiff(e.ref, e.ok, props.changed)
+                        ? props.showDiff
+                        : undefined;
+                    return (
+                      <span key={e.ref} className={go ? "ref code" : "ref code plain"}>
+                        <span
+                          className={`mark ${e.ok ? "pass" : "fail"}`}
+                          role="img"
+                          aria-label={e.ok ? "The host checked this:" : "The host did not find this:"}
+                        />
+                        {go ? (
+                          <button type="button" onClick={go}>
+                            {e.ref}
+                          </button>
+                        ) : (
+                          e.ref
+                        )}
+                      </span>
+                    );
+                  })}
                 </li>
               ))}
             </ul>
           ) : null}
-          {rounds.map((group) => (
+          {rounds.map((group, i) => (
             <Fragment key={group.round}>
-              {/* a lane that ran more than one round says which round each gate record is of */}
-              {rounds.length > 1 ? <h5 className="round">Round {group.round}</h5> : null}
+              {/* a lane that ran more than one round says which round each gate record is of, and which is the latest */}
+              {rounds.length > 1 ? (
+                <h5 className="round">
+                  Round {group.round}
+                  {i === 0 ? ", the latest" : ""}
+                </h5>
+              ) : null}
               {group.gates.map((gate) => (
                 <Fragment key={gate.output}>
                   <Proof
@@ -172,9 +193,14 @@ export function LaneVisit(props: {
             </Proof>
           ) : null}
           {lane.handoff ? (
-            <Proof {...proof(lane.handoff)} label="Hand-off">
-              <FileView runId={runId} path={lane.handoff} name="handoff.json" />
-            </Proof>
+            <>
+              <Proof {...proof(`${lane.handoff}:read`)} label="What it handed off">
+                <HandoffView runId={runId} path={lane.handoff} />
+              </Proof>
+              <Proof {...proof(lane.handoff)} label="Hand-off, raw JSON">
+                <FileView runId={runId} path={lane.handoff} name="handoff.json" />
+              </Proof>
+            </>
           ) : null}
           {lane.sessions.map((session, i) =>
             session.transcript ? (

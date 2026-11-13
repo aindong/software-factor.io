@@ -186,7 +186,7 @@ wait_for "the run is stopped, and nothing on the page moves" "() => document.que
 wait "$slow" 2> /dev/null
 slow=""
 expect "the task is stopped in the record" "$(node -e 'const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync(".factor/state.db"); console.log(db.prepare("select status from tasks where title = ?").get("Slow task")?.status)')" '^stopped$'
-expect "its page now offers to try again" "$(js "() => [...document.querySelectorAll('.rundetail .actions button')].map((b) => b.textContent).join('|')")" '^Try again$'
+expect "its page now offers to put it back in the queue" "$(js "() => [...document.querySelectorAll('.rundetail .actions button')].map((b) => b.textContent).join('|')")" '^Put back in the queue$'
 
 playwright-cli -s="$session" close > /dev/null 2>&1
 kill "$server" 2> /dev/null
