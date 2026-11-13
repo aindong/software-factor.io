@@ -45,9 +45,10 @@ export function EditBar(props: {
             className="button"
             disabled={!props.canUndo}
             onClick={props.onUndo}
-            title="Undo: Ctrl or Cmd and Z"
+            title={dirty ? "Undo: Ctrl or Cmd and Z" : "Undo the last edit, saved or not: Ctrl or Cmd and Z. The file keeps what was saved until you save again."}
           >
-            Undo
+            {/* with nothing unsaved, what Undo would take back is the last edit that was saved: it says so */}
+            {dirty || !props.canUndo ? "Undo" : "Undo last edit"}
           </button>
           {theirs ? (
             // the file changed elsewhere since this copy was read: nothing is written until the person chooses
