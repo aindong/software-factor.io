@@ -123,7 +123,7 @@ softwarefactor role bind author --account work --large opus --medium sonnet
 - [アカウント、ロール、ガード](../accounts.md)と、[レーンのスキルとサーバー](../skills-and-servers.md)。
 - [引き継ぎ](../handoff.md)と[パネル](../panels.md)。
 - [メモリと factor サーバー](../memory.md)。
-- [インターフェース](../interface.md)。
+- [インターフェース](../interface.md)と、[その実行](../interface-runs.md)。
 - [オペレーション](../operations.md)：インターフェース、コマンドライン、自分のエージェントで共通の操作。
 - [ワークフローの共有](../sharing.md)：エクスポートとインポート。
 - [自律のはしご](../ladder.md)と[振り返りと教訓](../retros.md)。

@@ -148,7 +148,7 @@ the plan names a check for each acceptance criterion, and its `verify-ui` lane u
 - [Accounts, roles and the guard](docs/accounts.md), and [skills and servers on a lane](docs/skills-and-servers.md).
 - [The hand-off](docs/handoff.md) and [panels](docs/panels.md).
 - [Memory and the factor server](docs/memory.md).
-- [The interface](docs/interface.md).
+- [The interface](docs/interface.md), and [its runs](docs/interface-runs.md).
 - [Operations](docs/operations.md): the same actions for the interface, the command line and your own agent.
 - [Sharing a workflow](docs/sharing.md): export and import.
 - [The autonomy ladder](docs/ladder.md) and [retros and lessons](docs/retros.md).

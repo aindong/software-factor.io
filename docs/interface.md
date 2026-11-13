@@ -32,12 +32,17 @@ What you can do:
 | Click a station to select it | Tab into the map, then the left and right arrows |
 | Double-click to open it in the inspector | Enter |
 | Drag from a station's blue or vermilion handle to another station | `c`, then choose where it goes |
-| The Agent, Command and Wait buttons add a lane after the selected one | The same buttons |
+| "Add a lane" opens Agent, Command and Wait, which add a lane after the selected one | The same buttons |
 | Save | Ctrl-S or Cmd-S |
 
 A new lane is placed on the line: the lane before it now passes to it, and it passes on to where that lane
 passed before. A connection that goes back gets a round limit of 2 and a way out to "Stopped", which the format
 requires. Removing a lane sends the lines that came to it on to where it passed to.
+
+The top bar reads, first, the workflow and what stands: "1 waits for you · 1 stopped · 2 queued", where the
+count that waits for you is the one in full ink. Undo, Revert and Save appear once there is a change. Under
+the map a quiet strip lists the runs that are working now and the tasks that are queued; a queued task has a
+Run button, which starts it as `softwarefactor run --task` does and says why when every slot is busy.
 
 The inspector, on the right, holds the selected lane's settings: its id and name, its checkpoint, its agent's
 role, access, model size, effort and instructions, where each outcome leads, and its gates. With nothing
@@ -104,96 +109,19 @@ themselves. Only a sandbox for the agents stops that.
 
 ## Runs
 
-Runs lists every task the factory has taken, the newest first: every run that is moving or waiting, and the
-latest ended ones up to 50 in all. Each row has the task, a strip map (one stop for each lane: a blue disc
-passed, a vermilion diamond failed, a yellow square asked a person, a ring is not reached, and the train is on
-the lane the run is at) and one sentence about what is happening now. The list follows the record by itself:
-the server sends it again whenever it changes, so a run started in your terminal appears without a reload.
-
-Every row says its state in a word on its first line, in the same place on each row, with its mark: Working,
-Waits for you, Waits by itself, Done, Stopped or Dropped. The sentence under the strip is the detail, and is
-left out when it would only repeat the word. The same word and mark head a run's page. A run that is working
-has a mark that is a ring with a
-dot, unlike the disc of a done run, the diamond of a stopped one and the yellow square of one that waits for
-you. On its map the lane where the work is going on has a ring that breathes, and the line the task came along
-carries dashes that run the way it goes; the strip map's train breathes too, and the rail shows the same mark
-by Runs while any run works. A run that is working also says how long its lane has worked ("3m 10s at work" on its
-row, "Working for" on its page, and "Last output" when the agent has printed something), and what it has used is
-"Used so far". That time is a number that ticks every second (every 15 seconds with reduced motion), not an
-animation. A run that waits, is stopped or is done is still. With reduced motion in your
-system's settings nothing moves: the ring, the dashes and the mark stay as still marks of the same meaning.
-
-The sentence comes from the record. For an agent at work it is read from the last lines of its CLI's output:
-"Build: the agent is running `npm test`." It holds no clock, so it changes only when something happens.
-
-The top bar has a filter by state: All and one button for each state that has a run, with its count. Tab to
-it and press Enter or Space; the chosen one is pressed. It is kept in the address (`/runs?show=working`), so a
-reload and a shared link keep it, and the heading says "1 working, 1 shown of 3". A filter that leaves nothing
-says "No run is working." with a button back to All. A run that is open stays open when it no longer matches:
-the list says that it is not among those shown.
-
-The arrow keys move through the list and Enter goes into a run. A stopped run can be put back in the
-queue from its page, and a working one stopped. A run shows:
-
-- **Its map.** The workflow's diagram, read only, with what the run did at each station and the lines it took
-  lit. The Replay control steps through the run with the arrow keys: at each step the map shows the run as it
-  was then. The map is the
-  workflow the run ran on, kept with the run when it started (`workflow.json` in the run's folder), and drawn
-  small enough to fit its box down to seven tenths of its size. Changing the workflow later does not redraw
-  what past runs did. A run from before that record was kept is drawn on today's workflow, and says so.
-- **Its head, in plain words.** The title, the state, then one sentence for what it is doing or how it ended
-  ("At work in Build.", "Stopped before it finished.") and one for whether it needs a person ("This needs you."
-  or "Nothing is needed from you."). The record's own sentence, which can be a shell command, follows it
-  quietly. The facts are when it started, how long it took (in minutes and hours) and what it cost; the run's id
-  and branch come last and are quieter. Tokens are with each lane.
-- **What each lane did**, before anything else under the map: for each visit its name, how it ended, how long it
-  took and its cost, then what its agent said as whole sentences (the record keeps the first 500 characters and
-  adds dots; the page drops the unfinished last sentence) and one line on its gates ("5 gates passed", or which
-  one failed). Under that, one button, "Evidence for Build", opens in place the lane's claims with each
-  reference (it says whether the host checked it; a commit or a changed file opens the diff), each gate with
-  its command, exit code and output, the hand-off as lines, and what the agent printed, with its tokens. Nothing
-  technical is on the page until that button is pressed. A gate that also ran on the base commit shows that
-  output beside its own. Several pieces of evidence can be open at once. A station on the run's map leads to
-  that lane's part.
-  What the agent printed opens as an account: what it said, each tool it used as one line with its main
-  argument, the first lines of what came back (the rest one click away), a failed call marked, and the end with
-  what the session used. Hook and bookkeeping events are left out, with a count. This reads the output of
-  Claude Code and of Codex; a line in any other shape is shown as it is. "The lines as printed" shows the raw
-  output.
-- **The diff** of the whole run, from its base commit to its head, with every changed file named above it. A
-  line put in stands on a band and a line taken out is outlined: blue and vermilion mean passed and failed, so
-  they are not used here.
-- **Files the agents attached**, as one row ("18 files") that opens the list. Two images of one lane whose names
-  differ only in the word `before` or `after` (`list-before.png`, `list-after.png`) are shown side by side. A
-  `.webm`, `.mp4` or `.mov` plays as a recording. Anything else is shown as text or offered as a download.
-- **What waits for you**, under the head, with a yellow "Decide in the inbox" link and the command that does
-  the same. On a narrow screen the map is scrolled to the lane the run is at, or to where it ended, and a soft edge shows where it goes on.
-
-The type is Inter (variable, optical size) and JetBrains Mono for code, one face for the rail and the map too:
-body 15px at 400, data 15px at 500, labels 13px at 500, headings at 600 at most. Nothing in a run's page is under
-13px; only the map's sub labels are 12px. On the map, a label that would touch its neighbour's steps out to a
-further row (38px up or down, measured in the page once the face has loaded), so no two labels overlap.
-
-On the floor, "Runs on map" puts a numbered train on the lane of each run that is moving or waiting. The
-number is the task's, the same as in the rows of Runs and Inbox. A train is a link to its run. One that waits
-for a person is yellow and leads to its decision in the inbox. The lane a working run is in is ringed and the line
-it came along has running dashes, as on the run's own map.
-
-A run that was entered is in the address (`/runs/<run>`, and `/inbox/<run>` for its decision), so Back leaves
-the run, a reload keeps it, and the address can be passed on.
-
-A file of a run is served only when it is a plain file inside that run's own folder under `.factor/runs/`, with
-no link on the way, and only as an image, a video, plain text or a download. An `.html` or `.svg` file an agent
-attached is shown as its text. It is never run as a page.
+The list of runs and a run's page are in [interface-runs.md](interface-runs.md).
 
 ## Inbox
 
-The rail shows in yellow how many runs wait for you. The inbox lists them, an approval or a question each, with
+The rail shows in yellow how many runs wait for you. The inbox lists them (a row names its kind only when it
+is a question), with
 the run's map and evidence beside the one that is chosen, so you decide with the proof in view. In that
 detail the lane the decision is about comes first, under the title and above the map, with its evidence
 open: "What you are approving" for work that waits for approval, "What ran before this approval" (the last
 lane that ran, or a plain sentence when none has) for an approval asked before a lane runs, and "The lane
-that asked" for a question. The other lanes follow, closed, under "What each lane did". The run's page under
+that asked" for a question. Before a command lane, the bar also says what
+that command does, in the workflow's own description, and the run's branch; a command with no description
+says so. The other lanes follow, closed, under "What each lane did". The run's page under
 Runs keeps its own order.
 
 | Key | Does |
@@ -206,7 +134,8 @@ Runs keeps its own order.
 The keys work while the keyboard is in the inbox: on an item, or in its decision and proof. On arrival the
 keyboard is on the section's name, one Tab before the list, and nothing is chosen for you. A deciding key
 pressed there, with no item open, says "Choose an item first" and decides nothing: no key decides on an item you
-did not choose. The line goes once you are on an item. An item you entered, from a run's "Decide in the
+did not choose. With an item open and the keyboard outside it, the key says that the
+deciding keys work in the open item. The line goes once you are on an item. An item you entered, from a run's "Decide in the
 inbox", a reload or a link, is on show, so the keyboard goes onto it and the keys work at once.
 At phone width the list stands alone until an item is opened: there `a`, `r` and `s` decide nothing and say "Open the item
 first: Enter opens it." The keys decide only while the item's decision bar is displayed.
@@ -225,14 +154,14 @@ where a login is kept. Below, who works each role: choose an account, a model fo
 lanes and an effort, and Bind. That writes what `softwarefactor role bind` writes. A role that should be on
 another vendor than a role it shares one with is flagged. Adding a login stays in the terminal.
 
-The logins come first, a block each between rules: its marks in words after a diamond (near a limit, on hold,
-could not be read), then the windows its CLI reports, each with an 8px ink meter on a rule track, the percent
+The logins come first, a block each between rules: its marks in words (near a limit and on hold after a plain ring, could not
+be read after a diamond; a window near its limit is the darkest), then the windows its CLI reports, each with an 8px ink meter on a rule track, the percent
 in words beside it and when it resets. A window the CLI does not print is "not reported", never 0. The
 factory's own count is shown apart from them. Under 760px these stack, and each role is one block.
 
 ## Costs
 
-Tokens and cost by lane, by task and by account, from the session records, with the whole in the top bar. A
+Tokens and cost by lane, by task and by account, from the session records, with the whole and the days it covers in the top bar. A task leads to its latest run. A
 session with no known cost is counted as not known, never as nothing. Money is shown in cents (more digits only
 under one cent, and the exact figure in a tooltip); `softwarefactor cost` prints the same figures to the
 millionth, and `softwarefactor cost --json` the exact ones.
