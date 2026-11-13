@@ -118,6 +118,33 @@ said='() => document.querySelector(".said")?.textContent ?? ""'
 in_window() { # at desk width the page keeps to the window: the rail and the top bar never scroll away
   expect "$1 keeps to the window" "$(js "() => document.documentElement.scrollHeight <= innerHeight")" '^true$'
 }
-labels_apart() { # no two texts on the map (names, sub labels, tags on lines) have boxes that meet
-  expect "$1: no two labels on the map overlap" "$(js "() => { const t = [...document.querySelectorAll('svg.map text')].filter((e) => e.textContent.trim()).map((e) => e.getBoundingClientRect()); let n = 0; for (let i = 0; i < t.length; i++) for (let j = i + 1; j < t.length; j++) if (t[i].left < t[j].right && t[j].left < t[i].right && t[i].top < t[j].bottom && t[j].top < t[i].bottom) n++; return t.length > 0 ? n : 'no labels'; }")" '^0$'
+# every text of every map: clear of the others, of the routes (names and role lines) and of the map's edge
+clear_map='() => {
+  const out = [];
+  for (const svg of document.querySelectorAll("svg.map")) {
+    const box = svg.getBoundingClientRect();
+    const texts = [...svg.querySelectorAll("text")].filter((e) => e.textContent.trim()).map((e) => ({ e, r: e.getBoundingClientRect() }));
+    const said = (t) => t.e.textContent.trim();
+    const paths = [...svg.querySelectorAll("path.line")];
+    for (const [i, a] of texts.entries()) {
+      if (a.r.left < box.left - 0.5 || a.r.right > box.right + 0.5 || a.r.top < box.top - 0.5 || a.r.bottom > box.bottom + 0.5) out.push("[" + said(a) + "] leaves the map");
+      for (const b of texts.slice(i + 1)) if (a.r.left < b.r.right && b.r.left < a.r.right && a.r.top < b.r.bottom && b.r.top < a.r.bottom) out.push("[" + said(a) + "] meets [" + said(b) + "]");
+      if (!a.e.matches(".name, .sub")) continue;
+      for (const p of paths) {
+        const m = p.getScreenCTM();
+        const w = parseFloat(getComputedStyle(p).strokeWidth) / 2; // a route is as wide as its stroke
+        const len = p.getTotalLength();
+        for (let k = 0; k <= len; k += 2) {
+          const q = p.getPointAtLength(k);
+          const x = m.a * q.x + m.c * q.y + m.e;
+          const y = m.b * q.x + m.d * q.y + m.f;
+          if (x + w > a.r.left && x - w < a.r.right && y + w > a.r.top && y - w < a.r.bottom) { out.push("a route crosses [" + said(a) + "]"); break; }
+        }
+      }
+    }
+  }
+  return out.length > 0 ? out.join("; ") : "clear";
+}'
+labels_apart() { # on every map: no two texts meet, no lane name or role line is crossed by a route, and no text leaves the map's box
+  expect "$1: the texts of the map are clear of each other, of the routes and of the map's edge" "$(js "$clear_map")" '^clear$'
 }
