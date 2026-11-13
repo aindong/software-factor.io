@@ -256,17 +256,7 @@
   align-items: center;
   gap: var(--sm);
 }
-.inspector .route select {
-  width: 100%;
-  min-height: var(--row);
-  padding: 2px var(--sm);
-  border: 1px solid var(--edge);
-  border-radius: var(--control);
-  background: var(--ground);
-}
-.inspector .route select:hover {
-  border-color: var(--ink-soft);
-}
+/* the route selects are fields like the others (class field on the label): one look for every select of the panel */
 .inspector .route .label {
   display: inline-flex;
   align-items: center;

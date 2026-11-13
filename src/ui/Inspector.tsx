@@ -318,7 +318,7 @@ function LaneForm({
           const conditional = steps.some((s) => s.when !== undefined);
           return (
             <div key={key}>
-              <label className={`route ${key}`}>
+              <label className={`field route ${key}`}>
                 <span className="label">{word}</span>
                 <select
                   ref={i === 0 ? connectRef : undefined}
