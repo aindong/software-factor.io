@@ -8,6 +8,7 @@ import type { Workflow } from "../core/schema/workflow.ts";
 import { getRun, type RunDetail, type RunRow } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
 import { DiffView, FileView, PairView, Proof } from "./Evidence.tsx";
+import { failingGate, gateWhat } from "./gates.ts";
 import { LaneVisit, stateOf } from "./LaneVisit.tsx";
 import { Lead, leadKeys } from "./Lead.tsx";
 import { leadLane } from "./lead.ts";
@@ -113,11 +114,22 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
     const same = lane ? (detail?.lanes.filter((l) => l.lane === lane.lane) ?? []) : [];
     return lane && same.length > 1 ? same.indexOf(lane) + 1 : undefined;
   };
+  // a lane's evidence that is opened shows the gate it failed on, open: that is why a person looks
   const toggle = (key: string) => {
     const next = new Set(open);
-    if (!next.delete(key)) next.add(key);
+    if (!next.delete(key)) {
+      next.add(key);
+      const failed = detail?.lanes.find((l) => `lane:${l.id}` === key);
+      const gate = failed && failingGate(failed);
+      if (gate) next.add(gate.output);
+    }
     setOpen(next);
   };
+  // what a gate checks is the gate's own description in the workflow the run ran on
+  const what = (gate: string) => gateWhat(detail?.kept ?? (row.own ? undefined : workflow), gate);
+  // the gate the run stopped on: the latest lane that failed on one
+  const stoppedOn = detail?.lanes.findLast((l) => failingGate(l));
+  const stopGate = stoppedOn && failingGate(stoppedOn);
   const proof = (key: string) => ({
     open: open.has(key),
     onToggle: () => toggle(key),
@@ -171,6 +183,9 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
         deciding={deciding}
         asking={asking}
         laneName={nameOf(row.at ?? "")}
+        gateWords={
+          stopGate && what(stopGate.gate) ? { id: stopGate.gate, what: what(stopGate.gate) ?? "" } : undefined
+        }
       />
       {detail && !deciding ? <Waits detail={detail} runId={row.id} nameOf={nameOf} /> : null}
 
@@ -184,6 +199,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
           runId={row.id}
           proof={proof}
           show={show}
+          what={what}
         />
       ) : null}
       {floor ? (
@@ -274,6 +290,7 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                         files={detail.files}
                         proof={proof}
                         show={show}
+                        what={what}
                       />
                     </li>
                   ))}

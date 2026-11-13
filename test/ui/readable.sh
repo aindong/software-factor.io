@@ -64,7 +64,7 @@ const fs = require("fs");
 const file = ".factor/workflows/starter.json";
 const w = JSON.parse(fs.readFileSync(file));
 w.gates.verify.onFail = "repair";
-w.gates.verify.description = "floor: the number of tests must not go down";
+w.gates.verify.description = "the number of tests must not go down";
 w.lanes[0].limits = { repairRounds: 2 };
 fs.writeFileSync(file, JSON.stringify(w, null, 2) + "\n");
 const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.commands.verify = "echo the tests went down; exit 1"; fs.writeFileSync(".factor/factory.json", JSON.stringify(f, null, 2));
@@ -80,14 +80,19 @@ wait_for "the stopped run is shown" "() => document.querySelector('.rundetail h2
 tab_to '^Evidence for Work'
 pw press Enter
 rows="() => [...document.querySelectorAll('.visits .shown .proof > button')].map((b) => b.querySelector('.what').textContent + (b.getAttribute('aria-expanded') === 'true' ? ' (open)' : '')).filter((t) => t.startsWith('Gate')).join(' | ')"
-wait_for "the gate that failed is the first row, and is open, with what it checks in plain words" "$rows" '^Gate verify failed: floor: the number of tests must not go down \(open\) \| '
+wait_for "the gate that failed is the first row, and is open, with what it checks in plain words" "$rows" '^Gate verify failed: the number of tests must not go down \(open\) \| '
 expect "the rows are grouped by round, the latest first" "$(js "() => [...document.querySelectorAll('.visits .shown .round')].map((h) => h.textContent).join(' | ')")" '^Round 3 \| Round 2 \| Round 1$'
 expect "the first gate row of every round is the one that failed" "$(js "() => [...document.querySelectorAll('.visits .shown .round + .proof .what')].map((w) => w.textContent.replace(/:.*/, '')).join(' | ')")" '^Gate verify failed \| Gate verify failed \| Gate verify failed$'
-expect "the stop sentence says what the gate checks" "$(js "() => document.querySelector('.rundetail header').textContent")" 'verify.*floor: the number of tests must not go down'
+expect "the stop sentence says what the gate checks" "$(js "() => document.querySelector('.rundetail header').textContent")" 'That gate, verify, checks: the number of tests must not go down'
 wait_for "its output is shown without another key" "() => document.querySelector('.visits .shown .proof .shown .output')?.textContent ?? ''" 'the tests went down'
+js "() => { document.querySelector('.visits .proof button').scrollIntoView({ block: 'start' }); return 'scrolled'; }" > /dev/null
 shot run-stopped-evidence-light-1440
 pw resize 390 844
+tab_to '^Stopped.*[0-9]+ Second'
+pw press Enter
+wait_for "the stopped run is shown in place of the list" "() => document.querySelector('.rundetail h2')?.textContent + ' ' + document.querySelectorAll('.visits .shown .round').length" '^Second 3$'
 fits "a stopped run with its evidence open"
+js "() => { document.querySelector('.visits .proof button').scrollIntoView({ block: 'start' }); return 'scrolled'; }" > /dev/null
 shot run-stopped-evidence-light-390
 pw resize 1440 900
 # ---- the stopped run is tried again from its page, by keyboard

@@ -5,6 +5,7 @@ import { Fragment } from "react";
 import { memberOf } from "../core/runs/transcript.ts";
 import type { RunDetail } from "./api.ts";
 import { FileView, Proof } from "./Evidence.tsx";
+import { gateRounds } from "./gates.ts";
 import { STATE_WORD } from "./Strip.tsx";
 import { TranscriptView } from "./Transcript.tsx";
 import { dollars, finished, howLong, lead, span, tokens, verdicts } from "./words.ts";
@@ -37,8 +38,11 @@ export function LaneVisit(props: {
   files: RunDetail["files"];
   proof: (key: string) => ProofProps;
   show: (path: string) => void;
+  /** What a gate checks, in the workflow's own words, when it says. */
+  what?: (gate: string) => string | undefined;
 }) {
   const { lane, runId, files, proof, show } = props;
+  const rounds = gateRounds(lane);
   const state = stateOf(lane.outcome);
   const baseOf = (output: string) => output.replace(/\.log$/, ".base.log");
   const parts = [
@@ -128,29 +132,38 @@ export function LaneVisit(props: {
               ))}
             </ul>
           ) : null}
-          {lane.gates.map((gate) => (
-            <Fragment key={gate.output}>
-              <Proof
-                {...proof(gate.output)}
-                mark={
-                  <span className={`mark ${gate.status === "pass" ? "pass" : "fail"}`} aria-hidden="true" />
-                }
-                label={`Gate ${gate.gate} ${gate.status === "pass" ? "passed" : "failed"}`}
-                meta={[
-                  gate.exitCode === null ? "" : `exit ${gate.exitCode}`,
-                  span(gate.durationMs),
-                  gate.attempt > 1 ? `round ${gate.attempt}` : "",
-                ]
-                  .filter(Boolean)
-                  .join(", ")}
-              >
-                <FileView runId={runId} path={gate.output} name="output.log" />
-              </Proof>
-              {files.some((f) => f.path === baseOf(gate.output)) ? (
-                <Proof {...proof(baseOf(gate.output))} label={`Gate ${gate.gate} on the base commit`}>
-                  <FileView runId={runId} path={baseOf(gate.output)} name="output.log" />
-                </Proof>
-              ) : null}
+          {rounds.map((group) => (
+            <Fragment key={group.round}>
+              {/* a lane that ran more than one round says which round each gate record is of */}
+              {rounds.length > 1 ? <h5 className="round">Round {group.round}</h5> : null}
+              {group.gates.map((gate) => (
+                <Fragment key={gate.output}>
+                  <Proof
+                    {...proof(gate.output)}
+                    mark={
+                      <span
+                        className={`mark ${gate.status === "pass" ? "pass" : "fail"}`}
+                        aria-hidden="true"
+                      />
+                    }
+                    label={`Gate ${gate.gate} ${gate.status === "pass" ? "passed" : "failed"}${props.what?.(gate.gate) ? `: ${props.what(gate.gate)}` : ""}`}
+                    meta={[
+                      gate.exitCode === null ? "" : `exit ${gate.exitCode}`,
+                      span(gate.durationMs),
+                      gate.attempt > 1 ? `round ${gate.attempt}` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                  >
+                    <FileView runId={runId} path={gate.output} name="output.log" />
+                  </Proof>
+                  {files.some((f) => f.path === baseOf(gate.output)) ? (
+                    <Proof {...proof(baseOf(gate.output))} label={`Gate ${gate.gate} on the base commit`}>
+                      <FileView runId={runId} path={baseOf(gate.output)} name="output.log" />
+                    </Proof>
+                  ) : null}
+                </Fragment>
+              ))}
             </Fragment>
           ))}
           {lane.output ? (

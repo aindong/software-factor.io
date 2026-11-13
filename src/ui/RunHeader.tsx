@@ -1,8 +1,9 @@
 // The head of a run's page: its title, what it is doing or how it ended in plain words, whether it needs a
 // person, and a short line of facts. The run's id and branch, which only a developer looks for, come last.
-import type { RefObject } from "react";
+import { type RefObject, useState } from "react";
 import type { RunDetail, RunRow } from "./api.ts";
 import { Elapsed } from "./Elapsed.tsx";
+import { RunActions, type Said } from "./RunActions.tsx";
 import { go } from "./route.ts";
 import { State } from "./State.tsx";
 import { Coded } from "./Words.tsx";
@@ -17,8 +18,11 @@ export function RunHeader(props: {
   deciding: boolean | undefined;
   asking: boolean;
   laneName: string;
+  /** What the gate that stopped the run checks, in the workflow's own words, with the gate's id. */
+  gateWords?: { id: string; what: string };
 }) {
   const { row, detail } = props;
+  const [told, setTold] = useState<Said>();
   const said = lede(row, props.laneName);
   return (
     <header>
@@ -34,6 +38,7 @@ export function RunHeader(props: {
           <State run={row} />
           <p className="lede" role="status">
             {said.says} <span className={said.needs ? "needs" : "quiet"}>{said.line}</span>
+            {told ? <span className={told.bad ? "needs" : ""}> {told.text}</span> : null}
           </p>
           {/* what waits says it in its own block below, with the way to decide; the sentence is the record's own, for a developer */}
           {props.asking || !more(row) ? null : (
@@ -42,13 +47,14 @@ export function RunHeader(props: {
               {more(row)}
             </p>
           )}
+          {props.gateWords && row.status !== "running" ? (
+            <p className="quiet gate-words">
+              That gate, {props.gateWords.id}, checks: {props.gateWords.what}
+            </p>
+          ) : null}
         </>
       )}
-      {props.deciding || (row.status !== "stopped" && row.status !== "dropped") ? null : (
-        <p className="quiet">
-          To try the task again, run <code>softwarefactor requeue {row.id}</code> in your terminal.
-        </p>
-      )}
+      {props.deciding ? null : <RunActions row={row} headRef={props.headRef} say={setTold} />}
       <dl className="facts">
         <div>
           <dt>Started</dt>

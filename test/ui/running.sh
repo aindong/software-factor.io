@@ -157,15 +157,22 @@ slow=$!
 pw resize 1440 900
 section Runs
 wait_for "the new run works" "$rows" '^Working \|'
-tab_to '^Working.*[0-9]+ Slow task'
+back_to '^Skip to the list$'
+pw press Enter
+pw press Home
+expect "the run that works is the newest" "$(js "$focused")" 'Slow task'
 pw press Enter
 expect "Enter goes into the run that works" "$(js "$focused")" '^Slow task$'
 expect "the terminal command stays in the text" "$(js "() => document.querySelector('.rundetail .actions')?.textContent ?? ''")" 'softwarefactor stop [0-9a-f]+'
 tab_to '^Stop$'
 expect "Stop is a button" "$(js "() => document.activeElement.tagName")" '^BUTTON$'
 shot running-stop-light-1440
+theme Dark
+shot running-stop-dark-1440
+theme Light
+tab_to '^Stop$'
 pw press Enter
-expect "it asks once, in the page, and the keyboard is on the safe answer" "$(js "() => document.querySelector('.rundetail .ask')?.textContent + ' | ' + document.activeElement.textContent")" '^Stop this run\?.*Yes, stop it.*Keep it working \| Keep it working$'
+expect "it asks once, in the page, and the keyboard is on the safe answer" "$(js "() => document.querySelector('.rundetail .ask')?.textContent + ' | ' + document.activeElement.textContent")" '^Stop this run\?.*Keep it working.*Yes, stop it \| Keep it working$'
 pw press Escape
 expect "Escape leaves the question and the run still works" "$(js "() => document.querySelectorAll('.rundetail .ask').length + ' ' + document.querySelector('.rundetail .state').textContent")" '^0 Working$'
 tab_to '^Stop$'

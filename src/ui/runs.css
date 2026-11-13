@@ -681,3 +681,29 @@ button.more {
 .verdicts .mark {
   vertical-align: baseline;
 }
+
+/* what a person can do to a run, and the one question Stop asks */
+.actions,
+.actions .ask {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sm);
+}
+.actions .ask legend {
+  float: left;
+  padding: 0;
+  margin-right: var(--sm);
+}
+.rundetail .gate-words {
+  max-width: 62ch;
+  overflow-wrap: anywhere;
+}
+.visits .round {
+  margin-top: var(--sm);
+  color: var(--ink-soft);
+  font: var(--w-strong) var(--text-data) / var(--lh-data) var(--font);
+}
