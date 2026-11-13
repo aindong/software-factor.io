@@ -89,6 +89,8 @@ expect "the first line of each row is its state" "$(js "() => [...document.query
 expect "the state is as far left on one row as on the next" "$(js "() => new Set([...document.querySelectorAll('.run .state')].map((s) => Math.round(s.getBoundingClientRect().left))).size")" '^1$'
 expect "a row does not say its state twice" "$(js "() => [...document.querySelectorAll('.run')].map((r) => r.querySelector('.sentence')?.textContent ?? '').join(' | ')")" '^Review: .* \| Ship it waits for your approval before it runs\. \| $'
 expect "a page says it with the same word and mark" "$(js "() => document.querySelector('.rundetail .state').outerHTML === document.querySelector('.run .state').outerHTML")" '^true$'
+expect "the list says how its rows move, in the Floor's way of writing keys" "$(js "() => document.querySelector('.runlist .keyhint')?.textContent.trim() ?? 'no hint'")" '^↑ ↓ move between runs, Enter opens$'
+expect "the keys are written as keys" "$(js "() => [...document.querySelectorAll('.runlist .keyhint kbd')].map((k) => k.textContent).join(' ')")" '^↑ ↓ Enter$'
 [ -n "$shots" ] && pw screenshot --filename="$shots/filter-all-light-1440.png"
 
 # ---- 2. the filter: All and each state that has a run, with its count
@@ -136,6 +138,8 @@ wait_for "the way back leads to All" "() => document.querySelectorAll('.run').le
 pw resize 390 844
 fits "the runs"
 walk "the runs"
+expect "the hint about the arrow keys is not shown at phone width" "$(js "() => { const h = document.querySelector('.runlist .keyhint'); return h && h.getClientRects().length > 0 ? 'shown' : 'hidden'; }")" '^hidden$'
+expect "the filter's buttons are 44 px high at phone width" "$(js "() => Math.min(...[...document.querySelectorAll('.runfilter button')].map((b) => b.getBoundingClientRect().height))")" '^(4[4-9]|[5-9][0-9])(\.[0-9]+)?$'
 [ -n "$shots" ] && pw screenshot --filename="$shots/filter-all-light-390.png"
 tab_to '^Waits for you 1$'
 pw press Enter
