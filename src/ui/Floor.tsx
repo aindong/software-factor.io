@@ -11,9 +11,9 @@ import { Ago } from "./Elapsed.tsx";
 import { useFloorKeys } from "./floorKeys.ts";
 import { Inspector } from "./Inspector.tsx";
 import { Ladder } from "./Ladder.tsx";
-import { MapScroll } from "./MapScroll.tsx";
 import { AddLane, caretToLane, Fold, Legend, trainsOf } from "./Legend.tsx";
 import { useRuns } from "./live.ts";
+import { MapScroll } from "./MapScroll.tsx";
 import { go } from "./route.ts";
 import { statusOf } from "./status.ts";
 

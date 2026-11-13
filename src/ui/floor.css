@@ -435,7 +435,7 @@
 }
 /* the map goes on past the edge: a fade, and the words under it */
 .map-scroll[data-more="true"] {
-  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, black calc(100% - 40px), transparent);
 }
 .map-more {
   margin: 0;
