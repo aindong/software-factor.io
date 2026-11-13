@@ -43,6 +43,8 @@ export function Lead(props: {
   proof: (key: string) => ProofProps;
   show: (path: string) => void;
   what?: (gate: string) => string | undefined;
+  changed?: string[];
+  showDiff?: () => void;
 }) {
   const { detail, lane, runId, proof } = props;
   if (!lane) {
@@ -66,6 +68,8 @@ export function Lead(props: {
         proof={proof}
         show={props.show}
         what={props.what}
+        changed={props.changed}
+        showDiff={props.showDiff}
       />
       {pairs.map((pair) => (
         <Proof

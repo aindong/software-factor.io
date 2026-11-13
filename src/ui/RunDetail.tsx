@@ -6,6 +6,7 @@ import { drawable, layout } from "../core/floor/layout.ts";
 import { groupEvidence, routeOf, stepOf, trackOf } from "../core/runs/track.ts";
 import type { Workflow } from "../core/schema/workflow.ts";
 import { getRun, type RunDetail, type RunRow } from "./api.ts";
+import { useChanged } from "./changed.ts";
 import { Diagram } from "./Diagram.tsx";
 import { DiffView, FileView, PairView, Proof } from "./Evidence.tsx";
 import { failingGate, gateWhat } from "./gates.ts";
@@ -14,6 +15,7 @@ import { Lead, leadKeys } from "./Lead.tsx";
 import { leadLane } from "./lead.ts";
 import { RunHeader, Waits } from "./RunHeader.tsx";
 import { STATE_WORD } from "./Strip.tsx";
+import { pageSays } from "./says.ts";
 
 export interface RunViewProps {
   row: RunRow;
@@ -130,6 +132,18 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
   // the gate the run stopped on: the latest lane that failed on one
   const stoppedOn = detail?.lanes.findLast((l) => failingGate(l));
   const stopGate = stoppedOn && failingGate(stoppedOn);
+  // the diff is read for the references of a lane whose evidence is open: they lead to it when it has what they name
+  const changed = useChanged(
+    row.id,
+    stamp,
+    !!detail?.lanes.some((l) => open.has(`lane:${l.id}`) && l.claims.length > 0),
+  );
+  const showDiff = () => {
+    setOpen(new Set(open).add("diff"));
+    requestAnimationFrame(() => proofs.current.get("diff")?.scrollIntoView({ block: "nearest" }));
+  };
+  // what the page's first sentence says: a lane's card does not say it again
+  const says = deciding || asking ? undefined : pageSays(row);
   const proof = (key: string) => ({
     open: open.has(key),
     onToggle: () => toggle(key),
@@ -200,6 +214,8 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
           proof={proof}
           show={show}
           what={what}
+          changed={changed}
+          showDiff={showDiff}
         />
       ) : null}
       {floor ? (
@@ -291,6 +307,9 @@ export function RunView({ row, workflow, headRef, onBack, back = "All runs", dec
                         proof={proof}
                         show={show}
                         what={what}
+                        says={says}
+                        changed={changed}
+                        showDiff={showDiff}
                       />
                     </li>
                   ))}
