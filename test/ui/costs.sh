@@ -38,7 +38,7 @@ pw resize 1440 900
 section Costs
 wait_for "the tables" "() => [...document.querySelectorAll('.page h2')].map((h) => h.textContent).join(' | ')" '^By lane \| By task \| By account$'
 expect "the totals say what period they cover" "$(js "() => document.querySelector('.topbar .where').textContent")" 'all sessions, on [A-Z][a-z]{2} [0-9]+, [0-9]{4}$'
-expect "the task of the By task table is a link to its run" "$(js "() => { const a = document.querySelector('.costs a'); return a ? a.textContent.trim() + ' ' + a.getAttribute('href').replace(/[0-9a-f]{6,}/, 'ID') : 'no link'; }")" '^Say hello /runs/ID$'
+expect "the task of the By task table is a link to its run" "$(js "() => { const a = document.querySelector('.costs a'); return a ? a.textContent.trim() + ' ' + a.getAttribute('href') : 'no link'; }")" '^Say hello /runs/[0-9a-z]+$'
 shot costs-link-light-1440
 pw resize 390 844
 fits "costs"

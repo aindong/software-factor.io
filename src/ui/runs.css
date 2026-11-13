@@ -778,3 +778,8 @@ button.more {
     display: none;
   }
 }
+
+/* Costs' top bar says its period after the totals: at phone width it goes under them, not past the edge */
+.topbar .where {
+  flex-wrap: wrap;
+}
