@@ -87,6 +87,7 @@ tab_to '^Workflow$'
 pw type "gate"
 wait_for "the workflow with two runs waiting shows two task badges" "() => document.querySelectorAll('g.train').length" '^2$'
 expect "each task badge has a hit area of at least 44 by 44 px" "$(hits 'g.train .hit' 44 44)" '^ok$'
+unpainted "the Floor at phone width"
 centres_free "the Floor with two task badges at phone width"
 pw type "full"
 wait_for "the workflow is drawn again" "() => document.querySelectorAll('.station.lane').length" '^6$'
