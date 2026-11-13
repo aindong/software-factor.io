@@ -171,6 +171,7 @@ export function Runs() {
                         }}
                         role="option"
                         className="run lined"
+                        data-mark={stands.mark}
                         aria-selected={run.id === current?.id}
                         tabIndex={
                           run.id === (current && kept(current, show) ? current.id : list[0]?.id) ? 0 : -1

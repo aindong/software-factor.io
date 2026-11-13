@@ -78,6 +78,21 @@
   grid-column: 1;
 }
 
+/* what a person is needed for reads first in the list, with no new colour (yellow stays on the mark):
+   its title and its state word in ink at 600; a done row steps back to the quiet ink at 400 */
+.run[data-mark] .state b {
+  font-weight: var(--w-strong);
+}
+.run[data-mark="asked"] .task,
+.run[data-mark="asked"] .state b {
+  font-weight: var(--w-heading);
+}
+.run[data-mark="pass"] .task,
+.run[data-mark="pass"] .state b {
+  color: var(--ink-soft);
+  font-weight: var(--w-text);
+}
+
 /* how a run, a lane or a gate stands: a shape and a colour, never the colour alone */
 .mark {
   flex: none;
