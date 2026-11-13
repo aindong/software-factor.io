@@ -83,11 +83,14 @@ pw press Enter
 wait_for "the references are shown" "() => document.querySelectorAll('.visits .ref button').length" '^[1-9]'
 expect "the replay slider and a reference button are 24 px at least in each direction at desk width" "$(targets 24)" '^ok$'
 pw resize 390 844
+tab_to '[0-9]+ First'
+pw press Enter
+wait_for "the run of the agent is shown at phone width" "() => document.querySelector('.rundetail h2')?.textContent ?? ''" '^First$'
 expect "the replay slider and a reference button are 44 px at least in each direction at phone width" "$(targets 44)" '^ok$'
 # ---- a stopped run, at phone width
-back_to '^Back to the list'
+back_to 'All runs'
 pw press Enter
-tab_to 'Breaks late'
+pw press ArrowUp
 pw press Enter
 wait_for "the stopped run's map is drawn" "() => document.querySelectorAll('.runmap svg.map.overlaid .station').length" '^[1-9]'
 expect "no text of the stopped run's map renders under 12 px at 390" "$(js "$map_text")" '^all [0-9]+ texts'
@@ -96,9 +99,9 @@ wait_for "the lane that failed is in view" "$(in_view '.station.ran-fail')" '^in
 unpainted "the stopped run's map"
 shot phone-stopped-light-390
 # ---- a waiting run, at phone width
-back_to '^Back to the list'
+back_to 'All runs'
 pw press Enter
-tab_to 'Waits late'
+pw press ArrowUp
 pw press Enter
 wait_for "the waiting run's map is drawn" "() => document.querySelectorAll('.runmap svg.map.overlaid .station').length" '^[1-9]'
 expect "no text of the waiting run's map renders under 12 px at 390" "$(js "$map_text")" '^all [0-9]+ texts'
