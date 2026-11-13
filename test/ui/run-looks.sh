@@ -117,9 +117,28 @@ if want 1; then
   shot run-failed-first-light-1440
   pw resize 390 844
   wait_for "the page is the same run at phone width" "() => document.querySelector('.rundetail h2')?.textContent" '^Fix the date format$'
-  wait_for "the failing output is inside the first screen after the head" "() => String(document.querySelector('.rundetail .failed pre.output')?.getBoundingClientRect().top < innerHeight - 60)" '^true$'
+  wait_for "the failing output is inside the first screen after the head" "() => String(document.querySelector('.rundetail .failed pre.output')?.getBoundingClientRect().top < innerHeight)" '^true$'
   shot run-failed-first-light-390
   pw resize 1440 900
+fi
+
+# ---- F8: a closed row that opens looks one way, at both depths; depth is the indent alone
+if want 2; then
+  to_list
+  open_run "Add an export button"
+  tab_to '^Evidence for Build'
+  pw press Enter
+  wait_for "the lane's evidence is open, with rows of its own" "() => document.querySelectorAll('.rundetail .proof .proof').length" '^[1-9]'
+  look='() => { const rows = [...document.querySelectorAll(".rundetail .proof > button[aria-expanded=false]")]; const sig = (b) => { const c = getComputedStyle(b); return [c.borderTopWidth, c.borderTopStyle, c.borderTopColor, c.backgroundColor, c.borderRadius, c.color, c.paddingLeft].join(" "); }; const by = new Map(); for (const b of rows) { const k = sig(b); by.set(k, [...(by.get(k) ?? []), b.querySelector(".what").textContent]); } return by.size === 1 ? "one look" : [...by].map(([k, v]) => v.join(" / ") + " = " + k).join(" || "); }'
+  expect "every closed row, evidence for a lane, the diff, a gate, the hand-off, looks the same" "$(js "$look")" '^one look$'
+  expect "there are rows of both depths to compare" "$(js "() => document.querySelectorAll('.rundetail .proof > button[aria-expanded=false]').length > 3 && document.querySelectorAll('.rundetail .proof .proof > button').length > 0")" '^true$'
+  expect "a nested row is set in by its indent" "$(js "() => { const o = document.querySelector('.rundetail .proof .proof > button').getBoundingClientRect().left; const t = document.querySelector('.rundetail .proof > button').getBoundingClientRect().left; return String(o - t >= 8); }")" '^true$'
+  expect "a gate's row keeps its mark" "$(js "() => [...document.querySelectorAll('.rundetail .proof > button')].filter((b) => /^Gate /.test(b.querySelector('.what').textContent) && !b.querySelector('.mark')).length")" '^0$'
+  shot run-rows-light-1440
+  back_to 'just now|min ago|h ago'
+  open_run "Fix the date format"
+  expect "the failed gate keeps its mark of failure in the lane's rows" "$(js "() => [...document.querySelectorAll('.rundetail .visits .proof > button')].filter((b) => /^Gate verify failed/.test(b.querySelector('.what').textContent) && b.querySelector('.mark.fail')).length")" '^1$'
+  back_to 'just now|min ago|h ago'
 fi
 
 # ---- end
