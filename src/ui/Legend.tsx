@@ -59,19 +59,36 @@ export function Legend() {
   );
 }
 
+/** The three kinds of lane to add. Above phone width they stand behind one button until it is pressed; at phone width the Tools fold holds them. */
 export function AddLane({ onAdd }: { onAdd: (kind: "agent" | "command" | "wait") => void }) {
+  const [open, setOpen] = useState(false);
+  const add = (kind: "agent" | "command" | "wait") => {
+    setOpen(false);
+    onAdd(kind);
+  };
   return (
-    <div className="group">
-      <span className="label">Add a lane</span>
-      <button type="button" className="button" onClick={() => onAdd("agent")}>
-        Agent
+    <div className="group addlane" data-open={open}>
+      <button
+        type="button"
+        className="button desk-only"
+        aria-expanded={open}
+        aria-controls="add-lane-kinds"
+        onClick={() => setOpen(!open)}
+      >
+        Add a lane
       </button>
-      <button type="button" className="button" onClick={() => onAdd("command")}>
-        Command
-      </button>
-      <button type="button" className="button" onClick={() => onAdd("wait")}>
-        Wait
-      </button>
+      <span className="label phone-only">Add a lane</span>
+      <span className="kinds" id="add-lane-kinds">
+        <button type="button" className="button" onClick={() => add("agent")}>
+          Agent
+        </button>
+        <button type="button" className="button" onClick={() => add("command")}>
+          Command
+        </button>
+        <button type="button" className="button" onClick={() => add("wait")}>
+          Wait
+        </button>
+      </span>
     </div>
   );
 }

@@ -13,7 +13,7 @@
   min-height: 0;
 }
 .map-scroll {
-  flex: 1;
+  flex: 0 1 auto; /* the strip of what is queued follows the map, and the key stays at the foot */
   overflow: auto;
   min-height: 0;
 }
@@ -156,6 +156,7 @@
   opacity: 1;
 }
 .legend {
+  margin-top: auto;
   display: flex;
   flex-wrap: wrap;
   gap: var(--xs) var(--lg);
@@ -461,6 +462,74 @@
   .topbar .needs {
     flex-basis: 100%;
   }
+}
+/* the count links are targets of 24 px at desk width and 44 at phone width, and look as they did: the padding is taken back by the margin */
+.topbar .needs a {
+  display: inline-block;
+  padding-block: 3px;
+  margin-block: -3px;
+}
+@media (max-width: 760px) {
+  .topbar .needs a {
+    padding-block: 13px;
+    margin-block: -13px;
+  }
+}
+/* add a lane: above phone width its three kinds stand behind one button until it is pressed */
+.addlane .kinds {
+  display: inline-flex;
+  gap: var(--sm);
+}
+@media (min-width: 761px) {
+  .addlane[data-open="false"] .kinds {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .desk-only {
+    display: none;
+  }
+}
+/* what is working and what is queued: a quiet strip under the map, no louder than the key below it */
+.queue {
+  padding: var(--sm) var(--lg) var(--md);
+  color: var(--ink-soft);
+  font: var(--w-medium) var(--text-data) / var(--lh-data) var(--font);
+}
+.queue ul {
+  display: grid;
+  gap: var(--xs);
+  max-width: 62ch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.queue li {
+  display: flex;
+  align-items: center;
+  gap: var(--md);
+  min-height: var(--row);
+}
+.queue .task,
+.queue li > a {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.queue .task {
+  color: var(--ink);
+}
+.queue .state {
+  font-size: var(--text-label);
+}
+.queue .more,
+.queue .note {
+  margin: var(--xs) 0 0;
+}
+.queue .note.bad {
+  color: var(--ink);
 }
 /* at desk width the map is drawn up to its canvas's width, at most 1.5 times its natural size (--w): a vector, so the text stays sharp */
 @media (min-width: 601px) {

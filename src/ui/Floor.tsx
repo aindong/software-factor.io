@@ -7,7 +7,7 @@ import { drawable, layout } from "../core/floor/layout.ts";
 import { parseWorkflow } from "../core/schema/parse.ts";
 import { forgetKey, getWorkflow, getWorkspace, type Json, saveWorkflow, type WorkspaceInfo } from "./api.ts";
 import { Diagram } from "./Diagram.tsx";
-import { Ago } from "./Elapsed.tsx";
+import { EditBar } from "./EditBar.tsx";
 import { useFloorKeys } from "./floorKeys.ts";
 import { Inspector } from "./Inspector.tsx";
 import { Ladder } from "./Ladder.tsx";
@@ -15,6 +15,7 @@ import { AddLane, caretToLane, Fold, Legend, trainsOf } from "./Legend.tsx";
 import { useRuns } from "./live.ts";
 import { MapScroll } from "./MapScroll.tsx";
 import { Needs } from "./Needs.tsx";
+import { Queue } from "./Queue.tsx";
 import { go } from "./route.ts";
 import { statusOf } from "./status.ts";
 
@@ -33,7 +34,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
   const [sheet, setSheet] = useState(false);
   const [notice, setNotice] = useState<{ text: string; bad: boolean }>();
   const [onMap, setOnMap] = useState(true);
-  const { runs } = useRuns();
+  const { runs, queued } = useRuns();
   const headRef = useRef<HTMLHeadingElement>(null);
   const connectRef = useRef<HTMLSelectElement>(null);
   // undo: every document the floor has held since it was read, and those taken back
@@ -308,77 +309,25 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
           ) : null}
           {view === "diagram" ? <AddLane onAdd={add} /> : null}
         </Fold>
-        <div className="group push">
-          <span
-            className={`status${status.bad ? " bad" : ""}`}
-            role="status"
-            title={status.since ? `Saved to ${name}.json` : undefined}
-          >
-            {status.text}
-            {status.since ? (
-              <>
-                {" "}
-                <Ago at={status.since} />
-              </>
-            ) : null}
-          </span>
-          <button
-            type="button"
-            className="button"
-            disabled={past.length === 0}
-            onClick={undo}
-            title="Undo: Ctrl or Cmd and Z"
-          >
-            Undo
-          </button>
-          {theirs ? (
-            // the file changed elsewhere since this copy was read: nothing is written until the person chooses
-            <>
-              <button type="button" className="button" onClick={() => name && load(name)}>
-                Read the file again
-              </button>
-              <button type="button" className="button" disabled={!canSave} onClick={() => save(true)}>
-                Save over it
-              </button>
-            </>
-          ) : discarding && dirty ? (
-            <>
-              <span className="status bad">Discard {unsavedSteps} changes?</span>
-              <button
-                type="button"
-                className="button"
-                onClick={() => {
-                  setDiscarding(false);
-                  if (name) load(name);
-                }}
-              >
-                Discard
-              </button>
-              <button type="button" className="button" onClick={() => setDiscarding(false)}>
-                Keep
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              className="button"
-              disabled={!dirty}
-              // one change is undone as easily as it was made: more than one is asked about first
-              onClick={() => (unsavedSteps > 1 ? setDiscarding(true) : name && load(name))}
-            >
-              Revert
-            </button>
-          )}
-          {/* while the file is changed elsewhere, the two choices beside it are the ways on */}
-          <button
-            type="button"
-            className="button primary"
-            disabled={!canSave || theirs !== undefined}
-            onClick={() => save()}
-          >
-            Save
-          </button>
-        </div>
+        <EditBar
+          status={status}
+          name={name}
+          touched={dirty || past.length > 0 || future.length > 0}
+          canUndo={past.length > 0}
+          dirty={dirty}
+          canSave={canSave}
+          theirs={theirs !== undefined}
+          discarding={discarding}
+          unsavedSteps={unsavedSteps}
+          onUndo={undo}
+          onRevert={() => {
+            setDiscarding(false);
+            if (name) load(name);
+          }}
+          onAskRevert={() => setDiscarding(true)}
+          onKeep={() => setDiscarding(false)}
+          onSave={save}
+        />
       </div>
       <div className="floor" data-sheet={sheet}>
         {view === "diagram" ? (
@@ -428,6 +377,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
                 </div>
               )}
             </MapScroll>
+            <Queue runs={runs ?? []} queued={queued} />
             <Legend />
           </div>
         ) : (
