@@ -1,9 +1,17 @@
 // The box the floor's map scrolls in. When part of the map is out of sight to the right, a fade at the
 // edge and a line in words say how many stations are there, so that a cut is not taken for the end.
-import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from "react";
 
-export function MapScroll({ children }: { children: ReactNode }) {
-  const box = useRef<HTMLDivElement>(null);
+export function MapScroll({
+  children,
+  boxRef,
+}: {
+  children: ReactNode;
+  boxRef?: RefObject<HTMLDivElement | null>;
+}) {
+  // a page that moves the box itself (a run's page puts the lane that failed in view) gives its own ref
+  const own = useRef<HTMLDivElement>(null);
+  const box = boxRef ?? own;
   const [more, setMore] = useState(0);
   useLayoutEffect(() => {
     const look = () => {

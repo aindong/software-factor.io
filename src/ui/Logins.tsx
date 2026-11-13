@@ -1,5 +1,5 @@
 // The logins on this machine, each with the limit windows its CLI reports and, apart from them, the
-// factory's own count. A login on hold or near the end of a window says so in words, after a diamond.
+// factory's own count. A login on hold or near the end of a window says so in words, after a ring; a reading that failed, after a diamond.
 import { useEffect, useState } from "react";
 import type { Window } from "../core/limits.ts";
 import type { AccountsView } from "../core/views.ts";
@@ -29,9 +29,10 @@ function holdEnd(iso: string): string {
   return `${at.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}, ${time}`;
 }
 
-const Flag = ({ children }: { children: React.ReactNode }) => (
+// the diamond is for what failed (a reading that could not be read); a hold and a nearing limit are not failures
+const Flag = ({ children, failed }: { children: React.ReactNode; failed?: boolean }) => (
   <span className="flag">
-    <span className="mark fail" aria-hidden="true" />
+    <span className={failed ? "mark fail" : "mark"} aria-hidden="true" />
     {children}
   </span>
 );
@@ -46,7 +47,7 @@ function WindowRow({ w, login }: { w: Window; login: string }) {
     );
   }
   return (
-    <li className="window">
+    <li className={w.percent >= NEAR ? "window near" : "window"}>
       <span className="name">{w.name}</span>
       <meter
         min={0}
@@ -56,7 +57,7 @@ function WindowRow({ w, login }: { w: Window; login: string }) {
         aria-valuetext={`${w.percent}% used`}
       />
       <span className="said data">
-        {w.percent >= NEAR ? <span className="mark fail" aria-hidden="true" /> : null}
+        {w.percent >= NEAR ? <span className="mark" aria-hidden="true" /> : null}
         <strong>{w.percent}% used</strong>
         {w.resets ? ` · resets ${w.resets}` : ""}
       </span>
@@ -72,7 +73,7 @@ function Reported({ a, now }: { a: Login; now: number }) {
     <>
       {r.failed ? (
         <p className="said">
-          <Flag>The limits could not be read: {r.failed}</Flag>
+          <Flag failed>The limits could not be read: {r.failed}</Flag>
         </p>
       ) : null}
       {r.none ? <p className="quiet">{r.none}</p> : null}

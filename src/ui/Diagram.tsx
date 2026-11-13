@@ -286,11 +286,11 @@ export function Diagram({
       width={floor.width + left + right}
       height={floor.height + top + bottom}
       viewBox={`${-left} ${-top} ${floor.width + left + right} ${floor.height + top + bottom}`}
-      // a run's map is read whole: it is drawn smaller to fit its box, down to seven tenths, and scrolls after that
+      // a run's map is drawn at its size, never smaller (no text under 12 px), and scrolls in its box when it is wider
       // the Floor's own map is drawn larger at desk width (floor.css), from its natural width
       style={
         states
-          ? { maxWidth: "100%", minWidth: (floor.width + left + right) * 0.7, height: "auto" }
+          ? { maxWidth: "none", height: "auto" }
           : ({ "--w": floor.width + left + right } as CSSProperties)
       }
       role="group"

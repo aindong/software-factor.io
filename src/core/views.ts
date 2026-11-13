@@ -161,8 +161,11 @@ export interface CostsView {
   byTask: (CostLine & { task: string; runs: string[] })[];
   byAccount: (CostLine & { account: string | null; agent: string })[];
   total: CostLine;
+  /** When the first and the last of the sessions started: what the totals cover. Null with no session. */
+  period: { from: string; to: string } | null;
 }
 type SessionRow = {
+  started_at: string;
   lane: string;
   account: string | null;
   agent: string;
@@ -192,7 +195,7 @@ export function costsView(db: Db): CostsView {
   // every session counts, also one whose run or task is no longer in the record
   const rows = db
     .prepare(
-      `select s.lane, s.account, s.agent, s.tokens, s.usd, s.run_id, r.task_id, t.title from sessions s
+      `select s.lane, s.account, s.agent, s.tokens, s.usd, s.started_at, s.run_id, r.task_id, t.title from sessions s
        left join runs r on r.id = s.run_id left join tasks t on t.id = r.task_id order by s.id`,
     )
     .all() as unknown as SessionRow[];
@@ -215,6 +218,16 @@ export function costsView(db: Db): CostsView {
       ...line(list),
     })),
     total: line(rows),
+    period: rows.length
+      ? {
+          from: rows.map((s) => s.started_at).sort()[0] ?? "",
+          to:
+            rows
+              .map((s) => s.started_at)
+              .sort()
+              .at(-1) ?? "",
+        }
+      : null,
   };
 }
 
