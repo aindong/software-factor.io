@@ -107,6 +107,10 @@ pw press Enter
 expect "at phone width each half of the switch is at least 44 px high" "$(js "() => [...document.querySelectorAll('.segmented button')].every((b) => b.getBoundingClientRect().height >= 43.5)")" '^true$'
 pw resize 1440 900
 
+# ---- F7: the eight selects of an agent lane's panel are one kind: drawn by the page, one chevron, one corner, one height
+kinds='() => { const s = [...document.querySelectorAll(".inspector select")]; const look = (e) => { const c = getComputedStyle(e); return [c.appearance, c.borderRadius, Math.round(e.getBoundingClientRect().height), c.backgroundImage.includes("linear-gradient") ? "chevron" : "native arrow", c.paddingRight].join(" "); }; const kinds = [...new Set(s.map(look))]; return s.length + " selects, " + kinds.length + " look(s): " + kinds.join(" / "); }'
+expect "all eight selects of the lane panel look alike" "$(js "$kinds")" '^8 selects, 1 look\(s\): '
+
 # ---- the end: nothing waits, so no yellow in the line of counts
 sf approve "$waiting" > "$work/approve.log" 2>&1 || fail "approve: $(cat "$work/approve.log")"
 wait_for "nothing waits any more" "$needs" '^1 queued$|^no line$'
