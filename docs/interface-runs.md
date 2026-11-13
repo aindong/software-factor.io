@@ -25,6 +25,9 @@ system's settings nothing moves: the ring, the dashes and the mark stay as still
 The sentence comes from the record. For an agent at work it is read from the last lines of its CLI's output:
 "Build: the agent is running `npm test`." It holds no clock, so it changes only when something happens.
 
+A row that waits for you is in full ink and bold; a done row steps back. The way back to the list, at phone
+width, is a link with an arrow.
+
 The top bar has a filter by state: All and one button for each state that has a run, with its count. Tab to
 it and press Enter or Space; the chosen one is pressed. It is kept in the address (`/runs?show=working`), so a
 reload and a shared link keep it, and the heading says "1 working, 1 shown of 3". A filter that leaves nothing
@@ -46,8 +49,9 @@ queue from its page, and a working one stopped. A run shows:
   or "Nothing is needed from you."). The record's own sentence, which can be a shell command, follows it
   quietly. The facts are when it started, how long it took (in minutes and hours) and what it cost; the run's id
   and branch come last and are quieter. Tokens are with each lane.
-- **A stopped run opens on its failure.** When a run stopped on a gate, the lane that failed has its
-  evidence open on arrival, with the failed gate's output, and no key is needed to see why. A lane that a
+- **A stopped run opens on its failure.** When a run stopped on a gate, "What failed" stands under the head
+  and above the map: the lane, the gate in plain words and its output. A task queued again says "queued
+  again" beside the state and links to the Floor. A lane that a
   person stopped says "stopped", not "failed", on its card, in the replay and on the map.
 - **What each lane did**, before anything else under the map: for each visit its name, how it ended, how long it
   took and its cost, then what its agent said as whole sentences (the record keeps the first 500 characters and

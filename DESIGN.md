@@ -115,7 +115,7 @@ components:
     backgroundColor: "{colors.rail}"
     textColor: "{colors.rail-ink-soft}"
     typography: "{typography.rail-label}"
-    width: "64px"
+    width: "72px"
   nav-rail-current:
     backgroundColor: "{colors.rail-active}"
     textColor: "{colors.rail-ink}"
@@ -226,10 +226,9 @@ Labels are in sentence case, not letter-spaced. More: `docs/interface.md`.
 
 ## Layout
 
-The shell is exactly as high as the window (`100dvh`). Left, a navy rail 64px wide with the six sections
+The shell is exactly as high as the window (`100dvh`). Left, a navy rail 72px wide with the six sections
 (Floor, Runs, Inbox, Accounts, Plugins, Costs) and the theme button at its foot. Right, a top bar at least 48px
-high, then the screen. Each part scrolls by itself: the map, the inspector, a
-list, a detail, a plain page. The page never scrolls.
+high, then the screen. Each part scrolls by itself, the page never.
 
 | Token | Value | What it is for |
 | --- | --- | --- |
@@ -241,11 +240,11 @@ list, a detail, a plain page. The page never scrolls.
 | `--row` | `28px` | The height of a control and of a table row. 44px under 760px. |
 | `--control` | `4px` | The radius of a control. |
 
-- **Above 1000px.** The floor is the map with a 360px inspector beside it. Runs and Inbox are a list (320px to
+- **Above 1000px.** The floor is the map with a 352px inspector beside it. Runs and Inbox are a list (320px to
   440px) and the detail side by side.
 - **Under 1000px.** The inspector is a sheet over the lower part of the map, at most half of its height, opened
   by one tap on a station or by the "Workflow settings" button. Runs and Inbox show
-  one at a time: the list, or the run that was entered, with a button back to the list. The inbox's decision
+  one at a time: the list, or the run that was entered, with a link back to the list. The inbox's decision
   bar moves to the bottom, after the proof.
 - **Under 760px.** The rail is a bar along the bottom. Controls are 44px high. Tables fit the width: nothing scrolls
   sideways but the map and a diff. The floor's controls fold behind Tools.
@@ -275,7 +274,6 @@ motion the same mark stands still. A run that waits, is stopped or is done does 
 
 Lines are 6px thick with round ends, run at 0 and 90 degrees, and turn through a 12px stretch at 45 degrees. A
 line that is lit or being drawn is 8px. A route taken only on a condition is dotted and has no arrowhead.
-Lines of one outcome that lead to the same station run together.
 
 | Shape | Means |
 | --- | --- |
@@ -317,7 +315,7 @@ label and its end.
 - **Shape:** `--control` radius, `--row` high, 12px at the sides, text on one line.
 - **Quiet (the default):** ground fill, 1px edge border, ink text. Under the pointer the border is ink soft.
   Pressed, the fill is panel.
-- **Primary:** ink fill, ground text, weight 500. Used for Save.
+- **Primary:** ink fill, ground text, weight 500: a screen's one main action; nothing else is ink-filled.
 - **Approve:** signal yellow, 1.5px ink border, signal-ink text, weight 600, its key in a small key cap. While
   a decision is sent it reads "Approving...".
 - **Disabled:** end-grey text, a rule border, and a panel fill where the button had a fill.
@@ -329,8 +327,8 @@ label and its end.
   label above and a hint below in ink soft. Read only: panel fill, ink-soft text.
 - **Checkbox and range:** the browser's own, tinted ink with `accent-color`.
 - **What is wrong** is said at the field in ink, after an 8px vermilion diamond.
-- **The Diagram and JSON switch:** two buttons in one 1px edge border. The pressed half is ink with ground
-  text, and its focus outline is drawn inside in ground.
+- **A switch or a filter chip:** the selected one is panel with ink text at 600 and a 2px ink line below; the
+  others are ground with ink-soft text.
 
 ### Navigation
 
@@ -342,8 +340,8 @@ it. The tab's title carries the count and how many work; its icon, a yellow mark
 ### The Floor: the line diagram, the inspector and the JSON view
 
 A selected or focused station has a 2px ink ring. Its blue and vermilion handles (5px) show when it is under
-the pointer or selected, and a drag from one draws a new line. Under the map a strip lists the runs at work and the queued tasks, each with a Run button; the legend names every line, shape and key. In the top bar only the count that waits for you is ink at weight 600, and Undo, Revert and Save show once there is a change. The inspector is on the panel tone with a 1px rule at its left, its parts divided by rules, and
-each route in it carries a swatch of its line's colour. The JSON view is one text area on the ground. Problems are a list, each after a 7px vermilion diamond, with the fix under it in ink soft.
+the pointer or selected, and a drag from one draws a new line. Under the map a strip lists the runs at work and the queued tasks, each with a Run button; the legend names every line, shape and key. In the top bar only the count that waits for you is ink at weight 600, after a yellow square, and Undo, Revert and Save show once there is a change. The inspector is on the panel tone with a 1px rule at its left, its parts divided by rules, and
+each route in it carries a swatch of its line's colour. Problems are a list, each after a 7px vermilion diamond, with the fix under it in ink soft.
 
 ### Runs: the list, the strip map, one run
 
@@ -351,9 +349,9 @@ A row: the state mark, the task's number in an ink capsule, the task, when, what
 sentence. The selected row is on the panel tone. The strip map is 18px high: a 2px rule-coloured line with one
 stop for each lane, and a small outlined capsule around the stop the run is at.
 
-One run: the heading, what waits for you (once, first), one sentence, the facts on one line, then its map in a 1px rule frame with "Replay"
-under it on the panel tone. Each proof is a row that opens: an edge border shut, an ink border open, several
-at once. A claim's reference is a small tag with a mark that says whether the host checked it. Output is on
+One run: the heading, what waits for you (once, first), one sentence, the facts on one line, what failed (for a stopped run), then its map in a 1px rule frame with "Replay"
+under it on the panel tone. Each proof is a boxed row that opens, deeper ones set in 16px, several
+at once. In the list a row that waits is ink at 600 and a done one ink soft. A claim's reference is a small tag with a mark that says whether the host checked it. Output is on
 the panel tone.
 
 The diff is read by shape. A line put in is weight 600 on a band of ink at 16%. A line taken out has a dashed
@@ -364,8 +362,8 @@ and after, on a checker of panel and ground so a see-through picture shows its e
 
 The list and detail of Runs. Above the detail, on the panel tone: what is asked, the buttons (Approve or
 Answer in yellow, the others quiet, each with its key), a box for a note where needed, and what the factory
-answered in the data style. A refusal is in ink after a vermilion diamond. The line on what approving
-starts is weight 400; before a command lane, what it does follows.
+answered in the data style. A refusal is in ink after a vermilion diamond. Before a command lane,
+what it will run stands above the buttons with what is asked; what Reject and Send back do is an ink-soft line below.
 
 ### Accounts, Costs and Plugins: plain pages
 
