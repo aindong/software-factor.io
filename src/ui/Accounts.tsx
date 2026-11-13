@@ -44,6 +44,12 @@ export function RoleRow({
     account !== bound ||
     effort !== (role.effort ?? "") ||
     JSON.stringify(named(models)) !== JSON.stringify(named(role.models));
+  // what turns Bind on, said on the line under the row (and in its tooltip) unless the page has something else to say
+  const why = !names.includes(account)
+    ? "Choose a login to bind."
+    : changed
+      ? ""
+      : "Change a setting to bind.";
   const chooseAccount = (next: string) => {
     const agent = agentOf(next);
     const gone = TIERS.map((tier) => models[tier] ?? "").filter((model) => model.trim() !== "");
@@ -154,15 +160,14 @@ export function RoleRow({
           type="button"
           className="button"
           disabled={!changed || !names.includes(account) || busy}
+          title={why || undefined}
           onClick={bind}
         >
           Bind
         </button>
-        {/* why it is off, said where it is off */}
-        {names.includes(account) ? null : <span className="quiet sub">Choose a login to bind.</span>}
       </td>
       <td className="cleared quiet sub" role="status">
-        {cleared}
+        {cleared || why}
       </td>
     </tr>
   );
