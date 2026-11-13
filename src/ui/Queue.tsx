@@ -13,14 +13,15 @@ export function Queue({ runs, queued }: { runs: RunRow[]; queued: Queued[] }) {
   const [starting, setStarting] = useState<string>();
   const working = runs.filter((r) => r.status === "running");
   const head = useRef<HTMLHeadingElement>(null);
-  const owed = useRef<{ key: string; at: number }>(); // the task just started: where the keyboard was, once it has left
+  const owed = useRef<{ key: string; at: number } | undefined>(undefined); // the task just started: where the keyboard was, once it has left
   // the Run that was pressed is gone with its task: the keyboard goes to the next Run button, else the heading, else the map
   useEffect(() => {
     if (!owed.current || queued.some((t) => t.key === owed.current?.key)) return;
     const { at } = owed.current;
     owed.current = undefined;
     const now = document.activeElement;
-    if (now && now !== document.body && !now.closest(".queue") && !(now as HTMLButtonElement).disabled) return;
+    if (now && now !== document.body && !now.closest(".queue") && !(now as HTMLButtonElement).disabled)
+      return;
     const next = document.querySelectorAll<HTMLElement>(".queue li.queued button");
     const to = next[Math.min(at, next.length - 1)] ?? head.current;
     if (to) to.focus();

@@ -6,7 +6,11 @@ import { type RefObject, useEffect } from "react";
 export function settle(): void {
   const lost = document.activeElement;
   if (lost && lost !== document.body && !lost.matches(".button.primary")) return; // the person is elsewhere
-  const to = [...document.querySelectorAll<HTMLElement>(".addlane .desk-only, .map .station[tabindex='0'], .json textarea")];
+  const to = [
+    ...document.querySelectorAll<HTMLElement>(
+      ".addlane .desk-only, .map .station[tabindex='0'], .json textarea",
+    ),
+  ];
   to.find((e) => e.getClientRects().length > 0)?.focus();
 }
 
