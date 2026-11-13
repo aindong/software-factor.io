@@ -196,6 +196,20 @@ if want 5; then
   theme Light
 fi
 
+# ---- F14: a run whose task is queued again says so beside its state (the diamond stays: the run did fail) and links to the Floor
+if want 6; then
+  sf requeue "$broke" > "$work/requeue.log" 2>&1 || fail "requeue: $(cat "$work/requeue.log")"
+  wait_for "the list row says the task is queued again, beside the state" "() => [...document.querySelectorAll('.run')].find((r) => r.textContent.includes('Fix the date format'))?.querySelector('.state').textContent ?? 'none'" '^Stopped.*queued again$'
+  to_list
+  open_run "Fix the date format"
+  expect "the page's state says it too, and keeps the mark of a failure" "$(js "() => document.querySelector('.rundetail header .state').textContent + ' | ' + document.querySelector('.rundetail header .state .mark').className")" '^Stopped.*queued again \| mark fail$'
+  expect "the sentence names the Floor with a link" "$(js "() => { const a = document.querySelector('.rundetail .lede a'); return a ? a.textContent + ' ' + a.getAttribute('href') : 'no link'; }")" '^Open the Floor /$'
+  shot run-queued-again-light-1440
+  tab_to '^Open the Floor$'
+  pw press Enter
+  wait_for "the link leads to the Floor" "() => document.querySelector('.rail [aria-current=page]').textContent" '^Floor'
+fi
+
 # ---- end
 sf stop "$working" > /dev/null 2>&1
 wait "$slow" 2> /dev/null
