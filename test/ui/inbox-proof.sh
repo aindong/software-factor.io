@@ -39,7 +39,7 @@ const workflow = {
   lanes: [
     { id: "sort", name: "Sort", uses: "core/command@1", with: { run: "true" }, checkpoint: "near", on: { pass: "build", fail: "@stop" } },
     { id: "build", name: "Build", uses: "core/agent@1", agent: { role: "author", access: "write", prompt: "Build it." },
-      gates: ["verify"], checkpoint: "out", on: { pass: "ship", fail: "@stop" } },
+      gates: ["verify"], checkpoint: "in", on: { pass: "ship", fail: "@stop" } },
     { id: "ship", name: "Ship it", uses: "core/command@1", with: { run: "true" }, checkpoint: "in", on: { pass: "@done", fail: "@stop" } },
   ],
 };

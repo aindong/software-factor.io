@@ -422,6 +422,7 @@ export function Inbox() {
                   headRef={head}
                   back="Inbox"
                   deciding
+                  lead={current}
                   onBack={() => {
                     setPicked(current.id);
                     go("/inbox", true); // in place of the item's address: Back does not enter it again

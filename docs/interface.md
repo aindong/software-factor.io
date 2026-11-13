@@ -188,7 +188,12 @@ attached is shown as its text. It is never run as a page.
 ## Inbox
 
 The rail shows in yellow how many runs wait for you. The inbox lists them, an approval or a question each, with
-the run's map and evidence beside the one that is chosen, so you decide with the proof in view.
+the run's map and evidence beside the one that is chosen, so you decide with the proof in view. In that
+detail the lane the decision is about comes first, under the title and above the map, with its evidence
+open: "What you are approving" for work that waits for approval, "What ran before this approval" (the last
+lane that ran, or a plain sentence when none has) for an approval asked before a lane runs, and "The lane
+that asked" for a question. The other lanes follow, closed, under "What each lane did". The run's page under
+Runs keeps its own order.
 
 | Key | Does |
 | --- | --- |
@@ -263,7 +268,7 @@ stopped, one waiting), and by key presses alone moves through the list, steps a 
 and opens the diff, a screenshot pair, a recording, a gate's output and a hand-off.
 `bash test/ui/ladder.sh` does the ladder at a lane, and `bash test/ui/restart.sh` a server started again under
 a floor that holds a change, and the arrival in the inbox.
-`bash test/ui/inbox.sh` does the inbox, accounts, costs and plugins: it approves, sends work back with a note,
+`bash test/ui/inbox-proof.sh` checks that order, by keyboard, at both widths. `bash test/ui/inbox.sh` does the inbox, accounts, costs and plugins: it approves, sends work back with a note,
 answers a question, has a decision refused, and binds a role, all by key presses.
 `bash test/ui/all.sh <folder>` runs all five and leaves a screenshot of every main screen in both themes at
 1440 and 390 wide, each checked to be of that screen, in that theme and that wide. At phone width every screen
