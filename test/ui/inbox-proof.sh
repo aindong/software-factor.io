@@ -75,7 +75,7 @@ expect "its evidence is open without a key press" "$(js "() => ${lead}.querySele
 expect "with its claim and its gate and their results" "$(js "() => ${lead}.innerText")" 'The button exists\.(.|\n)*Gate verify passed'
 expect "the other lanes follow without repeating it" "$(js "() => [...document.querySelectorAll('.deciding .visits h4')].map((h) => h.textContent).join(' | ')")" '^Sort$'
 expect "in the tab order the lane comes before the map" "$(js "() => { const t = ${tabbable}; return t.findIndex((e) => ${lead}.contains(e)) < t.findIndex((e) => e.closest('.runmap')); }")" '^true$'
-expect "the bar says what approving starts" "$(js "() => document.querySelector('.decide .asks').textContent")" 'Approve: Ship it starts next\.'
+expect "the bar says what approving starts" "$(js "() => document.querySelector('.decide .next')?.textContent")" 'Approve: Ship it starts next\.'
 shot inbox-proof-light-1440
 pw resize 390 844
 sleep 0.4

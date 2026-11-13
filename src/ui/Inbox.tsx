@@ -297,10 +297,10 @@ export function Inbox() {
             <div className="deciding" tabIndex={-1} ref={bar}>
               <fieldset className="decide">
                 <legend className="sr">Decide on {current.task}</legend>
-                <p className="asks">
-                  {question ? current.body : (row?.sentence ?? current.body)}
-                  {next ? ` Approve: ${next.endsWith("starts") ? `${next} next` : next}.` : ""}
-                </p>
+                <p className="asks">{question ? current.body : (row?.sentence ?? current.body)}</p>
+                {next ? (
+                  <p className="asks next">Approve: {next.endsWith("starts") ? `${next} next` : next}.</p>
+                ) : null}
                 {question || noting ? (
                   <InboxNote
                     question={question}
