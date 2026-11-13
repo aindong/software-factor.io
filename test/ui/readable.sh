@@ -34,7 +34,7 @@ map_contrast='() => {
   for (const t of svg.querySelectorAll("text")) {
     if (!t.textContent.trim()) continue;
     let back = ground;
-    const plate = t.closest(".train")?.querySelector("rect");
+    const plate = t.closest(".train")?.querySelector("rect:not(.hit)");
     if (plate) back = over(rgba(getComputedStyle(plate).fill), ground);
     let alpha = 1;
     for (let e = t; e && e !== svg.parentElement; e = e.parentElement) alpha *= parseFloat(getComputedStyle(e).opacity);
