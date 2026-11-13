@@ -24,6 +24,8 @@ export interface Now {
   tail?: string;
   /** The run is marked as moving, but the process that moved it is not there. */
   gone?: boolean;
+  /** The run's task is in the queue again: the next `softwarefactor run` takes it. */
+  queued?: boolean;
 }
 
 const MAX = 160;
@@ -189,7 +191,23 @@ function words(now: Now): string {
   return `${lane}: working.`;
 }
 
+/** What a stopped or dropped run says once its task is queued again: the page shows the sentence without it. */
+export const QUEUED = "Its task is queued again: `softwarefactor run` starts it.";
+
 /** One line of at most 160 characters that says where the run is and what is happening. */
 // What a lane said last may be an address, and a full stop glued to it would break it.
-export const sentenceOf = (now: Now): string =>
-  clip(now.status === "done" && now.last?.said ? words(now) : ended(words(now)), MAX);
+export function sentenceOf(now: Now): string {
+  if (now.status === "done" && now.last?.said) {
+    // a done run's line is cut where a sentence ends, when it is too long for the line
+    const head = `Done. ${clip(now.last.lane, 60)}: `;
+    const said = oneLine(now.last.said, Number.MAX_SAFE_INTEGER);
+    const room = MAX - head.length;
+    const end = [...said.slice(0, room + 1).matchAll(/[.!?](?=\s|$)/g)].at(-1);
+    return said.length <= room || !end
+      ? clip(`${head}${said}`, MAX)
+      : `${head}${said.slice(0, (end.index ?? 0) + 1)}`;
+  }
+  const own = ended(words(now));
+  if (!now.queued || (now.status !== "stopped" && now.status !== "dropped")) return clip(own, MAX);
+  return `${clip(own, MAX - QUEUED.length - 1)} ${QUEUED}`;
+}

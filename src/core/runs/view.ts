@@ -45,6 +45,8 @@ export interface RunRow {
   /** The lane the run is at: working in it, waiting at it, or stopped in it. Nothing when it is done. */
   at: string | null;
   sentence: string;
+  /** The task's own state: "queued" once a stopped run's task was put back in the queue. */
+  taskStatus: string | null;
   tokens: number;
   usd: number;
   /** A session of the run has no known cost: `usd` is then less than the whole. */
@@ -100,7 +102,12 @@ export interface RunDetail extends RunRow {
   files: { path: string; name: string; size: number; visit: number }[];
 }
 
-type Row = Run & { title: string | null; started_at: string; ended_at: string | null };
+type Row = Run & {
+  title: string | null;
+  task_status: string | null;
+  started_at: string;
+  ended_at: string | null;
+};
 type LaneRow = {
   id: number;
   seq: number;
@@ -238,6 +245,7 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
     reason: run.stop_reason,
     lane: at ? (def?.name ?? at) : undefined,
     parked: state.parked?.kind,
+    queued: run.task_status === "queued",
   };
   if (run.status === "done") {
     const last = db
@@ -279,6 +287,7 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
     stops: lanes.map((l) => ({ id: l.id, name: l.name ?? l.id })),
     own: kept !== undefined,
     at,
+    taskStatus: run.task_status,
     sentence: sentenceOf(now),
     // from the sessions, not the lanes: a lane's own sums are written only when it ends
     tokens: used.tokens,
@@ -289,7 +298,8 @@ function rowOf(db: Db, root: string, run: Row, lanesOf: (workflow: string) => La
   };
 }
 
-const RUNS = "select runs.*, tasks.title from runs left join tasks on tasks.id = runs.task_id";
+const RUNS =
+  "select runs.*, tasks.title, tasks.status as task_status from runs left join tasks on tasks.id = runs.task_id";
 
 /** Every run that is moving or waiting, and the latest ended ones up to 50 in all, the newest first. */
 export function listRuns(db: Db, root: string): RunRow[] {
