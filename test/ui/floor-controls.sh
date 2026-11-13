@@ -111,6 +111,13 @@ pw resize 1440 900
 kinds='() => { const s = [...document.querySelectorAll(".inspector select")]; const look = (e) => { const c = getComputedStyle(e); return [c.appearance, c.borderRadius, Math.round(e.getBoundingClientRect().height), c.backgroundImage.includes("linear-gradient") ? "chevron" : "native arrow", c.paddingRight].join(" "); }; const kinds = [...new Set(s.map(look))]; return s.length + " selects, " + kinds.length + " look(s): " + kinds.join(" / "); }'
 expect "all eight selects of the lane panel look alike" "$(js "$kinds")" '^8 selects, 1 look\(s\): '
 
+# ---- F16: after a save Undo says what it undoes (the last edit, which the file keeps until it is saved again), or is off
+back_to '^Save$'
+pw press Enter
+wait_for "the change is saved" "() => document.querySelector('.topbar .status').textContent" '^Saved'
+undo='() => { const b = [...document.querySelectorAll(".topbar .group button")].find((x) => /^Undo/.test(x.textContent)); return !b ? "no Undo button" : b.disabled ? "off" : b.textContent.trim(); }'
+expect "after a save Undo is off or says what it undoes" "$(js "$undo")" '^(off|Undo last edit)$'
+
 # ---- the end: nothing waits, so no yellow in the line of counts
 sf approve "$waiting" > "$work/approve.log" 2>&1 || fail "approve: $(cat "$work/approve.log")"
 wait_for "nothing waits any more" "$needs" '^1 queued$|^no line$'
