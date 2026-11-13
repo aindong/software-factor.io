@@ -184,6 +184,18 @@ if want 4; then
   pw press Enter
 fi
 
+# ---- F11: in the list, a run that waits for a person reads louder than a done one, without a new colour
+if want 5; then
+  for theme in Light Dark; do
+    [ "$theme" = Dark ] && theme Dark
+    look='(task) => { const r = [...document.querySelectorAll(".run")].find((r) => r.querySelector(".task").textContent.includes(task)); const ink = getComputedStyle(document.body).color; const t = getComputedStyle(r.querySelector(".task")); const s = getComputedStyle(r.querySelector(".state b")); return [t.fontWeight, t.color === ink ? "ink" : "soft", s.fontWeight, s.color === ink ? "ink" : "soft"].join(", "); }'
+    expect "$theme: the row that waits has its title and state word in ink at 600" "$(js "() => ($look)('Show the cost')")" '^600, ink, 600, ink$'
+    expect "$theme: a done row steps back: title and state word in the quiet ink at 400" "$(js "() => ($look)('Add an export')")" '^400, soft, 400, soft$'
+    shot "runs-$(echo "$theme" | tr '[:upper:]' '[:lower:]')-1440"
+  done
+  theme Light
+fi
+
 # ---- end
 sf stop "$working" > /dev/null 2>&1
 wait "$slow" 2> /dev/null
