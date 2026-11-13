@@ -17,11 +17,21 @@ export interface Train {
   href?: string;
 }
 /** A run on the map: a capsule with the task's number, beside the station it is at. */
-export function TrainMark({ train, y, hit }: { train: Train; y: number; hit: { w: number; h: number } }) {
+export function TrainMark({
+  train,
+  x = 0,
+  y,
+  hit,
+}: {
+  train: Train;
+  x?: number;
+  y: number;
+  hit: { w: number; h: number };
+}) {
   return (
     <g
       className={`train${train.asks ? " asks" : ""}${train.working ? " working" : ""}`}
-      transform={`translate(0 ${y})`}
+      transform={`translate(${x} ${y})`}
     >
       <title>{train.title}</title>
       <rect className="hit" x={-hit.w / 2} y={-hit.h / 2} width={hit.w} height={hit.h} />

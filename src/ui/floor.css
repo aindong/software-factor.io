@@ -129,8 +129,7 @@
   stroke-width: 2;
   opacity: 0;
 }
-.map .station[aria-pressed="true"] .ring,
-.map .station:focus-visible .ring {
+.map .station[aria-pressed="true"] .ring {
   opacity: 1;
 }
 .map .station.bad .flag {
@@ -542,4 +541,14 @@
     width: max(calc(var(--w) * 1px), min(100%, calc(var(--w) * 1.5px)));
     height: auto;
   }
+}
+/* the keyboard's mark: a ring 2 px outside the selection's, so that a selected station still shows where the keyboard is */
+.map .station .focus {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+  opacity: 0;
+}
+.map .station:focus-visible .focus {
+  opacity: 1;
 }

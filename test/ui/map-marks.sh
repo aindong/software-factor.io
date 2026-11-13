@@ -30,8 +30,7 @@ workflow() { # the workflow the Floor shows
   node -e 'const fs = require("fs"); const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.workflow = process.argv[1]; fs.writeFileSync(".factor/factory.json", JSON.stringify(f, null, 2));' "$1"
 }
 
-# the badge of a task is drawn 30 px (or more) from its station, on the side its name is not on: where it
-# would stand at each station, no label of a line may come within 6 px of it
+# where a task's badge stands at each station is on the station (data-badge: sideways and down, in map units from it): no label of a line may come within 6 px of it
 badge_clear='() => {
   const out = [];
   const tags = [...document.querySelectorAll("svg.map text.tag")].map((t) => ({ t: t.textContent, r: t.getBoundingClientRect() }));
@@ -39,11 +38,8 @@ badge_clear='() => {
     const hit = g.querySelector(".hit").getBoundingClientRect();
     const svg = g.ownerSVGElement;
     const scale = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
-    const name = g.querySelector("text.name").getBoundingClientRect();
-    const sign = name.top + name.height / 2 > hit.top + hit.height / 2 ? -1 : 1;
-    const h = Math.max(18, (innerWidth <= 600 ? 44 : 24) / scale);
-    const off = Math.max(30, h / 2 + 1);
-    const [cx, cy] = [hit.left + hit.width / 2, hit.top + hit.height / 2 + sign * off * scale];
+    const [dx, dy] = g.dataset.badge.split(" ").map(Number);
+    const [cx, cy] = [hit.left + hit.width / 2 + dx * scale, hit.top + hit.height / 2 + dy * scale];
     const badge = [cx - 17 * scale - 6, cy - 9 * scale - 6, cx + 17 * scale + 6, cy + 9 * scale + 6];
     for (const { t, r } of tags) if (r.left < badge[2] && badge[0] < r.right && r.top < badge[3] && badge[1] < r.bottom) out.push(g.getAttribute("aria-label").split(",")[0] + " / " + t);
   }
