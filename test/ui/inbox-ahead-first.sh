@@ -61,25 +61,25 @@ parts='() => {
   const buttons = q(".decide .choices"), approve = q(".decide .button.approve");
   const w = (e) => getComputedStyle(e).fontWeight, s = (e) => getComputedStyle(e).fontSize;
   const code = q(".decide .ahead p:first-child code");
-  return JSON.stringify({
+  return Object.entries({
     order: asks.getBoundingClientRect().top < what.getBoundingClientRect().top && what.getBoundingClientRect().bottom <= branch.getBoundingClientRect().top && branch.getBoundingClientRect().bottom <= approve.getBoundingClientRect().top,
     above: q(".decide .ahead").getBoundingClientRect().bottom <= buttons.getBoundingClientRect().top,
     sameWeight: w(what) === w(asks) && s(what) === s(asks),
     codeFace: code && code.textContent === "ship" && getComputedStyle(code).fontFamily !== getComputedStyle(asks).fontFamily,
     ownLine: branch !== what && !what.contains(branch) && (branch.querySelector("code")?.textContent ?? "").length > 3,
     approveOnScreen: approve.getBoundingClientRect().bottom <= innerHeight,
-  });
+  }).map(([k, v]) => k + "=" + v).join(" ");
 }'
 for width in 1440 390; do
   pw resize "$width" 900
   sleep 0.4
   got=$(js "$parts")
-  expect "at $width the sentence of what is decided, what the command does, the branch, then Approve, in that order" "$got" '"order":true'
-  expect "at $width what the command does is above the buttons" "$got" '"above":true'
-  expect "at $width what the command does has the weight and size of what is decided" "$got" '"sameWeight":true'
-  expect "at $width the command's name is in the code face" "$got" '"codeFace":true'
-  expect "at $width the branch is on a line of its own" "$got" '"ownLine":true'
-  expect "at $width Approve is on the screen" "$got" '"approveOnScreen":true'
+  expect "at $width the sentence of what is decided, what the command does, the branch, then Approve, in that order" "$got" 'order=true'
+  expect "at $width what the command does is above the buttons" "$got" 'above=true'
+  expect "at $width what the command does has the weight and size of what is decided" "$got" 'sameWeight=true'
+  expect "at $width the command's name is in the code face" "$got" 'codeFace=true'
+  expect "at $width the branch is on a line of its own" "$got" 'ownLine=true'
+  expect "at $width Approve is on the screen" "$got" 'approveOnScreen=true'
   shot "inbox-before-light-$width"
 done
 expect "the one key stays" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve a \| Reject r$'

@@ -27,17 +27,26 @@ pw resize 1440 900
 section Inbox
 wait_for "the inbox lists what waits" "$tasks" 'monthly sales report \| .*search box.* \| Pick a database'
 
-# the stops of the open item (not the rail or the skip link), in Tab order: the first whose top is more than
-# 12px above the one before it, or "none"
+# the stops of the open item (not the rail or the skip link), in Tab order. The proof scrolls inside its own box and
+# the decision bar is drawn above it (wide) or under it (phone): the proof's stops must rise down the page, and the
+# bar's stops must come before the proof's where the bar is above it and after them where it is under it. The answer
+# is "none", or the two stops that are out of order.
 order='() => {
+  const box = document.querySelector(".rundetail"), bar = document.querySelector(".decide");
   const stops = [...document.querySelectorAll("main a[href], main button, main input, main select, main textarea, main [tabindex]")]
     .filter((e) => !e.disabled && e.tabIndex >= 0 && e.getClientRects().length > 0 && e.closest(".deciding"));
   const name = (e) => (e.getAttribute("aria-label") || e.textContent).replace(/\s+/g, " ").trim().slice(0, 24);
-  for (let i = 1; i < stops.length; i += 1) {
-    const here = stops[i].getBoundingClientRect(), was = stops[i - 1].getBoundingClientRect();
-    if (here.top < was.top - 12 && here.left < was.right) return name(stops[i - 1]) + " then " + name(stops[i]);
+  const proof = stops.filter((e) => box.contains(e)), mine = stops.filter((e) => bar.contains(e));
+  const y = (e) => e.getBoundingClientRect().top + box.scrollTop;
+  for (let i = 1; i < proof.length; i += 1) {
+    if (y(proof[i]) < y(proof[i - 1]) - 12 && proof[i].getBoundingClientRect().left < proof[i - 1].getBoundingClientRect().right) return name(proof[i - 1]) + " then " + name(proof[i]);
   }
-  return stops.length > 3 ? "none" : "too few stops: " + stops.length;
+  if (proof.length < 3 || mine.length < 1) return "too few stops: " + proof.length + " and " + mine.length;
+  const under = bar.getBoundingClientRect().top >= box.getBoundingClientRect().bottom - 1;
+  const first = stops.indexOf(mine[0]), last = stops.indexOf(mine[mine.length - 1]);
+  if (under && first < stops.indexOf(proof[proof.length - 1])) return name(proof[proof.length - 1]) + " is above the decision, but " + name(mine[0]) + " comes first";
+  if (!under && last > stops.indexOf(proof[0])) return name(mine[mine.length - 1]) + " is above the proof, but " + name(proof[0]) + " comes first";
+  return "none";
 }'
 in_order() { # in_order <what>: at both widths
   for width in 1440 390; do

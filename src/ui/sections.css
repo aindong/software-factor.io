@@ -45,9 +45,25 @@
 .listside > .runlist:first-child {
   grid-row: 1 / -1;
 }
-/* what approving before a command lane runs: quiet text, the bar's buttons stay the only loud thing */
+/* what approving before a command lane runs is part of what is asked: the line about the command has the
+   weight of the sentence that says what is decided, and the run's branch is a plainer line of its own */
 .decide .ahead {
+  display: grid;
+  gap: var(--xs);
   max-width: 80ch;
+  overflow-wrap: anywhere;
+}
+.decide .ahead p:first-child {
+  font-weight: var(--w-medium);
+}
+.decide .ahead p + p {
+  color: var(--ink-soft);
+  font: var(--text-data) / var(--lh-data) var(--font);
+}
+/* what Reject and Send back do: under the buttons, softer than anything asked */
+.decide .consequence {
+  max-width: 80ch;
+  color: var(--ink-soft);
   font: var(--text-data) / var(--lh-data) var(--font);
   overflow-wrap: anywhere;
 }
@@ -361,7 +377,6 @@
     grid-template-rows: minmax(0, 1fr) auto;
   }
   .decide {
-    order: 2;
     border-bottom: 0;
     border-top: 1px solid var(--rule);
   }

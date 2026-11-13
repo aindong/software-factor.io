@@ -32,13 +32,13 @@ line='() => document.querySelector(".decide .consequence")?.innerText ?? "none"'
 quiet='() => {
   const c = document.querySelector(".decide .consequence"), a = document.querySelector(".decide .asks:not(.next)");
   const choices = document.querySelector(".decide .choices"), st = getComputedStyle(c), at = getComputedStyle(a);
-  return JSON.stringify({
+  return Object.entries({
     under: choices.getBoundingClientRect().bottom <= c.getBoundingClientRect().top,
     lighter: Number(st.fontWeight) < Number(at.fontWeight),
     notLarger: parseFloat(st.fontSize) <= parseFloat(at.fontSize),
     softer: st.color !== at.color,
     inside: c.getBoundingClientRect().right <= innerWidth,
-  });
+  }).map(([k, v]) => k + "=" + v).join(" ");
 }'
 
 # an approval after a lane: both consequences
@@ -49,11 +49,11 @@ expect "Reject and Send back say what they do, under the buttons" "$(js "$line")
 for width in 1440 390; do
   pw resize "$width" 844
   sleep 0.4
-  expect "at $width the line is under the buttons" "$(js "$quiet")" '"under":true'
-  expect "at $width it is lighter than what is asked" "$(js "$quiet")" '"lighter":true'
-  expect "at $width it is no larger" "$(js "$quiet")" '"notLarger":true'
-  expect "at $width it is softer in colour" "$(js "$quiet")" '"softer":true'
-  expect "at $width it fits the screen" "$(js "$quiet")" '"inside":true'
+  expect "at $width the line is under the buttons" "$(js "$quiet")" 'under=true'
+  expect "at $width it is lighter than what is asked" "$(js "$quiet")" 'lighter=true'
+  expect "at $width it is no larger" "$(js "$quiet")" 'notLarger=true'
+  expect "at $width it is softer in colour" "$(js "$quiet")" 'softer=true'
+  expect "at $width it fits the screen" "$(js "$quiet")" 'inside=true'
   shot "inbox-after-light-$width"
 done
 expect "Approve has no undo to promise" "$(js "() => document.querySelector('.decide').innerText.toLowerCase().includes('undo')")" '^false$'

@@ -27,7 +27,7 @@ describe("what Reject and Send back do", () => {
   it("names the lane the fail route leads to, and says when it asks first", () => {
     const fix = lane("fix", { uses: "core/agent@1", checkpoint: "out" });
     expect(consequenceWords(flow(failing("fix"), fix), after)).toMatch(/^Reject: Fix starts\./);
-    const asks = lane("fix", { uses: "core/agent@1", checkpoint: "in" });
+    const asks = lane("fix", { checkpoint: "in" }); // a command lane asks before it runs
     expect(consequenceWords(flow(failing("fix"), asks), after)).toMatch(/^Reject: Fix waits for you\./);
   });
   it("says a dropped run is dropped", () => {
@@ -46,6 +46,8 @@ describe("what Reject and Send back do", () => {
     );
   });
   it("says nothing for a question", () => {
-    expect(consequenceWords(flow(failing("@stop")), { lane: "build", kind: "question", decisions: ["answer"] })).toBeUndefined();
+    expect(
+      consequenceWords(flow(failing("@stop")), { lane: "build", kind: "question", decisions: ["answer"] }),
+    ).toBeUndefined();
   });
 });
