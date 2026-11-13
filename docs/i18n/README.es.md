@@ -136,6 +136,9 @@ Ejecutado con agentes reales, con las sesiones de la suscripción del propio aut
 
 - Una tarea en un proyecto de prueba, construida con Claude Code y revisada en Codex, con el carril de Codex leyendo una nota de memoria que escribió el carril de Claude (2026-11-10).
 - La fábrica sobre su propio repositorio con el flujo que ahora se llama `full-loop` (en esas ejecuciones tenía otro nombre, las skills de su autor y su propia comprobación del plan): siete ejecuciones, de las cuales cinco tareas se integraron (una de ellas después de que su revisión devolviera el trabajo al carril de build) y dos se detuvieron por fallos de la fábrica que luego se corrigieron. Consulta [lo que la fábrica ha hecho sobre sí misma](../dogfood.md) para ver cada tarea, sus rondas y su coste. Los puntos de control de esas ejecuciones los aprobó el agente de IA que el autor puso a construir este proyecto, actuando como operador. Ninguna persona leyó esos planes antes de que se aprobaran.
+  Desde entonces (12 y 13 de noviembre de 2026) hubo cuatro ejecuciones más, con el flujo propio del autor, que
+  se queda en su máquina: una tarea se integró a través de la fábrica, y tres ejecuciones se detuvieron antes del
+  final y se terminaron a mano. En estas cuatro el autor aprobó los planes, y el único envío, en el Inbox.
 - El recolector de issues de GitHub contra el `gh` real (solo lectura), y `softwarefactor add` desde un repositorio de GitHub.
 
 Solo con el agente con guion o con un sustituto:
@@ -143,14 +146,16 @@ Solo con el agente con guion o con un sustituto:
 - La suite de evaluación, por diseño: no arranca ningún agente real.
 - Dos ejecuciones a la vez en ranuras (slots) separadas.
 - `bugfix-fast` y `research-only` de principio a fin, con sustitutos de `gh` y del comando que abre una pull request. `full-loop` también se ejecuta de principio a fin con el agente con guion, con su propia compuerta `core/plan-contract@1`; ningún agente real ha escrito todavía un plan para esa compuerta.
-- Una parte de `full-loop` que las ejecuciones reales no alcanzaron: su carril `verify-ui`, la comprobación de un cambio en la interfaz en un navegador. Ninguna tarea real tocó la interfaz.
+- El carril `verify-ui`, la comprobación de un cambio en la interfaz en un navegador: ningún agente real lo ha
+  superado. Es parte de `full-loop`. Tres tareas reales han cambiado la interfaz desde el 12 de noviembre de 2026,
+  y una ejecución llegó a ese carril, con un login cuyo sandbox no pudo abrir un navegador.
 - La compuerta `core/no-secrets@1` no está en ningún flujo de trabajo incluido ni en el que escribe `init`: solo se ha ejecutado en pruebas y en la suite de evaluación.
 - El adaptador de Kimi: escrito a partir de su documentación, probado contra un binario sustituto, nunca con la CLI real.
 - El adaptador `command` (cualquier comando tuyo como agente): solo comandos con guion en las pruebas.
-- Los límites de cada login tal como los da su CLI, en la página Accounts y en `account list`: leídos de
-  `claude -p /usage` solo con un CLI de prueba. No se ha comprobado si el CLI real imprime esas líneas sin una
-  llamada al modelo.
-- Un recolector sobre un servidor MCP (el caso de Jira) y la instalación de una skill para una ejecución: solo sustitutos. Igual las skills y los servidores del perfil que puede usar un carril: ningún agente real ha llamado a una skill ni a un servidor por esa vía.
+- Los límites de cada login tal como los da su CLI, en la página Accounts y en `account list`: probados con un
+  CLI de prueba. Al CLI real se le preguntó una vez (`claude -p /usage`, versión 2.1.311, 12 de noviembre de
+  2026): imprimió las líneas de la semana sin una llamada al modelo.
+- Un recolector sobre un servidor MCP (el caso de Jira) y la instalación de una skill para una ejecución: solo sustitutos. Las skills y los servidores del perfil que puede usar un carril se prueban con sustitutos; desde entonces carriles reales han llamado a skills del perfil del autor, y ningún carril real ha llamado a un servidor del perfil.
 - La escalera de autonomía y las retrospectivas: ejecuciones con guion. Ningún carril ha ganado todavía un peldaño con trabajo real.
 - La interfaz se comprueba en un navegador real, manejado con el teclado, sobre ejecuciones del agente con guion.
 
