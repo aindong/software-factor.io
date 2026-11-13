@@ -112,6 +112,36 @@ start_ui() { # start_ui <port>: the interface as a process of its own, so that s
   for _ in $(seq 1 50); do grep -q "#t=" "$work/ui.log" && break; sleep 0.1; done
   address=$(grep -o 'http://127.0.0.1:[0-9]*/#t=[0-9a-f]*' "$work/ui.log") || fail "the interface did not start: $(cat "$work/ui.log")"
 }
+# elsewhere <waiting> <stopped>: in the workspace now, that many runs wait at a lane for approval and that many
+# are stopped, all in workflows other than the one the Floor shows (which stays as it was)
+elsewhere() {
+  local was i
+  was=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(".factor/factory.json")).workflow)')
+  for i in $(seq 1 "$1"); do elsewhere_run gate "approve" true in "- [ ] Task $i waiting"; done
+  for i in $(seq 1 "$2"); do elsewhere_run broke "break" false out "- [ ] Task $i stopping"; done
+  node -e 'const fs = require("fs"); const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.workflow = process.argv[1]; fs.writeFileSync(".factor/factory.json", JSON.stringify(f, null, 2));' "$was"
+}
+elsewhere_run() { # <workflow> <lane> <command> <checkpoint> <task>: one run of a one-lane workflow, until it waits or stops
+  node -e '
+const fs = require("fs");
+const [name, lane, run, checkpoint, task] = process.argv.slice(1);
+const w = { $schema: "https://softwarefactor.io/schema/workflow/v1.json", version: 1, name, description: "One command.", roles: {}, limits: { minutes: 10, tokens: 1000 }, collectors: [{ id: "tasks", uses: "core/file@1", with: { path: ".factor/" + name + ".md" } }],
+  lanes: [{ id: lane, name: lane, uses: "core/command@1", with: { run }, checkpoint, on: { pass: "@done", fail: "@stop" } }] };
+fs.writeFileSync(".factor/workflows/" + name + ".json", JSON.stringify(w, null, 2));
+fs.appendFileSync(".factor/" + name + ".md", task + "\n");
+const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.workflow = name; fs.writeFileSync(".factor/factory.json", JSON.stringify(f, null, 2));' "$@"
+  git add -A && git commit -q -m "a task for $1" 2> /dev/null
+  node "$here/dist/cli.js" run > "$work/elsewhere.log" 2>&1 || true
+}
+# the touch targets of a map: transparent hit areas behind the stations and the task badges
+hits() { # hits <selector> <least width> <least height>: every hit area that matches is at least so large
+  js "() => { const r = [...document.querySelectorAll('$1')].map((e) => e.getBoundingClientRect()); if (r.length === 0) return 'none found'; const s = r.filter((b) => b.width < $2 - 0.5 || b.height < $3 - 0.5); return s.length === 0 ? 'ok' : s.map((b) => Math.round(b.width) + 'x' + Math.round(b.height)).join(' ') + ' too small'; }"
+}
+centres_free() { # no hit area of a map covers the centre of another's
+  expect "$1: no hit area covers the centre of another" "$(js "() => { const r = [...document.querySelectorAll('svg.map .hit')].map((e) => e.getBoundingClientRect()); const out = []; for (const [i, a] of r.entries()) for (const [j, b] of r.entries()) { const [x, y] = [a.x + a.width / 2, a.y + a.height / 2]; if (i !== j && x > b.left && x < b.right && y > b.top && y < b.bottom) out.push(i + ' covers ' + j); } return out.length ? out.join(', ') : 'free'; }")" '^free$'
+}
+# the Floor's map at desk width: drawn up to the canvas's width, and at most 1.5 times its natural size
+map_fill='() => { const m = document.querySelector(".map-scroll svg.map"); const w = m.getBoundingClientRect().width; const natural = m.viewBox.baseVal.width; const want = Math.min(document.querySelector(".map-scroll").clientWidth, natural * 1.5); return Math.abs(w - want) <= 2 ? "fills" : Math.round(w) + " px wide, wanted " + Math.round(want); }'
 # the tasks of the rows on show, by name (each row also carries its task's number)
 tasks='() => [...document.querySelectorAll(".run .task")].map((t) => t.textContent.replace(/^[0-9]+ /, "")).join(" | ")'
 said='() => document.querySelector(".said")?.textContent ?? ""'
