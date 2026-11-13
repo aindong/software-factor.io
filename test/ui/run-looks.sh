@@ -141,6 +141,17 @@ if want 2; then
   back_to 'just now|min ago|h ago'
 fi
 
+# ---- F6: the selected chip is quiet, so the only loud control of a run's page is its own
+if want 3; then
+  to_list
+  open_run "Fix the date format"
+  chip='() => { const on = document.querySelector(".runfilter [aria-pressed=true]"); const off = document.querySelector(".runfilter [aria-pressed=false]"); const c = getComputedStyle(on); const o = getComputedStyle(off); const ink = getComputedStyle(document.body).color; const loud = getComputedStyle(document.querySelector(".rundetail .button.primary")).backgroundColor; return [c.fontWeight, c.borderBottomWidth, c.backgroundColor === loud ? "ink fill" : "quiet fill", c.color === ink ? "ink text" : "other text", o.fontWeight, o.color === ink ? "ink text" : "soft text"].join(", "); }'
+  expect "the selected chip is a quiet fill with ink text at 600 and a 2 px line under it; the others are plain" "$(js "$chip")" '^600, 2px, quiet fill, ink text, 400, soft text$'
+  expect "one control of the page is loud: the button that does the one thing" "$(js "() => { const loud = getComputedStyle(document.querySelector('.rundetail .button.primary')).backgroundColor; return [...document.querySelectorAll('main button, main a.button')].filter((b) => b.getClientRects().length > 0 && getComputedStyle(b).backgroundColor === loud).map((b) => b.textContent.trim()).join(' | '); }")" '^Put back in the queue$'
+  shot run-chip-light-1440
+  back_to 'just now|min ago|h ago'
+fi
+
 # ---- end
 sf stop "$working" > /dev/null 2>&1
 wait "$slow" 2> /dev/null
