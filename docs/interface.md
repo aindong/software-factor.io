@@ -248,8 +248,8 @@ terminal with `softwarefactor add` (`docs/plugins.md`), not from the page.
 accounts, `p` plugins, `c` costs. On the floor, Ctrl or Cmd with Z takes back the last change and with Shift
 brings it again, and Revert asks first when more than one change would go. The tab's title is the section with
 the number of runs that wait for you in front, then how many work, and its icon carries a yellow mark while
-one waits. On Runs and Inbox the first stop of the Tab order is a link, "Skip to the list", that puts the
-keyboard on the list instead of after the seven controls of the rail.
+one waits. On every screen the first stop of the Tab order is a skip link (to the list, the map or the
+content) that puts the keyboard past the seven controls of the rail.
 
 ## Not built yet
 
