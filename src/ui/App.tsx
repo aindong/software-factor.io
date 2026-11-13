@@ -174,12 +174,7 @@ export function App() {
         </a>
       ))}
       <span className="spacer" />
-      <button
-        type="button"
-        onClick={() => setTheme(nextTheme)}
-        aria-label={said}
-        title={said}
-      >
+      <button type="button" onClick={() => setTheme(nextTheme)} aria-label={said} title={said}>
         {icons.theme}
         {theme === "auto" ? "Auto" : theme === "light" ? "Light" : "Dark"}
       </button>
