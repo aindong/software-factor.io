@@ -122,10 +122,10 @@ const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.commands.verify
 printf -- '- [ ] Second\n' >> .factor/tasks.md
 git add -A && git commit -q -m "a gate that fails"
 sf run > "$work/run2.log" 2>&1; [ $? -eq 1 ] || fail "the second run should stop on its gate: $(cat "$work/run2.log")"
-wait_for "the stopped run is in the list" "() => [...document.querySelectorAll('.run .state')].map((m) => m.textContent).join(' | ')" '^Stopped \| Waits for you$'
+wait_for "the stopped run is in the list" "() => [...document.querySelectorAll('.run .state')].map((m) => m.textContent).join(' | ')" '^Waits for you \| Stopped$'
 back_to '^Skip to the list$'
 pw press Enter
-pw press ArrowUp
+pw press ArrowDown
 wait_for "the stopped run is shown" "() => document.querySelector('.rundetail h2')?.textContent ?? ''" '^Second$'
 # the stopped run opens on its failure: no key opens the lane's evidence
 rows="() => [...document.querySelectorAll('.visits .shown .proof > button')].map((b) => b.querySelector('.what').textContent + (b.getAttribute('aria-expanded') === 'true' ? ' (open)' : '')).filter((t) => t.startsWith('Gate')).join(' | ')"

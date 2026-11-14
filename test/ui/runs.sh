@@ -215,7 +215,7 @@ expect "the tab says that one waits" "$(js "() => document.title")" '^\(1\) Runs
 # from the run to its decision, and back with the keys for a section: g, then r
 tab_to '^Decide in the inbox$'
 pw press Enter
-wait_for "the run's decision is one key away" "() => location.pathname.replace(/[0-9a-f]{8}/, 'RUN') + ' ' + (document.querySelector('.decide .asks')?.textContent ?? '')" '^/inbox/RUN Ship it waits for your approval before it runs\.$'
+wait_for "the run's decision is one key away" "() => location.pathname.replace(/[0-9a-f]{8}/, 'RUN') + ' ' + (document.querySelector('.decide .asks')?.textContent ?? '')" '^/inbox/RUN .*: Ship it waits for your approval before it runs\.$'
 pw press g && pw press r
 wait_for "g then r goes to Runs" "() => document.querySelector('h1').textContent + ' ' + location.pathname" '^Runs /runs$'
 

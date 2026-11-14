@@ -27,7 +27,7 @@ pw resize 1440 900
 section Inbox
 wait_for "the inbox lists what waits" "$tasks" 'monthly sales report \| .*search box.* \| Pick a database'
 
-line='() => document.querySelector(".decide .consequence")?.innerText ?? "none"'
+line='() => document.querySelector(".decide .consequence:not(.final)")?.innerText ?? "none"'
 # where it is and how loud: under the buttons, no heavier and no larger than what is asked, softer in colour
 quiet='() => {
   const c = document.querySelector(".decide .consequence"), a = document.querySelector(".decide .asks:not(.next)");
