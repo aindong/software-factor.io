@@ -101,7 +101,7 @@ expect "and opens it again" "$(js "() => ${lead}.querySelector('.proof > button[
 pw press a
 wait_for "the answer says Ship it waits for the person, as it asks before it runs" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Add an export button\. Ship it waits for you\.$'
 wait_for "approved, and the run waits before Ship it" "() => ${lead}?.querySelector('h3')?.textContent ?? ''" '^What ran before this approval$'
-expect "approving what waits before Ship it says it starts: it has been asked" "$(js "() => document.querySelector('.decide .next')?.textContent")" '^Approve: Ship it starts next\.$'
+expect "approving what waits before Ship it names the act, once" "$(js "() => document.querySelector('.choices .approve')?.textContent")" '^Approve and run Ship it a$'
 expect "the last lane that ran is Build" "$(js "() => ${lead}.querySelector('h4').textContent")" '^Build$'
 expect "its evidence is open" "$(js "() => ${lead}.querySelector('.proof > button[aria-expanded]').getAttribute('aria-expanded')")" '^true$'
 expect "it comes before the map" "$(js "() => !!(${lead}.compareDocumentPosition(document.querySelector('.deciding .runmap')) & Node.DOCUMENT_POSITION_FOLLOWING)")" '^true$'
@@ -151,11 +151,9 @@ wait_for "Enter opens the next item" "() => getComputedStyle(document.querySelec
 expect "the confirmation of the other item is not on show beside it" "$(js "() => [...document.querySelectorAll('.said')].filter((s) => s.getClientRects().length).map((s) => s.textContent).join('')")" '^$'
 pw press a
 wait_for "a second a, with no Tab, approves the next item" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: Add a search box'
-# its run now waits before Ship it: the last item. It may arrive after the page moved on, so enter it from the list
+# its run now waits before Ship it: the last item, and the page stays on that run
 wait_for "the same task waits again, before Ship it" "() => ${lead}?.querySelector('h3')?.textContent ?? ''" '^What ran before this approval$'
-tab_to '^[0-9]+ Add a search box'
-pw press Enter
-wait_for "Enter opens it" "() => getComputedStyle(document.querySelector('.deciding')).display" '^grid$'
+expect "the item on show is still that task's" "$(js "() => document.querySelector('.rundetail h2')?.textContent")" 'Add a search box'
 pw press a
 wait_for "the last item is approved" "() => document.querySelector('.plain')?.textContent ?? ''" 'Nothing waits for you'
 expect "with no item left the keyboard is on the Inbox heading, not on the page" "$(js "$focused")" '^Inbox$'

@@ -40,13 +40,6 @@ expect "nothing says it cannot be undone" "$(js "() => document.querySelector('.
 
 # ---- an approval before a command lane: one that cannot be taken back
 pw press a
-wait_for "the page moves on to the next build" "() => document.querySelector('.rundetail h2')?.textContent ?? ''" 'search box'
-sleep 1
-pw press a
-wait_for "both builds wait before Ship it" "$tasks" '^Pick a database \| Add an export button .* \| Add a search box'
-back_to '^[0-9]+ (Pick a database|Add an export button)'
-js "$focused" | grep -q "export button" || pw press ArrowDown
-pw press Enter
 wait_for "the step before Ship it is on show" "$asks" 'Ship it waits for your approval'
 expect "the button is named after the act, the key stays" "$(js "$buttons")" '^Approve and run ship a \| Reject r$'
 expect "the first sentence names the task here too" "$(js "$asks")" '^Add an export button for the monthly sales report: Ship it waits'
@@ -66,10 +59,11 @@ sleep 0.4
 
 # ---- the key still approves, and the run goes on to Ship it
 pw press a
-wait_for "a approves and the item leaves" "$tasks" '^Pick a database'
+wait_for "a approves and the item leaves" "$tasks" '^Add a search box to the order list \| Pick a database$|^Pick a database \| Add a search box to the order list$'
 
 # ---- a question names its task too, and is not one-way
-tab_to '^[0-9]+ Pick a database'
+pw press ArrowDown
+js "$focused" | grep -q "Pick a database" || pw press ArrowUp
 pw press Enter
 wait_for "the question is on show" "$asks" 'Which database'
 expect "a question has no one-way line" "$(js "() => document.querySelectorAll('.decide .final').length")" '^0$'

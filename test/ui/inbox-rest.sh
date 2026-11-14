@@ -55,7 +55,7 @@ for _ in $(seq 1 12); do
   [ "$inside" = yes ] || continue
   expect "what has the keyboard is not under the bar" "$(js "() => { const a = document.activeElement.getBoundingClientRect(); const b = document.querySelector('.decide').getBoundingClientRect(); return a.bottom <= b.top + 1 || a.top >= b.bottom - 1 ? 'clear' : 'covered: ' + document.activeElement.textContent.trim().slice(0, 30); }")" '^clear$'
 done
-expect "the scroll area keeps the bar's height clear" "$(js "() => { const s = [...document.querySelectorAll('.rundetail, .deciding')].map((e) => parseFloat(getComputedStyle(e).scrollPaddingBottom) || 0); return Math.max(...s) >= 0 ? 'ok' : 'no'; }")" '^ok$'
+expect "the scroll area keeps room under what has the keyboard" "$(js "() => parseFloat(getComputedStyle(document.querySelector('.rundetail')).scrollPaddingBottom) >= 8 ? 'ok' : 'none'")" '^ok$'
 pw resize 1440 900
 sleep 0.4
 
@@ -64,7 +64,7 @@ back_to '^[0-9]+ Add an export button'
 pw press Enter
 wait_for "the build is on show" "$asks" 'Build has finished'
 pw press a
-wait_for "the approved run waits again before Ship it, and the keyboard is on it" "$focused" '^[0-9]+ Add an export button'
+wait_for "the approved run waits again before Ship it, and the keyboard is on it" "$focused" '^([0-9]+ )?Add an export button'
 expect "it is the step before Ship it that is listed for that run" "$(js "$tasks")" 'Add an export button'
 
 # ---- G19: nothing is left: said once, with links, and no stale line
@@ -83,9 +83,13 @@ pw resize 390 844
 sleep 0.4
 narrow "the empty Inbox"
 shot inbox-empty-light-390
-tab_to '^Runs$'
-pw press Tab
+for _ in $(seq 1 12); do
+  [ "$(js "() => document.activeElement.closest('.plain') ? 'yes' : 'no'")" = yes ] && break
+  pw press Tab
+done
 expect "a link in the empty Inbox is a stop of the Tab order" "$(js "() => document.activeElement.closest('.plain') ? 'yes' : 'no'")" '^yes$'
+pw press Tab
+expect "the second link is Runs" "$(js "$focused")" '^Runs$'
 pw press Enter
 wait_for "the link goes to Runs" "() => location.pathname" '^/runs$'
 

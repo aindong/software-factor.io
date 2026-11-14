@@ -126,7 +126,7 @@ pw press ArrowDown
 expect "the arrow keys move through the inbox" "$(js "$focused")" '^[0-9]+ Pick a database'
 pw press ArrowUp
 expect "and back" "$(js "$focused")" '^[0-9]+ Publish the release'
-expect "work that is not done cannot be sent back" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve a \| Reject r$'
+expect "work that is not done cannot be sent back" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve and run Ship it a \| Reject r$'
 pw press s
 expect "s says why not" "$(js "$said")" 'has not run yet'
 # a click on the proof to read it keeps the keyboard in the inbox: the key still decides

@@ -87,16 +87,8 @@ ahead='() => document.querySelector(".decide .ahead")?.innerText ?? "none"'
 expect "work that was done shows no command" "$(js "$ahead")" '^none$'
 
 # ---- an approval before a command lane says what the command does, and on which branch
-pw press a
-wait_for "the page moves on to the next build" "() => document.querySelector('.rundetail h2')?.textContent ?? ''" 'search box'
-sleep 1
-pw press a
-wait_for "both builds wait before Ship it, and the question is first" "$tasks" '^Pick a database \| Add an export button .* \| Add a search box'
-back_to '^[0-9]+ (Pick a database|Add an export button)'
-js "$focused" | grep -q "export button" || pw press ArrowDown
-expect "the keyboard is on the export button's row" "$(js "$focused")" '^[0-9]+ Add an export button'
-pw press Enter
-wait_for "the item that waits before Ship it is on show" "() => document.querySelector('.decide .next')?.textContent ?? ''" '^Approve: Ship it starts next\.$'
+pw press a # the approved run waits again before Ship it, and the page stays on it
+wait_for "the item that waits before Ship it is on show" "() => document.querySelector('.decide .final')?.textContent ?? ''" '^This cannot be undone\.$'
 run=$(js "() => location.pathname" | sed 's|/inbox/||')
 branch=$(git branch --format='%(refname:short)' | grep -F "$run" | head -1)
 [ -n "$branch" ] || fail "no branch holds the run id $run: $(git branch)"
@@ -104,8 +96,7 @@ wait_for "the command's description is in the bar" "$ahead" 'Pushes the run bran
 expect "with the run's branch" "$(js "$ahead")" "$branch"
 expect "and the command's name" "$(js "$ahead")" 'ship'
 expect "it is above the buttons (inbox-ahead-first.sh checks where, and how loud)" "$(js "() => { const a = document.querySelector('.decide .ahead'); return !!(a.compareDocumentPosition(document.querySelector('.decide .choices')) & Node.DOCUMENT_POSITION_FOLLOWING); }")" '^true$'
-expect "what is decided reads before the line about what approving starts, which is quieter" "$(js "() => { const w = (e) => Number(getComputedStyle(e).fontWeight); const a = document.querySelector('.decide .asks:not(.next)'); const n = document.querySelector('.decide .asks.next'); return w(n) < w(a); }")" '^true$'
-expect "the one key stays" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve a \| Reject r$'
+expect "the one key stays" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve and run ship a \| Reject r$'
 shot inbox-ahead-light-1440
 pw resize 390 844
 sleep 0.4
@@ -126,7 +117,7 @@ sleep 0.4
 # ---- at phone width the last confirmation does not push the next item's decision down
 pw resize 390 844
 sleep 0.4
-tab_to '^Approve a$|^Approve$'
+tab_to '^Approve and run ship a$|^Approve a$|^Approve$'
 pw press a
 wait_for "the next item is on show with what was decided said" "() => document.querySelector('.said')?.textContent ?? ''" '^Approved: .*Ship it'
 shot inbox-approved-light-390

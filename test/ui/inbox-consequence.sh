@@ -61,15 +61,8 @@ pw resize 1440 900
 sleep 0.4
 
 # an approval before a lane: nothing to send back
-pw press a
-wait_for "the page moves on to the next build" "() => document.querySelector('.rundetail h2')?.textContent ?? ''" 'search box'
-sleep 1
-pw press a
-wait_for "both builds wait before Ship it" "$tasks" '^Pick a database \| Add an export button .* \| Add a search box'
-back_to '^[0-9]+ (Pick a database|Add an export button)'
-js "$focused" | grep -q "export button" || pw press ArrowDown
-pw press Enter
-wait_for "the item before Ship it is on show" "() => document.querySelector('.decide .next')?.textContent ?? ''" '^Approve: Ship it starts next\.$'
+pw press a # the approved run waits again before Ship it, and the page stays on it
+wait_for "the item before Ship it is on show" "() => document.querySelector('.decide .final')?.textContent ?? ''" '^This cannot be undone\.$'
 expect "only Reject is explained before a lane has run" "$(js "$line")" '^Reject: the run stops\.$'
 
 # a question: neither
