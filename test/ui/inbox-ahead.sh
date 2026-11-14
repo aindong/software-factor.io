@@ -88,7 +88,7 @@ expect "work that was done shows no command" "$(js "$ahead")" '^none$'
 
 # ---- an approval before a command lane says what the command does, and on which branch
 pw press a # the approved run waits again before Ship it, and the page stays on it
-wait_for "the item that waits before Ship it is on show" "() => document.querySelector('.decide .final')?.textContent ?? ''" '^This cannot be undone\.$'
+wait_for "the item that waits before Ship it is on show" "() => document.querySelector('.decide .final')?.textContent ?? ''" '^Approve: this cannot be undone\.$'
 run=$(js "() => location.pathname" | sed 's|/inbox/||')
 branch=$(git branch --format='%(refname:short)' | grep -F "$run" | head -1)
 [ -n "$branch" ] || fail "no branch holds the run id $run: $(git branch)"

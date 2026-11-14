@@ -45,7 +45,7 @@ expect "an approval after a lane shows no command" "$(js "$ahead")" '^none$'
 
 # approve both builds: each then waits before Ship it
 pw press a # the approved run waits again before Ship it, and the page stays on it
-wait_for "the item before Ship it is on show" "() => document.querySelector('.decide .final')?.textContent ?? ''" '^This cannot be undone\.$'
+wait_for "the item before Ship it is on show" "() => document.querySelector('.decide .final')?.textContent ?? ''" '^Approve: this cannot be undone\.$'
 
 # where things are: the sentence of what is decided, what the command does, the branch, then the buttons
 parts='() => {

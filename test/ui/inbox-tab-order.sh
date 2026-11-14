@@ -64,7 +64,7 @@ wait_for "the build is on show" "() => document.querySelector('.decide .asks')?.
 in_order "an approval after a lane"
 
 pw press a # the approved run waits again before Ship it, and the page stays on it
-wait_for "the item before Ship it is on show" "() => document.querySelector('.decide .final')?.textContent ?? ''" '^This cannot be undone\.$'
+wait_for "the item before Ship it is on show" "() => document.querySelector('.decide .final')?.textContent ?? ''" '^Approve: this cannot be undone\.$'
 in_order "an approval before a command lane"
 
 back_to '^[0-9]+ Pick a database|^[0-9]+ Add an export button'

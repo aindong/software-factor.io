@@ -72,8 +72,8 @@ export function InboxChoices({
           </button>
         ) : null}
       </div>
+      {act ? <p className="consequence final">Approve: this cannot be undone.</p> : null}
       {says ? <p className="consequence">{says}</p> : null}
-      {act ? <p className="consequence final">This cannot be undone.</p> : null}
     </>
   );
 }

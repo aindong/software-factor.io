@@ -62,7 +62,7 @@ sleep 0.4
 
 # an approval before a lane: nothing to send back
 pw press a # the approved run waits again before Ship it, and the page stays on it
-wait_for "the item before Ship it is on show" "() => document.querySelector('.decide .final')?.textContent ?? ''" '^This cannot be undone\.$'
+wait_for "the item before Ship it is on show" "() => document.querySelector('.decide .final')?.textContent ?? ''" '^Approve: this cannot be undone\.$'
 expect "only Reject is explained before a lane has run" "$(js "$line")" '^Reject: the run stops\.$'
 
 # a question: neither
