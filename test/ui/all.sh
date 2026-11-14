@@ -11,7 +11,7 @@ shots=${1:?give a folder for the screenshots}
 # the checks drive the page with keys (and, where a pointer's bug is guarded, a real mouse press):
 # none of them clicks, focuses, dispatches an event or sets an attribute by script
 # one list for both: a new check is named once, here
-checks="floor floor-phone floor-queue floor-bar floor-family maps runs run-page readable inbox inbox-proof inbox-ahead ladder restart running filter accounts accounts-limits phone costs inbox-ahead-first inbox-consequence inbox-tab-order floor-stack floor-focus floor-controls run-looks map-marks rail map-quiet floor-sheet floor-words inbox-oneway inbox-rest sections-text"
+checks="floor floor-phone floor-queue floor-bar floor-family maps runs run-page readable inbox inbox-proof inbox-ahead ladder restart running filter accounts accounts-limits phone costs inbox-ahead-first inbox-consequence inbox-tab-order floor-stack floor-focus floor-controls run-looks map-marks rail map-quiet floor-sheet floor-words inbox-oneway inbox-rest sections-text runs-first"
 scripted=$(for check in $checks keys; do grep -HnE '\.click\(|\.focus\(|dispatchEvent|setAttribute' "$here/test/ui/$check.sh"; done)
 [ -z "$scripted" ] || { echo "FAIL: a check acts on the page by script: $scripted"; exit 1; }
 

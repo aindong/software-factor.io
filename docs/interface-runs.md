@@ -2,8 +2,10 @@
 
 Part of [the interface](interface.md).
 
-Runs lists every task the factory has taken, the newest first: every run that is moving or waiting, and the
-latest ended ones up to 50 in all. Each row has the task, a strip map (one stop for each lane: a blue disc
+Runs lists every task the factory has taken: every run that is moving or waiting, and the latest ended ones
+up to 50 in all. What waits for you comes first, with a yellow bar on its left edge, then what is working,
+then stopped, then done, the newest first in each (`softwarefactor runs` in the terminal keeps the record's
+order). After choosing Runs the keyboard is on the selected row, so the arrow keys work at once. Each row has the task, a strip map (one stop for each lane: a blue disc
 passed, a vermilion diamond failed, a yellow square asked a person, a ring is not reached, and the train is on
 the lane the run is at) and one sentence about what is happening now. The list follows the record by itself:
 the server sends it again whenever it changes, so a run started in your terminal appears without a reload.
@@ -31,7 +33,8 @@ width, is a link with an arrow.
 The top bar has a filter by state: All and one button for each state that has a run, with its count. Tab to
 it and press Enter or Space; the chosen one is pressed. It is kept in the address (`/runs?show=working`), so a
 reload and a shared link keep it, and the heading says "1 working, 1 shown of 3". A filter that leaves nothing
-says "No run is working." with a button back to All. A run that is open stays open when it no longer matches:
+says "No run is working." with a button back to All. At phone width the filter is one row that scrolls
+sideways inside itself. A run that is open stays open when it no longer matches:
 the list says that it is not among those shown.
 
 The arrow keys move through the list and Enter goes into a run. A stopped run can be put back in the
