@@ -9,6 +9,7 @@ import { op } from "./api.ts";
 import { AGENT_WORDS, Logins } from "./Logins.tsx";
 import "./runs.css";
 import "./sections.css";
+import "./inbox-quiet.css";
 
 type Role = AccountsView["roles"][number];
 const EFFORTS = ["", "low", "medium", "high", "max"];
@@ -249,9 +250,9 @@ export function Accounts() {
                 <Logins accounts={view.accounts} />
               )}
               <p className="quiet">
-                A login is made in a terminal, in the agent's own CLI. Then name its folder here:{" "}
-                <code>softwarefactor account add work --agent claude --profile ~/.claude</code>
+                A login is made in a terminal, in the agent's own CLI. Then name its folder here:
               </p>
+              <code className="cmd">softwarefactor account add work --agent claude --profile ~/.claude</code>
             </section>
             <section className="block">
               <h2>Who works each role</h2>

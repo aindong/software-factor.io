@@ -8,8 +8,10 @@ import type { Decision, InboxItem } from "../core/views.ts";
 import { AheadNote } from "./AheadNote.tsx";
 import { op } from "./api.ts";
 import { InboxChoices } from "./InboxChoices.tsx";
+import { InboxLinks } from "./InboxLinks.tsx";
 import { InboxNote, KeyHint } from "./InboxNote.tsx";
 import { InboxRow } from "./InboxRow.tsx";
+import { listWhenBack } from "./inbox-follow.ts";
 import { useRuns } from "./live.ts";
 import { barWords, consequenceWords, nextStop } from "./next-lane.ts";
 import { Offline } from "./Offline.tsx";
@@ -30,6 +32,7 @@ import { go, openIn, usePath } from "./route.ts";
 import { standing } from "./words.ts";
 import "./runs.css";
 import "./sections.css";
+import "./inbox-quiet.css";
 
 export function Inbox() {
   const { runs, live } = useRuns();
@@ -58,6 +61,7 @@ export function Inbox() {
   const own = useRef<number>(undefined); // the item the page itself moved to after a decision: what was said is still about the last one
   const alone = useListAlone();
   useExpires(opened && alone && !said?.bad ? said?.text : undefined, () => setSaid(undefined));
+  const follow = useRef<string>(undefined); // the run just approved, when it waits again: the keyboard stays on it
   const moving = useRef(false); // the page itself is putting the keyboard on the next item
   const list = useRef(items); // the list as it is now, for an answer that comes back later
   list.current = items;
@@ -98,9 +102,10 @@ export function Inbox() {
       return;
     }
     const mine = decided.current !== undefined && (opened !== undefined || decided.current === chosen);
-    const next = mine ? items[0] : undefined;
+    const next = mine ? (items.find((i) => i.run === follow.current) ?? items[0]) : undefined;
+    follow.current = undefined;
     if (mine) guard.current = Date.now() + 600;
-    else {
+    else if (items.length > 0) {
       lost.current = true;
       setSaid({
         text: "What you were looking at was decided elsewhere. Choose what to decide on next.",
@@ -169,11 +174,18 @@ export function Inbox() {
           : body.state === "going"
             ? "The run goes on."
             : "The run has moved on.";
+      const back =
+        decision === "approve" && next?.endsWith("waits for you") && !gone
+          ? await listWhenBack(current.run, current.id)
+          : undefined;
+      follow.current = back ? current.run : undefined;
+      // an open run's item changes in place: what was said is about the item before, and stays
+      if (opened && back) own.current = back.find((i) => i.run === current.run)?.id;
       setSaid({ text: `${DONE[decision]}: ${current.task}. ${after}`, bad: false });
       setNoting(undefined);
       setNote("");
       // it leaves the list at once: the record will say the same in a moment
-      setItems((now) => now?.filter((i) => i.id !== current.id));
+      setItems((now) => back ?? now?.filter((i) => i.id !== current.id));
     } else {
       // the factory refused: its own words, and what to do, about this task
       decided.current = undefined;
@@ -268,9 +280,9 @@ export function Inbox() {
   const decision = current ? (
     <fieldset className="decide">
       <legend className="sr">Decide on {current.task}</legend>
-      <p className="asks">{question ? current.body : (row?.sentence ?? current.body)}</p>
+      <p className="asks">{question ? current.body : `${current.task}: ${row?.sentence ?? current.body}`}</p>
       {current.ahead ? <AheadNote ahead={current.ahead} /> : null}
-      {next ? <p className="asks next">{barWords(next)}</p> : null}
+      {next && !current.ahead ? <p className="asks next">{barWords(next)}</p> : null}
       {question || noting ? (
         <InboxNote
           question={question}
@@ -293,6 +305,7 @@ export function Inbox() {
         sending={sending}
         sendBack={current.decisions.includes("send-back")}
         says={consequenceWords(workflows[row?.workflow ?? ""], current)}
+        act={current.ahead?.command}
         send={send}
         decide={decide}
         ask={ask}
@@ -334,6 +347,7 @@ export function Inbox() {
             A run stops here when a lane's checkpoint asks for your approval, or when an agent has a question
             only you can answer.
           </p>
+          <InboxLinks />
         </div>
       ) : (
         // biome-ignore lint/a11y/noStaticElementInteractions: the keys that decide work while the keyboard is in the inbox, and each is also a button

@@ -7,6 +7,7 @@ import { Coded } from "./Words.tsx";
 import { coded } from "./words.ts";
 import "./runs.css";
 import "./sections.css";
+import "./inbox-quiet.css";
 
 const SHORT = 40;
 const KINDS: [keyof Pick<PluginsView, "lanes" | "gates" | "collectors" | "agents">, string, string][] = [
@@ -62,7 +63,9 @@ export function Plugins() {
                         <th scope="row" className="code">
                           {w.name}
                         </th>
-                        <td>{w.description}</td>
+                        <td>
+                          <p className="text">{w.description}</p>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -9,6 +9,7 @@ export function InboxChoices({
   sending,
   sendBack,
   says,
+  act,
   send,
   decide,
   ask,
@@ -20,6 +21,8 @@ export function InboxChoices({
   sendBack: boolean;
   /** What Reject and Send back do, before they are pressed. */
   says: string | undefined;
+  /** The command a one-way approval runs: the button is named after it, and the step cannot be undone. */
+  act: string | undefined;
   send: () => void;
   decide: (decision: Decision) => void;
   ask: (decision: "reject" | "send-back") => void;
@@ -56,7 +59,7 @@ export function InboxChoices({
             DOING.approve
           ) : (
             <>
-              Approve <kbd>a</kbd>
+              {act ? `Approve and run ${act}` : "Approve"} <kbd>a</kbd>
             </>
           )}
         </button>
@@ -70,6 +73,7 @@ export function InboxChoices({
         ) : null}
       </div>
       {says ? <p className="consequence">{says}</p> : null}
+      {act ? <p className="consequence final">This cannot be undone.</p> : null}
     </>
   );
 }
