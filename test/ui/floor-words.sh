@@ -98,6 +98,11 @@ expect "the words in the fail colour (a red, not a grey or an ink)" "$(js "() =>
 expect "with the diamond" "$(js "() => getComputedStyle(document.querySelector('.broken'), '::before').content !== 'none' || getComputedStyle(document.querySelector('.broken [role=status]'), '::before').content !== 'none' ? 'diamond' : 'no diamond'")" '^diamond$'
 expect "the parser's position detail follows, in soft ink" "$(js "() => { const d = document.querySelector('.broken .quiet'); const probe = document.createElement('i'); probe.style.color = 'var(--ink-soft)'; document.body.append(probe); const want = getComputedStyle(probe).color; probe.remove(); return d && d.textContent.length > 0 && getComputedStyle(d).color === want ? 'soft' : 'not soft'; }")" '^soft$'
 shot floor-problem-light-1440
+if [ -n "$shots" ]; then
+  theme Dark
+  shot floor-problem-dark-1440
+  theme Light
+fi
 
 playwright-cli -s="$session" console error > "$work/console.log" 2>&1
 grep -E "^\[ERROR\]" "$work/console.log" > "$work/errors.log"

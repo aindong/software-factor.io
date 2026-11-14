@@ -97,6 +97,12 @@ expect "Undo is drawn" "$(js "() => [...document.querySelectorAll('.topbar butto
 expect "the counts overlap no button of the top bar" "$(js "() => { const hit = (r, s) => Math.min(r.right, s.right) - Math.max(r.left, s.left) > 0.5 && Math.min(r.bottom, s.bottom) - Math.max(r.top, s.top) > 0.5; const bar = [...document.querySelectorAll('.topbar button, .topbar .status, .topbar select')].filter((e) => e.getClientRects().length > 0); const out = []; for (const a of document.querySelectorAll('.topbar .needs a')) for (const b of bar) if (hit(a.getBoundingClientRect(), b.getBoundingClientRect())) out.push(a.textContent + ' meets ' + (b.textContent.trim() || b.className)); return out.length ? out.join('; ') : 'apart'; }")" '^apart$'
 expect "every count is still a target of 44 px" "$(js "() => [...document.querySelectorAll('.topbar .needs a')].every((a) => a.getBoundingClientRect().height >= 43.5)")" '^true$'
 shot floor-topbar-light-390
+if [ -n "$shots" ]; then
+  # the sheet open in the dark theme, for a look
+  pw press Enter
+  theme Dark
+  shot floor-queued-dark-390
+fi
 
 playwright-cli -s="$session" console error > "$work/console.log" 2>&1
 grep -E "^\[ERROR\]" "$work/console.log" > "$work/errors.log"
