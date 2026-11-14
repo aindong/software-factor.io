@@ -1,17 +1,5 @@
 /* Runs, round three: only what needs a person is loud. */
 
-/* a run that waits for a person: a 3 px signal bar on the row's left edge, its text already in bold */
-.run[data-mark="asked"] {
-  position: relative;
-}
-.run[data-mark="asked"]::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  background: var(--signal);
-}
-
 /* the replay slider: a track that shows against its ground (the edge colour on the panel, 3 to 1 or more) */
 .scrub input[type="range"] {
   appearance: none;

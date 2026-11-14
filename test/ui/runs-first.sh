@@ -1,6 +1,6 @@
 #!/bin/bash
 # The list of runs puts what needs a person first, in a real browser, by keyboard, measured in the page:
-# waits for you, then working, then done; the waiting row carries a 3 px signal bar and its text in bold; the
+# waits for you, then working, then done; the waiting row's task is in bold, with no bar along its edge; the
 # task number in a row is a quiet chip (ground fill, 1.5 px ink border, ink text); after choosing Runs the
 # keyboard is on the selected row so the arrow keys work at once (the Inbox keeps the keyboard on its heading);
 # at 390 the filter stays on one row with no sideways scroll of the page; the Replay slider's track is 3 to 1
@@ -93,8 +93,8 @@ pw press ArrowUp
 # ---- G10: waits for you first, then working, then done
 expect "the runs wait for you, then work, then are done" "$(js "$rows")" '^Waits for you \| Working \| Done$'
 expect "the first row is the one that waits" "$(js "() => document.querySelector('.run').textContent")" 'Fix the date format'
-expect "the waiting row has a 3 px signal bar on its left edge" "$(js "() => { const b = getComputedStyle(document.querySelector('.run[data-mark=asked]'), '::before'); const p = document.createElement('i'); p.style.color = 'var(--signal)'; document.body.append(p); const signal = getComputedStyle(p).color; p.remove(); return b.width + ' ' + (b.backgroundColor === signal) + ' ' + b.left; }")" '^3px true 0px$'
-expect "no other row has the bar" "$(js "() => [...document.querySelectorAll('.run:not([data-mark=asked])')].map((r) => getComputedStyle(r, '::before').content).join()")" '^(none,?)+$'
+expect "the waiting row's task is in bold, a working row's is not" "$(js "() => { const w = (s) => Number(getComputedStyle(document.querySelector(s)).fontWeight); return w('.run[data-mark=asked] .task') > w('.run:not([data-mark=asked]) .task'); }")" '^true$'
+expect "no row has a coloured bar along its edge: first place, the yellow square and bold say it" "$(js "() => [...document.querySelectorAll('.run')].map((r) => getComputedStyle(r, '::before').content).join()")" '^(none,?)+$'
 expect "the waiting row's text is bold" "$(js "() => Number(getComputedStyle(document.querySelector('.run[data-mark=asked] .task')).fontWeight) >= 600")" '^true$'
 [ -n "$shots" ] && pw screenshot --filename="$shots/runs-mixed-light-1440.png"
 

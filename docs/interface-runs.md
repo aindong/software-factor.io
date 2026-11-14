@@ -3,7 +3,7 @@
 Part of [the interface](interface.md).
 
 Runs lists every task the factory has taken: every run that is moving or waiting, and the latest ended ones
-up to 50 in all. What waits for you comes first, with a yellow bar on its left edge, then what is working,
+up to 50 in all. What waits for you comes first, its task in bold after the yellow square, then what is working,
 then stopped, then done, the newest first in each (`softwarefactor runs` in the terminal keeps the record's
 order). After choosing Runs the keyboard is on the selected row, so the arrow keys work at once. Each row has the task, a strip map (one stop for each lane: a blue disc
 passed, a vermilion diamond failed, a yellow square asked a person, a ring is not reached, and the train is on
