@@ -101,7 +101,7 @@ start_ui 0
 pw open "$address" || fail "the browser did not open"
 pw resize 1440 900
 section Runs
-wait_for "the list shows the four runs" "$tasks" '^Slow task \| Show the cost of each lane \| Fix the date format \| Add an export button$'
+wait_for "the list shows the four runs" "$tasks" '^Show the cost of each lane \| Slow task \| Fix the date format \| Add an export button$'
 back_to '^Skip to the list$'
 pw press Enter
 

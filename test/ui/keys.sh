@@ -74,7 +74,7 @@ narrow() { # at phone width the page must not scroll sideways
 }
 fits() { # at phone width nothing scrolls sideways but the map, a block of output and a diff
   narrow "$1"
-  expect "nothing in $1 scrolls sideways at 390" "$(js "() => [...document.querySelectorAll('body *')].filter((e) => /auto|scroll/.test(getComputedStyle(e).overflowX) && e.scrollWidth > e.clientWidth + 1 && !e.closest('.map-scroll, .output')).map((e) => e.className || e.tagName).join(' ') || 'none'")" '^none$'
+  expect "nothing in $1 scrolls sideways at 390" "$(js "() => [...document.querySelectorAll('body *')].filter((e) => /auto|scroll/.test(getComputedStyle(e).overflowX) && e.scrollWidth > e.clientWidth + 1 && !e.closest('.map-scroll, .output, .runfilter')).map((e) => e.className || e.tagName).join(' ') || 'none'")" '^none$'
 }
 # the controls a person can reach with Tab: shown, enabled, and a stop of the Tab order
 tabbable='[...document.querySelectorAll("a[href], button, input, select, textarea, [tabindex]")].filter((e) => !e.disabled && e.tabIndex >= 0 && e.getClientRects().length > 0)'

@@ -90,7 +90,7 @@ expect "the replay slider and a reference button are 44 px at least in each dire
 # ---- a stopped run, at phone width
 back_to 'All runs'
 pw press Enter
-pw press ArrowUp
+pw press ArrowDown # the list: the run that waits late, the run that waits at its first, then the stopped run
 pw press Enter
 wait_for "the stopped run's map is drawn" "() => document.querySelectorAll('.runmap svg.map.overlaid .station').length" '^[1-9]'
 expect "no text of the stopped run's map renders under 12 px at 390" "$(js "$map_text")" '^all [0-9]+ texts'
@@ -102,6 +102,7 @@ shot phone-stopped-light-390
 # ---- a waiting run, at phone width
 back_to 'All runs'
 pw press Enter
+pw press ArrowUp
 pw press ArrowUp
 pw press Enter
 wait_for "the waiting run's map is drawn" "() => document.querySelectorAll('.runmap svg.map.overlaid .station').length" '^[1-9]'
