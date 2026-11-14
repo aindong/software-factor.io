@@ -54,4 +54,16 @@ describe("a stack of task badges at one station", () => {
       expect(gap(box, tag)).toBeGreaterThanOrEqual(margin);
     }
   });
+
+  it("takes the first place of each station by its id", () => {
+    expect(badgeLift(floor(station("above")), [], { build: 37 }, margin, 30, { build: 3 })).toEqual({
+      build: { out: 0, across: 0 },
+    });
+    // a label at 37 from the station: moved when that is the first place, not when it is 30
+    const tag = { x: 85, y: 146, width: 30, height: 12 };
+    const [at30, at37] = [30, 37].map(
+      (n) => badgeLift(floor(station("above")), [tag], { build: n }, margin).build,
+    );
+    expect(at30).not.toEqual(at37);
+  });
 });

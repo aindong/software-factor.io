@@ -18,3 +18,10 @@ svg.map .train:not(.asks) text {
   height: 3px;
   border-radius: 2px;
 }
+/* at phone width a stem joins a stack of badges to its station */
+.map .station .stem {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  pointer-events: none;
+}

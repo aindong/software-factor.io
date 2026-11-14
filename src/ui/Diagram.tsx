@@ -15,7 +15,7 @@ import {
 } from "react";
 import type { Floor, Station } from "../core/floor/layout.ts";
 import { type StopState, travelledOf } from "../core/runs/track.ts";
-import { badgeLift, type Lift } from "./badges.ts";
+import { badgeLift, type Lift, stemOf } from "./badges.ts";
 import { LineView } from "./Lines.tsx";
 import { type Ink, type Placed, placeNames } from "./labels.ts";
 import { type Train, TrainMark } from "./TrainMark.tsx";
@@ -128,8 +128,12 @@ export function Diagram({
   );
   const stationW = Math.max(52, 44 / scale);
   const badge = { w: Math.max(34, (phone ? 44 : 24) / scale), h: Math.max(18, (phone ? 44 : 24) / scale) };
-  const step = Math.max(20, badge.h); // trains in one lane: no hit area overlaps the next
-  const off = Math.max(30, 22 + badge.h / 2); // and none overlaps its station's (44 high)
+  // at phone width a stack of badges is tight: each hit area is as tall as the step, so the stack stays at its station
+  const stackHit = { w: Math.max(34, 56 / scale), h: Math.max(20, 30 / scale) };
+  const step = phone ? stackHit.h : Math.max(20, badge.h); // trains in one lane: no hit area overlaps the next
+  const tight = (n: number) => phone && n > 1;
+  const hitOf = (n: number) => (tight(n) ? stackHit : badge);
+  const offOf = (n: number) => Math.max(30, 22 + hitOf(n).h / 2); // and none overlaps its station's (44 high)
   useLayoutEffect(() => {
     let live = true;
     const place = () => {
@@ -152,7 +156,8 @@ export function Diagram({
       const next = placeNames(floor, inks, tags);
       const counts: Record<string, number> = {};
       for (const t of trains) counts[t.lane] = (counts[t.lane] ?? 0) + 1;
-      const out = badgeLift(floor, tags, off, 6 / scale, step, counts);
+      const offs = Object.fromEntries(floor.stations.map((s) => [s.id, offOf(counts[s.id] ?? 0)]));
+      const out = badgeLift(floor, tags, offs, 6 / scale, step, counts);
       if (live) setPlaced((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
       if (live) setLift((was) => (JSON.stringify(was) === JSON.stringify(out) ? was : out));
     };
@@ -169,7 +174,7 @@ export function Diagram({
       ...floor.stations.map((s) => {
         const n = trains.filter((t) => t.lane === s.id).length;
         if (n === 0 || (s.labelSide === "below") !== up) return 0;
-        const far = off + (lift[s.id]?.out ?? 0) + (n - 1) * step + badge.h / 2;
+        const far = offOf(n) + (lift[s.id]?.out ?? 0) + (n - 1) * step + hitOf(n).h / 2;
         return up ? far - s.y : s.y + far - floor.height;
       }),
     );
@@ -290,7 +295,7 @@ export function Diagram({
         const here = trains.filter((t) => t.lane === s.id);
         // trains wait on the side of the station its name is not on
         const up = s.labelSide === "below" ? -1 : 1;
-        const [out, across] = [off + (lift[s.id]?.out ?? 0), lift[s.id]?.across ?? 0];
+        const [out, across] = [offOf(here.length) + (lift[s.id]?.out ?? 0), lift[s.id]?.across ?? 0];
         const about =
           s.kind === "end"
             ? `${s.label}, an end of the run`
@@ -341,6 +346,9 @@ export function Diagram({
             )}
             {s.kind === "end" && !s.missing ? <path className="mark" d={END_MARK[s.id] ?? ""} /> : null}
             {ran?.mark ? <path className="mark" d={ran.mark} /> : null}
+            {phone && here.length > 0 ? (
+              <path className="stem" d={stemOf(up, out, step, here.length, across)} />
+            ) : null}
             {here.map((train, k) =>
               // a train is a way to its run: a link, so that it can be pressed and reached by Tab
               train.href && onGo ? (
@@ -355,10 +363,16 @@ export function Diagram({
                   }}
                   onKeyDown={(event) => event.stopPropagation()}
                 >
-                  <TrainMark train={train} x={across} y={up * (out + k * step)} hit={badge} />
+                  <TrainMark train={train} x={across} y={up * (out + k * step)} hit={hitOf(here.length)} />
                 </a>
               ) : (
-                <TrainMark key={train.label} train={train} x={across} y={up * (out + k * step)} hit={badge} />
+                <TrainMark
+                  key={train.label}
+                  train={train}
+                  x={across}
+                  y={up * (out + k * step)}
+                  hit={hitOf(here.length)}
+                />
               ),
             )}
             {flagged.has(s.id) ? (
