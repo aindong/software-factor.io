@@ -1,0 +1,64 @@
+/* The Floor around its map, round three: what failed is said where it is read, in the fail colour, and the rest stays soft. */
+
+/* JSON that does not parse: one line directly under the top bar, in the fail colour with the diamond, the parser's detail after it in soft ink */
+.json .broken {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sm);
+  min-width: 0;
+  border-top: 0;
+  background: var(--ground);
+  white-space: nowrap;
+}
+.json .broken p {
+  margin: 0;
+}
+.json .broken [role="status"] {
+  flex: none;
+  color: color-mix(in oklab, var(--return) 72%, var(--ink));
+  font-weight: var(--w-heading);
+}
+.json .broken [role="status"]::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  background: var(--return);
+  transform: rotate(45deg);
+}
+.json .broken .quiet {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink-soft);
+}
+
+/* a refused id: the field has the fail colour for its border, and the sentence has the diamond */
+.inspector .field input[aria-invalid="true"] {
+  border-color: var(--return);
+}
+.inspector .field .hint.bad {
+  color: var(--ink);
+}
+.inspector .field .hint.bad::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  background: var(--return);
+  transform: rotate(45deg);
+}
+
+/* the agent's four selects are one to a row: "The role's default" shows whole */
+.inspector .pair.stack {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* at phone width the count links are targets of 44 px that reach 13 px past their line: the rows of the bar are that far apart, so no target covers the Tools button, Undo or the workflow's name */
+@media (max-width: 760px) {
+  .topbar {
+    row-gap: 13px;
+  }
+}

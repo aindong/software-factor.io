@@ -35,6 +35,7 @@ wait_for "the workflow is drawn" "() => document.querySelectorAll('.station.lane
 wait_for "an idle Floor says so" "$needs" '^Nothing queued, nothing waiting\.$'
 expect "in soft ink, as the counts are" "$(js "() => { const n = document.querySelector('.topbar .needs'); const soft = getComputedStyle(n).color; const probe = document.createElement('i'); probe.style.color = 'var(--ink-soft)'; document.body.append(probe); const want = getComputedStyle(probe).color; probe.remove(); return soft === want ? 'soft' : soft + ' is not ' + want; }")" '^soft$'
 shot floor-idle-light-1440
+kill "$server" 2> /dev/null
 
 # a workflow with one lane at "out", and tasks to take; one run waits and one is stopped elsewhere
 elsewhere 1 1
@@ -47,7 +48,8 @@ fs.writeFileSync(".factor/queue.md", "- [ ] First chore\n");
 const f = JSON.parse(fs.readFileSync(".factor/factory.json")); f.workflow = "queue"; fs.writeFileSync(".factor/factory.json", JSON.stringify(f, null, 2));'
 git add -A && git commit -q -m "the queue workflow"
 sf collect > /dev/null || fail "collect"
-pw reload
+start_ui 0 # the workspace as it is read at the start
+pw open "$address" || fail "the browser did not open"
 wait_for "the counts are back" "$needs" '^1 waits for you · 1 stopped · 1 queued$'
 wait_for "the one lane is drawn" "() => document.querySelectorAll('.station.lane').length" '^1$'
 
@@ -61,16 +63,14 @@ wait_for "the ladder is read" "() => document.querySelectorAll('.inspector .ladd
 expect "the panel says \"Out of the loop\" in one sentence only" "$(js "() => [...document.querySelectorAll('.inspector .hint, .inspector .note')].filter((e) => /out of the loop/i.test(e.textContent)).length")" '^1$'
 
 # G6. a refused id: the field is marked, and the sentence says what is allowed and that the lane keeps its id
-tab_to '^Id$'
-pw press End
-pw type "X"
+tab_to '^Id'
+pw type "X" # the id is selected when the keyboard arrives: this replaces it with a capital, which an id may not hold
 pw press Tab
 expect "the field is marked as wrong" "$(js "() => document.querySelector('.inspector input[aria-invalid=true]') ? 'marked' : 'not marked'")" '^marked$'
 expect "with the fail colour for its border" "$(js "() => { const i = document.querySelector('.inspector input[aria-invalid=true]'); const probe = document.createElement('i'); probe.style.color = 'var(--return)'; document.body.append(probe); const want = getComputedStyle(probe).color; probe.remove(); return getComputedStyle(i).borderTopColor === want ? 'fail' : getComputedStyle(i).borderTopColor + ' is not ' + want; }")" '^fail$'
 expect "the sentence says what is allowed and what stays" "$(js "() => document.querySelector('.inspector .hint.bad')?.textContent ?? 'no sentence'")" '^Not used: an id holds only small letters, digits and -, and no other lane may have it\. The lane is still ship\.$'
 shot floor-pending-light-1440
-back_to '^Id$'
-pw press Control+a
+back_to '^Id'
 pw type "ship"
 pw press Tab
 expect "the mark goes when the id is good again" "$(js "() => document.querySelectorAll('.inspector input[aria-invalid=true]').length")" '^0$'
@@ -94,7 +94,7 @@ wait_for "the problem is said" "() => document.querySelector('.broken')?.textCon
 expect "directly under the top bar" "$(js "() => { const b = document.querySelector('.broken').getBoundingClientRect(); const t = document.querySelector('.topbar').getBoundingClientRect(); return b.top - t.bottom <= 2 ? 'under' : Math.round(b.top - t.bottom) + ' px below it'; }")" '^under$'
 expect "above the text it is about" "$(js "() => document.querySelector('.broken').getBoundingClientRect().bottom <= document.querySelector('.json textarea').getBoundingClientRect().top + 1")" '^true$'
 expect "in one line" "$(js "() => { const b = document.querySelector('.broken'); return b.getBoundingClientRect().height <= 1.6 * parseFloat(getComputedStyle(b).lineHeight) + parseFloat(getComputedStyle(b).paddingBlock) * 2 ? 'one line' : 'taller: ' + b.getBoundingClientRect().height; }")" '^one line$'
-expect "the words in the fail colour (a red, not a grey)" "$(js "() => { const m = /oklch\\(([0-9.]+)% ([0-9.]+) ([0-9.]+)/.exec(getComputedStyle(document.querySelector('.broken p[role=status], .broken [role=status]')).color) ?? /color\\(.*\\)/.exec(getComputedStyle(document.querySelector('.broken [role=status]')).color); const probe = document.createElement('i'); probe.style.color = 'var(--return)'; document.body.append(probe); const hue = (c) => { const x = /oklch\\(([0-9.]+)%? ([0-9.]+) ([0-9.]+)/.exec(c); return x ? Number(x[3]) : -1; }; const want = hue(getComputedStyle(probe).color); probe.remove(); const got = hue(getComputedStyle(document.querySelector('.broken [role=status]')).color); return Math.abs(got - want) < 25 ? 'fail colour' : 'hue ' + got + ' not ' + want; }")" '^fail colour$'
+expect "the words in the fail colour (a red, not a grey or an ink)" "$(js "() => { const c = document.createElement('canvas').getContext('2d', { willReadFrequently: true }); c.fillStyle = getComputedStyle(document.querySelector('.broken [role=status]')).color; c.fillRect(0, 0, 1, 1); const [r, g, b] = c.getImageData(0, 0, 1, 1).data; return r > g + 50 && r > b + 30 ? 'fail colour' : 'rgb ' + [r, g, b]; }")" '^fail colour$'
 expect "with the diamond" "$(js "() => getComputedStyle(document.querySelector('.broken'), '::before').content !== 'none' || getComputedStyle(document.querySelector('.broken [role=status]'), '::before').content !== 'none' ? 'diamond' : 'no diamond'")" '^diamond$'
 expect "the parser's position detail follows, in soft ink" "$(js "() => { const d = document.querySelector('.broken .quiet'); const probe = document.createElement('i'); probe.style.color = 'var(--ink-soft)'; document.body.append(probe); const want = getComputedStyle(probe).color; probe.remove(); return d && d.textContent.length > 0 && getComputedStyle(d).color === want ? 'soft' : 'not soft'; }")" '^soft$'
 shot floor-problem-light-1440

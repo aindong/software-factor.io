@@ -13,9 +13,10 @@ const OUTCOMES = [
   { key: "needsPerson", word: "Asks" },
 ] as const;
 const CHECKPOINT: Record<string, string> = {
-  in: "In the loop: a person approves before the run goes on.",
-  near: "Near the loop: the run goes on, and a person is told.",
-  out: "Out of the loop: the run goes on by itself.",
+  // the select above says which; the ladder under it says "Out of the loop" in its own sentence
+  in: "A person approves before the run goes on.",
+  near: "The run goes on, and a person is told.",
+  out: "The run goes on by itself.",
 };
 const END_NAME: Record<string, string> = {
   "@done": "Done",
@@ -162,7 +163,7 @@ function LaneForm({
           bad={refused}
           hint={
             refused
-              ? `Not taken: "${id}" is another lane's id, or is not small letters, digits and -. The lane is still ${lane.id}.`
+              ? `Not used: an id holds only small letters, digits and -, and no other lane may have it. The lane is still ${lane.id}.`
               : "Other lanes point at this lane by its id."
           }
         >
@@ -202,7 +203,7 @@ function LaneForm({
       {kind === "core/agent@1" ? (
         <section>
           <h2>Agent</h2>
-          <div className="pair">
+          <div className="pair stack">
             <Choice
               label="Role"
               value={text(agent.role)}
@@ -464,7 +465,15 @@ export function Inspector({
   const elsewhere = lane ? problems.filter((p) => laneAt(p.path) !== lane.id).length : 0;
   const limits = record(doc.limits);
   return (
-    <aside className="inspector" aria-label="Inspector" data-open={open}>
+    <aside
+      className="inspector"
+      aria-label="Inspector"
+      data-open={open}
+      onKeyDown={(event) => {
+        // where the inspector is a sheet, Escape closes it as Close does
+        if (event.key === "Escape" && open && matchMedia("(max-width: 1000px)").matches) onClose();
+      }}
+    >
       <header>
         <h2 ref={headRef} tabIndex={-1}>
           {lane ? `Lane ${text(lane.name) || lane.id}` : selected ? selected : "Workflow"}
