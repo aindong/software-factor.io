@@ -469,6 +469,11 @@ export interface Ui {
   ) => Promise<Response>;
   stop: () => Promise<void>;
 }
+// a test process that ends without its afterAll (a time limit, a failed start) must not leave a server running
+const servers = new Set<ChildProcess>();
+process.once("exit", () => {
+  for (const server of servers) server.kill();
+});
 /** Start `softwarefactor ui` on a free port and wait until it has printed its address. */
 export async function startUi(repo: Repo): Promise<Ui> {
   ensureUi();
@@ -477,6 +482,7 @@ export async function startUi(repo: Repo): Promise<Ui> {
     env: { ...process.env, FACTOR_HOME: repo.home, NO_COLOR: "1", ...repo.env },
     stdio: ["ignore", "pipe", "pipe"],
   });
+  servers.add(child);
   let out = "";
   child.stdout?.on("data", (chunk) => {
     out += chunk;
@@ -487,7 +493,10 @@ export async function startUi(repo: Repo): Promise<Ui> {
   const found = () => /http:\/\/127\.0\.0\.1:\d+\/#t=[0-9a-f]+/.exec(out)?.[0];
   for (let waited = 0; waited < 10_000 && !found(); waited += 50) await new Promise((r) => setTimeout(r, 50));
   const address = found();
-  if (!address) throw new Error(`the interface did not start: ${out}`);
+  if (!address) {
+    child.kill();
+    throw new Error(`the interface did not start: ${out}`);
+  }
   const [url = "", token = ""] = address.split("/#t=");
   return {
     url,
