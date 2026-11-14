@@ -63,15 +63,8 @@ pw press Enter
 wait_for "the build is on show" "() => document.querySelector('.decide .asks')?.textContent ?? ''" '.'
 in_order "an approval after a lane"
 
-pw press a
-wait_for "the page moves on to the next build" "() => document.querySelector('.rundetail h2')?.textContent ?? ''" 'search box'
-sleep 1
-pw press a
-wait_for "both builds wait before Ship it" "$tasks" '^Pick a database \| Add an export button .* \| Add a search box'
-back_to '^[0-9]+ (Pick a database|Add an export button)'
-js "$focused" | grep -q "export button" || pw press ArrowDown
-pw press Enter
-wait_for "the item before Ship it is on show" "() => document.querySelector('.decide .next')?.textContent ?? ''" '^Approve: Ship it starts next\.$'
+pw press a # the approved run waits again before Ship it, and the page stays on it
+wait_for "the item before Ship it is on show" "() => document.querySelector('.decide .final')?.textContent ?? ''" '^This cannot be undone\.$'
 in_order "an approval before a command lane"
 
 back_to '^[0-9]+ Pick a database|^[0-9]+ Add an export button'

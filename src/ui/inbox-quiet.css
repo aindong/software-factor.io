@@ -1,0 +1,46 @@
+/* The Inbox, round three: a step that cannot be undone says so quietly under the buttons; an empty
+   Inbox ends in links; at phone width the decision bar is as low as one sentence and the buttons. */
+.decide .consequence.final {
+  margin-top: calc(var(--xs) * -1);
+}
+.plain .links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lg);
+}
+.page code.cmd {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: var(--sm) var(--md);
+  border: 1px solid var(--rule);
+  background: var(--panel);
+}
+/* running text in a table cell is as narrow as running text elsewhere */
+.page td .text {
+  max-width: 75ch;
+}
+@media (max-width: 1000px) {
+  /* what is next is in the map under the decision; the bar keeps the sentence and the buttons */
+  .decide .asks.next {
+    display: none;
+  }
+  .decide {
+    gap: var(--xs);
+    padding: var(--sm) var(--md);
+  }
+  /* what the keyboard reaches scrolls clear of the bar's edge, ring and all */
+  .rundetail,
+  .deciding {
+    scroll-padding-bottom: var(--lg);
+  }
+}
+@media (max-width: 600px) {
+  .page code.cmd {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    width: auto;
+  }
+}

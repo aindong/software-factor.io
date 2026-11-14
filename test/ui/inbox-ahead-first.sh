@@ -44,15 +44,8 @@ wait_for "the build is on show" "() => document.querySelector('.decide .asks')?.
 expect "an approval after a lane shows no command" "$(js "$ahead")" '^none$'
 
 # approve both builds: each then waits before Ship it
-pw press a
-wait_for "the page moves on to the next build" "() => document.querySelector('.rundetail h2')?.textContent ?? ''" 'search box'
-sleep 1
-pw press a
-wait_for "both builds wait before Ship it" "$tasks" '^Pick a database \| Add an export button .* \| Add a search box'
-back_to '^[0-9]+ (Pick a database|Add an export button)'
-js "$focused" | grep -q "export button" || pw press ArrowDown
-pw press Enter
-wait_for "the item before Ship it is on show" "() => document.querySelector('.decide .next')?.textContent ?? ''" '^Approve: Ship it starts next\.$'
+pw press a # the approved run waits again before Ship it, and the page stays on it
+wait_for "the item before Ship it is on show" "() => document.querySelector('.decide .final')?.textContent ?? ''" '^This cannot be undone\.$'
 
 # where things are: the sentence of what is decided, what the command does, the branch, then the buttons
 parts='() => {
@@ -82,7 +75,7 @@ for width in 1440 390; do
   expect "at $width Approve is on the screen" "$got" 'approveOnScreen=true'
   shot "inbox-before-light-$width"
 done
-expect "the one key stays" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve a \| Reject r$'
+expect "the one key stays" "$(js "() => [...document.querySelectorAll('.choices .button')].map((b) => b.textContent).join(' | ')")" '^Approve and run ship a \| Reject r$'
 
 playwright-cli -s="$session" console error > "$work/console.log" 2>&1
 grep -E "^\[ERROR\]" "$work/console.log" > "$work/errors.log"
