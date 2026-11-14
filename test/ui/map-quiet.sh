@@ -49,6 +49,9 @@ badges='() => { const css = (e) => getComputedStyle(e); const ground = css(docum
 # stacked badges clear of the labels of the routes (4 px), and no badge hit area over another's or over a lane's
 overlap='() => { const out = []; const tags = [...document.querySelectorAll("svg.map text.tag")].map((t) => [t.textContent, t.getBoundingClientRect()]); const trains = [...document.querySelectorAll("svg.map g.train")]; const hits = [...document.querySelectorAll("svg.map .hit")].map((e) => [e, e.getBoundingClientRect()]); const meet = (a, b, m) => a.left < b.right + m && b.left < a.right + m && a.top < b.bottom + m && b.top < a.bottom + m; for (const g of trains) { const m = g.ownerSVGElement.getBoundingClientRect(); const h = g.querySelector(".hit").getBoundingClientRect(); if (h.bottom > m.bottom + 0.5 || h.top < m.top - 0.5) out.push("badge " + g.textContent + " leaves the map"); const v = g.querySelector("rect:not(.hit)").getBoundingClientRect(); for (const [t, r] of tags) if (meet(v, r, 4)) out.push("badge " + g.textContent + " on [" + t + "]"); } for (const [i, [a, ra]] of hits.entries()) for (const [b, rb] of hits.slice(i + 1)) { if (!a.closest(".train") && !b.closest(".train")) continue; if (a.closest(".train") === b.closest(".train") && a.closest(".train")) continue; if (meet(ra, rb, -0.5)) out.push((a.closest(".train")?.textContent ?? "lane") + " and " + (b.closest(".train")?.textContent ?? "lane") + " " + Math.round(Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left)) + "x" + Math.round(Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top))); } return out.length ? out.join("; ") : "clear"; }'
 
+# at phone width a stack stays with its station: hit areas step 32 px or less, each 28 high and 56 wide at least, and a stem from the station runs to the last badge
+stack='() => { const out = []; for (const st of document.querySelectorAll("svg.map .station.lane")) { const hs = [...st.querySelectorAll("g.train .hit")].map((e) => e.getBoundingClientRect()).sort((a, b) => a.top - b.top); if (hs.length < 2) continue; const name = st.getAttribute("aria-label").split(",")[0]; for (const [i, h] of hs.entries()) { if (h.height < 27.5 || h.width < 55.5) out.push(name + " hit " + Math.round(h.width) + "x" + Math.round(h.height)); if (i > 0 && h.top + h.height / 2 - (hs[i - 1].top + hs[i - 1].height / 2) > 32.5) out.push(name + " steps " + Math.round(h.top - hs[i - 1].top)); } const stem = st.querySelector(".stem"); const last = hs[hs.length - 1]; const sb = stem?.getBoundingClientRect(); const lane = st.querySelector(":scope > .hit").getBoundingClientRect(); if (!sb) out.push(name + " has no stem"); else if (sb.bottom < last.top + last.height / 2 - 1) out.push(name + " stem stops short"); if (hs[0].top - lane.bottom > 12) out.push(name + " first badge " + Math.round(hs[0].top - lane.bottom) + " below the lane"); } return out.length ? out.join("; ") : "kept"; }'
+
 # three tasks wait at Build for approval, one is at Plan, working
 printf -- "- [ ] First chore\n- [ ] Second chore\n- [ ] Third chore\n" > .factor/stack.md
 git add -A && git commit -q -m "tasks"
@@ -69,6 +72,7 @@ theme Light
 pw resize 390 844
 wait_for "the map is drawn at phone width" "() => document.querySelectorAll('.station.lane').length" '^2$'
 expect "G3 at 390: stacked badges clear of the labels, hit areas apart" "$(js "$overlap")" '^clear$'
+expect "G3 at 390: a stack stays with its station" "$(js "$stack")" '^kept$'
 shot floor-light-390
 theme Dark
 shot floor-dark-390
@@ -94,6 +98,7 @@ pw resize 390 844
 wait_for "the map is drawn at phone width" "() => document.querySelectorAll('g.train').length" '^4$'
 expect "G2 at 390" "$(js "$badges")" '^as asked$'
 expect "G3 with a working run at 390" "$(js "$overlap")" '^clear$'
+expect "G3 at 390 with a working run: a stack stays with its station" "$(js "$stack")" '^kept$'
 shot floor-after-run-light-390
 pw resize 1440 900
 
