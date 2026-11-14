@@ -16,8 +16,8 @@ import {
 import type { Floor, Station } from "../core/floor/layout.ts";
 import { type StopState, travelledOf } from "../core/runs/track.ts";
 import { badgeLift, type Lift } from "./badges.ts";
-import { type Ink, type Placed, placeNames } from "./labels.ts";
 import { LineView } from "./Lines.tsx";
+import { type Ink, type Placed, placeNames } from "./labels.ts";
 import { type Train, TrainMark } from "./TrainMark.tsx";
 
 export type { Train };
@@ -128,8 +128,8 @@ export function Diagram({
   );
   const stationW = Math.max(52, 44 / scale);
   const badge = { w: Math.max(34, (phone ? 44 : 24) / scale), h: Math.max(18, (phone ? 44 : 24) / scale) };
-  const step = Math.max(20, badge.h / 2 + 1); // trains in one lane: no hit area covers the centre of the next
-  const off = Math.max(30, badge.h / 2 + 1); // and none covers the centre of its station
+  const step = Math.max(20, badge.h); // trains in one lane: no hit area overlaps the next
+  const off = Math.max(30, 22 + badge.h / 2); // and none overlaps its station's (44 high)
   useLayoutEffect(() => {
     let live = true;
     const place = () => {
@@ -150,7 +150,9 @@ export function Diagram({
         .filter((t) => typeof t.getBBox === "function")
         .map((t) => t.getBBox());
       const next = placeNames(floor, inks, tags);
-      const out = badgeLift(floor, tags, off, 6 / scale);
+      const counts: Record<string, number> = {};
+      for (const t of trains) counts[t.lane] = (counts[t.lane] ?? 0) + 1;
+      const out = badgeLift(floor, tags, off, 6 / scale, step, counts);
       if (live) setPlaced((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
       if (live) setLift((was) => (JSON.stringify(was) === JSON.stringify(out) ? was : out));
     };
@@ -160,9 +162,20 @@ export function Diagram({
       live = false;
     };
   });
+  // room for a stack of badges beyond the map's edge: the last badge's far side, with its hit area
+  const reach = (up: boolean) =>
+    Math.max(
+      0,
+      ...floor.stations.map((s) => {
+        const n = trains.filter((t) => t.lane === s.id).length;
+        if (n === 0 || (s.labelSide === "below") !== up) return 0;
+        const far = off + (lift[s.id]?.out ?? 0) + (n - 1) * step + badge.h / 2;
+        return up ? far - s.y : s.y + far - floor.height;
+      }),
+    );
   const [top, bottom, left, right] = [
-    Math.ceil(placed?.top ?? 0),
-    Math.ceil(placed?.bottom ?? 0),
+    Math.ceil(Math.max(placed?.top ?? 0, reach(true))),
+    Math.ceil(Math.max(placed?.bottom ?? 0, reach(false))),
     Math.ceil(placed?.left ?? 0),
     Math.ceil(placed?.right ?? 0),
   ];

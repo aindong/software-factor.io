@@ -7,6 +7,7 @@ import "./tokens.css";
 import "./app.css";
 import "./floor.css";
 import "./working.css";
+import "./map-quiet.css";
 import { App } from "./App.tsx";
 
 const root = document.getElementById("root");

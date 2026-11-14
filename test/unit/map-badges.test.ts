@@ -40,3 +40,18 @@ describe("where a task badge stands at its station", () => {
     expect(gap(boxOf(side, at), tag)).toBeGreaterThanOrEqual(margin);
   });
 });
+
+describe("a stack of task badges at one station", () => {
+  it("keeps every badge of the stack clear of a label, not only the first", () => {
+    // a label where the third badge of a stack of three would stand (first at 30, then 30 apart)
+    const tag = { x: 85, y: 150, width: 30, height: 12 };
+    const alone = badgeLift(floor(station("above")), [tag], 30, margin, 30, {}).build;
+    const stacked = badgeLift(floor(station("above")), [tag], 30, margin, 30, { build: 3 }).build;
+    expect(alone).toEqual({ out: 0, across: 0 });
+    expect(stacked && stacked.out + Math.abs(stacked.across) > 0).toBe(true);
+    for (const k of [0, 1, 2]) {
+      const box = boxOf("above", { out: (stacked?.out ?? 0) + k * 30, across: stacked?.across ?? 0 });
+      expect(gap(box, tag)).toBeGreaterThanOrEqual(margin);
+    }
+  });
+});

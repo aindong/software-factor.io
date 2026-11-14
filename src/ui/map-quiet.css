@@ -1,0 +1,20 @@
+/* The maps keep quiet unless a person is needed (round three). A route that is only configured, where a
+   failure would go, is half the pass line's weight and keeps the fail hue; the fail colour at full weight
+   is for a route a run took (`.lit`). A task badge is filled only when a person is needed (`.asks`, yellow);
+   a working or queued one is ground with an ink border. */
+.map .line.fail:not(.lit):not(.to-end):not(.drawing) {
+  stroke-width: 3;
+}
+svg.map .train:not(.asks) rect:not(.hit) {
+  fill: var(--ground);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+svg.map .train:not(.asks) text {
+  fill: var(--ink);
+}
+/* the key's swatch for a route that fails is as thin as the route is drawn when nobody failed on it */
+.legend i.fail {
+  height: 3px;
+  border-radius: 2px;
+}
