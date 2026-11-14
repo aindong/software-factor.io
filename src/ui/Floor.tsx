@@ -17,6 +17,8 @@ import { MapScroll } from "./MapScroll.tsx";
 import { Needs } from "./Needs.tsx";
 import { Queue } from "./Queue.tsx";
 import { go } from "./route.ts";
+import { useSheet } from "./sheet.ts";
+import "./floor-quiet.css";
 import { statusOf } from "./status.ts";
 
 const print = (doc: Json) => `${JSON.stringify(doc, null, 2)}\n`;
@@ -31,11 +33,10 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
   const [savedAt, setSavedAt] = useState<string>(); // when it was saved here
   const [view, setView] = useState<"diagram" | "json">("diagram");
   const [selected, setSelected] = useState<string>();
-  const [sheet, setSheet] = useState(false);
   const [notice, setNotice] = useState<{ text: string; bad: boolean }>();
   const [onMap, setOnMap] = useState(true);
   const { runs, queued } = useRuns();
-  const headRef = useRef<HTMLHeadingElement>(null);
+  const { sheet, head: headRef, begin, close } = useSheet();
   const connectRef = useRef<HTMLSelectElement>(null);
   // undo: every document the floor has held since it was read, and those taken back
   const [past, setPast] = useState<Json[]>([]);
@@ -251,7 +252,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
   };
   const open = (id: string | undefined) => {
     setSelected(id);
-    setSheet(true);
+    begin();
     requestAnimationFrame(() => headRef.current?.focus());
   };
   const add = (kind: "agent" | "command" | "wait") => {
@@ -353,7 +354,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
                   onOpen={open}
                   onAskConnect={(id) => {
                     setSelected(id);
-                    setSheet(true);
+                    begin();
                     requestAnimationFrame(() => connectRef.current?.focus());
                   }}
                   onConnect={(from, outcome, to) => {
@@ -383,6 +384,15 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
           </div>
         ) : (
           <div className="json">
+            {broken ? (
+              // said once when the text stops being JSON: the parser's own words change at every key and are not read out
+              <div className="broken">
+                <p role="status">This is not JSON yet, so the diagram shows the last version that was.</p>
+                <p className="quiet code" title={broken}>
+                  {broken}
+                </p>
+              </div>
+            ) : null}
             <textarea
               ref={area}
               aria-label="The workflow as JSON"
@@ -390,13 +400,6 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
               value={text}
               onChange={(event) => type(event.target.value)}
             />
-            {broken ? (
-              // said once when the text stops being JSON: the parser's own words change at every key and are not read out
-              <div className="broken">
-                <p role="status">This is not JSON yet, so the diagram shows the last version that was.</p>
-                <p className="quiet code">{broken}</p>
-              </div>
-            ) : null}
           </div>
         )}
         {doc ? (
@@ -410,7 +413,7 @@ export function Floor({ shown, onUnsaved }: { shown: boolean; onUnsaved: (unsave
             connectRef={connectRef}
             onChange={change}
             onSelect={choose}
-            onClose={() => setSheet(false)}
+            onClose={close}
             ladder={
               name !== workspace?.workflow
                 ? undefined

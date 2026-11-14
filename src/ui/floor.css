@@ -315,13 +315,14 @@
 
 /* ---- JSON view and problems */
 .json {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 .json textarea {
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   padding: var(--lg);
   border: 0;
   background: var(--ground);
@@ -387,11 +388,14 @@
   .floor {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* the inspector becomes a sheet over the map, opened by choosing a station */
+  /* the inspector becomes a sheet under the map, about 40% of the floor, opened by choosing a station: the map and the queue stay in sight above it, and the sheet scrolls inside itself */
+  .floor[data-sheet="true"] {
+    grid-template-rows: minmax(0, 1fr) 40%;
+  }
+  .floor[data-sheet="true"] .map-side {
+    overflow-y: auto;
+  }
   .inspector {
-    position: absolute;
-    inset: auto 0 0 0;
-    max-height: 50%;
     border-left: 0;
     border-top: 1px solid var(--rule);
     box-shadow: var(--shadow);
@@ -400,12 +404,7 @@
   .inspector[data-open="false"] {
     display: none;
   }
-  /* under an open sheet the map can still be moved clear of it */
-  .floor[data-sheet="true"] .map-scroll {
-    padding-bottom: 50vh;
-  }
-  /* the strip and the key are under the sheet while it is open: not drawn, so they cannot spill past the floor onto the rail */
-  .floor[data-sheet="true"] .queue,
+  /* the key is left out while the sheet is open, to leave room for the map and the queue */
   .floor[data-sheet="true"] .legend {
     display: none;
   }

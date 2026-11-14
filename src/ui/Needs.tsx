@@ -6,7 +6,8 @@ import { go } from "./route.ts";
 import { standing } from "./words.ts";
 
 export function Needs() {
-  const { runs = [], queued } = useRuns();
+  const live = useRuns();
+  const { runs = [], queued } = live;
   const waits = runs.filter((r) => standing(r).mark === "asked").length;
   const stopped = runs.filter((r) => r.status === "stopped").length;
   const link = (to: string, text: string, asked = false) => (
@@ -22,7 +23,10 @@ export function Needs() {
       {text}
     </a>
   );
-  if (waits + stopped + queued.length === 0) return null;
+  const working = runs.some((r) => r.status === "running");
+  // nothing queued, waiting, working or stopped: say so where the counts are, so that an empty bar is not a bar that did not load
+  if (waits + stopped + queued.length === 0)
+    return working || !live.runs ? null : <p className="needs idle">Nothing queued, nothing waiting.</p>;
   const parts = [
     waits > 0 ? link("/inbox", `${waits} ${waits === 1 ? "waits" : "wait"} for you`, true) : null,
     stopped > 0 ? link(withShow("/runs", "stopped"), `${stopped} stopped`) : null,
