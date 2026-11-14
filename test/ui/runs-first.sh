@@ -2,7 +2,7 @@
 # The list of runs puts what needs a person first, in a real browser, by keyboard, measured in the page:
 # waits for you, then working, then done; the waiting row carries a 3 px signal bar and its text in bold; the
 # task number in a row is a quiet chip (ground fill, 1.5 px ink border, ink text); after choosing Runs the
-# keyboard is on the selected row and after choosing Inbox on its first item, so the arrow keys work at once;
+# keyboard is on the selected row so the arrow keys work at once (the Inbox keeps the keyboard on its heading);
 # at 390 the filter stays on one row with no sideways scroll of the page; the Replay slider's track is 3 to 1
 # against its ground in both themes. The page is only read.
 # Needs playwright-cli and a built command (pnpm run build).
@@ -101,11 +101,9 @@ expect "the waiting row's text is bold" "$(js "() => Number(getComputedStyle(doc
 # ---- G11: the task number is a quiet chip
 expect "the chip has the ground as its fill, an ink border and ink text" "$(js "() => { const bg = getComputedStyle(document.body).backgroundColor; const ink = getComputedStyle(document.querySelector('.run .task')).color; return [...document.querySelectorAll('.run .number')].map((n) => { const s = getComputedStyle(n); return (s.backgroundColor === bg) + ' ' + s.borderTopWidth + ' ' + (s.borderTopColor === s.color) + ' ' + (s.color === getComputedStyle(document.body).color); }).join(' | '); }")" '^(true 1(\.5)?px true true( \| )?)+$'
 
-# ---- G12: after choosing Inbox the keyboard is on its first item
+# ---- the Inbox keeps its safety rule: on arrival nothing is chosen for the person, the keyboard is on the heading
 section Inbox
-wait_for "the keyboard is on the first item" "$active" '^option:'
-pw press ArrowDown
-expect "the keyboard stays on an item after the arrow key" "$(js "$active")" '^option:'
+wait_for "the keyboard is on the Inbox's heading, on no item" "() => document.activeElement.tagName + ' ' + document.activeElement.textContent.trim()" '^H1 Inbox'
 
 # ---- G14: the Replay slider's track against its ground, in both themes
 section Runs

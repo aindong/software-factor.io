@@ -50,14 +50,6 @@ export function Inbox() {
   useEffect(() => {
     if (!opened) top.current?.focus();
   }, []);
-  // once the list is read, the keyboard that arrived on the heading goes to the first item so the arrow keys work
-  const entered = useRef(false);
-  useEffect(() => {
-    if (!items || entered.current) return;
-    entered.current = true;
-    const first = items[0];
-    if (first && !opened && document.activeElement === top.current) rows.current.get(first.id)?.focus();
-  }, [items, opened]);
   const box = useRef<HTMLTextAreaElement>(null);
   const bar = useRef<HTMLDivElement>(null); // the item's decision and proof: not displayed in the narrow list
   const decided = useRef<number>(undefined); // the item this page just decided on
