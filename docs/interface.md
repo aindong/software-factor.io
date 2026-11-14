@@ -19,7 +19,9 @@ The workflow is drawn as a line diagram, the way a transit map draws a network:
   A route that ends the run is grey. A route taken only on a condition is dotted.
 - Lines of one outcome that lead to the same station run together, like branches of one line: every lane that
   fails to "Stopped" is one grey line with a spur from each lane.
-- A line that goes back shows how many times it may: `fail ×2`.
+- A line that goes back shows how many times it may: `fail ×2`. Until a run fails along it, it is drawn at
+  half the weight of the line a task passes along, so an idle floor is not red.
+- A task on the map is a numbered badge: yellow when it waits for you, an outline when it does not.
 - The short bars after a station are its gates.
 
 The map is laid out from the workflow itself. The file holds no positions, so there is nothing to drag into
@@ -40,14 +42,18 @@ passed before. A connection that goes back gets a round limit of 2 and a way out
 requires. Removing a lane sends the lines that came to it on to where it passed to.
 
 The top bar reads, first, the workflow and what stands: "1 waits for you · 1 stopped · 2 queued", where the
-count that waits for you is the one in full ink, after a yellow square. After Save and after Run the keyboard
+count that waits for you is the one in full ink, after a yellow square. With nothing queued, waiting or
+stopped it reads "Nothing queued, nothing waiting." After Save and after Run the keyboard
 stays in place: on "Add a lane", or on the next Run button. Undo, Revert and Save appear once there is a change. Under
 the map a quiet strip lists the runs that are working now and the tasks that are queued; a queued task has a
 Run button, which starts it as `softwarefactor run --task` does and says why when every slot is busy.
 
 The inspector, on the right, holds the selected lane's settings: its id and name, its checkpoint, its agent's
 role, access, model size, effort and instructions, where each outcome leads, and its gates. With nothing
-selected it holds the workflow's own description and limits.
+selected it holds the workflow's own description and limits. An id that cannot be used (another lane has it,
+or it holds more than small letters, digits and `-`) marks its field in the fail colour and says that the
+lane keeps its old id. Under 1000px the inspector is a sheet under the map, 40% of the floor: the map and the
+Run buttons stay in sight, and Close or Escape puts the keyboard back on what opened it.
 
 ## The ladder at a lane
 
@@ -60,7 +66,8 @@ that are not saved. A step back after a defect got through is made from the comm
 ## The JSON, one click away
 
 The Diagram and JSON switch shows the same workflow as text. A change in either shows in the other at once.
-While the text is not valid JSON the diagram keeps the last version that was, and says so.
+While the text is not valid JSON the diagram keeps the last version that was, and says so in one line under
+the top bar, in the fail colour, with what the parser found after it.
 
 Roles, gates, collectors, panels and conditions on a transition are edited in the JSON view. The diagram
 draws them.
@@ -120,10 +127,12 @@ the run's map and evidence beside the one that is chosen, so you decide with the
 detail the lane the decision is about comes first, under the title and above the map, with its evidence
 open: "What you are approving" for work that waits for approval, "What ran before this approval" (the last
 lane that ran, or a plain sentence when none has) for an approval asked before a lane runs, and "The lane
-that asked" for a question. Before a command lane, the bar says, above its
+that asked" for a question. The bar's first sentence names the task. Before a command lane, the bar says, above its
 buttons, what that command does, in the workflow's own description, and the run's branch; a command with no
 description says so. Under the buttons one quiet line says what Reject and Send back do, read from the
-workflow ("Reject: the run stops. Send back: Build runs again with your note."). The other lanes follow, closed, under "What each lane did". The run's page under
+workflow ("Reject: the run stops. Send back: Build runs again with your note."). Before a step that cannot be
+taken back the button is named after the act ("Approve and run ship") and the first line under the buttons
+reads "Approve: this cannot be undone." The other lanes follow, closed, under "What each lane did". The run's page under
 Runs keeps its own order.
 
 | Key | Does |
@@ -144,10 +153,12 @@ first: Enter opens it." The keys decide only while the item's decision bar is di
 
 A decision is the command line's own command, started by the server in a process of its own (docs/operations.md).
 It is made on the item that is on show and on nothing the run waits on later. After your decision the page
-moves to the next item and the keys rest for a moment. The keyboard goes with it: to its row, or, on a narrow
+moves to the next item and the keys rest for a moment; when the run you approved waits again at its next
+checkpoint, the page stays on that run. The keyboard goes with it: to its row, or, on a narrow
 screen where the item stands in place of the list, to its heading. When the item you were reading is decided elsewhere,
 nothing is chosen until you choose.
 When the factory refuses, for example because every slot is busy, its message and its fix are shown.
+An empty inbox says "Nothing waits for you." once, with links to the Floor and to Runs.
 
 ## Accounts
 
@@ -172,7 +183,8 @@ millionth, and `softwarefactor cost --json` the exact ones.
 
 What is built in: lane types, gate types, collectors, agents, and the workflows that come with this version.
 Plugins installed in this workspace are named in the sentence under the lists. They are installed from the
-terminal with `softwarefactor add` (`docs/plugins.md`), not from the page.
+terminal with `softwarefactor add` (`docs/plugins.md`), not from the page. Running text is at most 75
+characters wide.
 
 ## Keys, and the tab
 

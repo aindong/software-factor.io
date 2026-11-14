@@ -242,7 +242,7 @@ high, then the screen. Each part scrolls by itself, the page never.
 
 - **Above 1000px.** The floor is the map with a 352px inspector beside it. Runs and Inbox are a list (320px to
   440px) and the detail side by side.
-- **Under 1000px.** The inspector is a sheet over the lower part of the map, at most half of its height, opened
+- **Under 1000px.** The inspector is a sheet under the map, 40% of the floor's height, opened
   by one tap on a station or by the "Workflow settings" button. Runs and Inbox show
   one at a time: the list, or the run that was entered, with a link back to the list. The inbox's decision
   bar moves to the bottom, after the proof.
@@ -250,13 +250,13 @@ high, then the screen. Each part scrolls by itself, the page never.
   sideways but the map and a diff. The floor's controls fold behind Tools.
 
 The map never reflows: it is laid out from the workflow (124px between stations, 28px between tracks) and
-scrolls both ways in its own box. A run's map, which is only read, is never drawn smaller: it scrolls sideways and
-says how many stations are out of sight. Targets: 24px, 44px under 760px.
+scrolls both ways in its own box. A run's map is never drawn smaller: it scrolls sideways and says how many stations
+are hidden. Targets: 24px, 44px under 760px (a stacked train: 56 by 30).
 
 ### Not built
 
-- **Sizes that follow the default font.** The rail, the inspector and the map's label offsets are in px. Page zoom
-  works; a larger default font breaks the map.
+- **Sizes that follow the default font.** The rail, the inspector and the map's offsets are in px: page zoom
+  works, a larger default font breaks the map.
 
 ## Elevation & Depth
 
@@ -273,7 +273,7 @@ motion the same mark stands still. A run that waits, is stopped or is done does 
 ## Shapes
 
 Lines are 6px thick with round ends, run at 0 and 90 degrees, and turn through a 12px stretch at 45 degrees. A
-line that is lit or being drawn is 8px. A route taken only on a condition is dotted and has no arrowhead.
+line that is lit or being drawn is 8px; a fail route no run took is 3px. A route taken only on a condition is dotted and has no arrowhead.
 
 | Shape | Means |
 | --- | --- |
@@ -287,9 +287,9 @@ line that is lit or being drawn is 8px. A route taken only on a condition is dot
 A station is a ground disc (11px radius) with a 3px ink outline. On a run's map it is filled with the colour
 of what the run did there, with a mark inside. The ends have no outline: "Done" is blue with a tick, "Stopped"
 is grey with a bar, the inbox end is yellow with a 1.5px ink outline. A station the workflow lacks is outlined
-in dashed vermilion. One with a problem carries an 8px vermilion diamond. A train is an ink capsule, 34px by
-18px, with the task's number. A train that waits is yellow with an ink outline. Where work is going on, the station has a thin ink ring that
-breathes, and the line the task came along has 2px ground dashes that run the way it goes. A
+in dashed vermilion. One with a problem carries an 8px vermilion diamond. A train is a ground capsule with a 1.5px ink outline,
+34px by 18px, with the task's number; one that waits is yellow. Where work is going on, the station has a thin ink ring that
+breathes, and the line the task came along has 2px ground dashes running its way. A
 working run's mark is a ring with a dot, and the rail's Runs item carries it while any run works.
 
 | Radius | Where |
