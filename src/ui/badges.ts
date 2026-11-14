@@ -18,7 +18,7 @@ export interface Lift {
 export function badgeLift(
   floor: Floor,
   tags: Tag[],
-  off: number,
+  off: number | Record<string, number>,
   margin: number,
   step = 0,
   counts: Record<string, number> = {},
@@ -29,7 +29,10 @@ export function badgeLift(
     const dir = s.labelSide === "below" ? -1 : 1;
     const clear = ({ out, across }: Lift) =>
       Array.from({ length: Math.max(1, counts[s.id] ?? 1) }, (_, k) => k).every((k) => {
-        const [x, y] = [s.x + across, s.y + dir * (off + out + k * step)];
+        const [x, y] = [
+          s.x + across,
+          s.y + dir * ((typeof off === "number" ? off : (off[s.id] ?? 30)) + out + k * step),
+        ];
         const [l, r, t, b] = [
           x - CAPSULE.w / 2 - margin,
           x + CAPSULE.w / 2 + margin,
@@ -54,4 +57,15 @@ export function badgeLift(
     }
   }
   return lift;
+}
+
+/** The stem that joins a stack of `n` badges to its station: down from the station's edge at its own x, to the stack's
+ * side when the stack stands off to one side, along the stack, and a tick to each badge. `up` is -1 or 1. */
+export function stemOf(up: number, out: number, step: number, n: number, across: number): string {
+  const side = across > 0 ? Math.max(0, across - CAPSULE.w / 2 - 4) : Math.min(0, across + CAPSULE.w / 2 + 4);
+  const ys = Array.from({ length: n }, (_, k) => up * (out + k * step));
+  const ticks = ys
+    .map((y) => `M${side} ${y}H${across + (across > 0 ? -1 : 1) * (CAPSULE.w / 2) || 0}`)
+    .join("");
+  return `M0 ${up * 17}V${ys[0]}H${side}V${ys[n - 1]}${ticks}`;
 }
