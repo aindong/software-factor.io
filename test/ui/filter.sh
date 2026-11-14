@@ -82,12 +82,12 @@ rows='() => [...document.querySelectorAll(".run .state")].map((m) => m.textConte
 pressed='[...document.querySelectorAll(".runfilter [aria-pressed=true]")].map((b) => b.textContent).join("|")'
 chosen="() => $pressed"
 where='() => location.pathname + location.search'
-wait_for "a run that works, one that waits and one that is done" "$rows" '^Working \| Waits for you \| Done$'
+wait_for "a run that works, one that waits and one that is done" "$rows" '^Waits for you \| Working \| Done$'
 
 # ---- 1. every row says its state in a word, first, in the same place
-expect "the first line of each row is its state" "$(js "() => [...document.querySelectorAll('.run')].map((r) => r.firstElementChild.className + ':' + r.firstElementChild.textContent).join(' | ')")" '^state:Working \| state:Waits for you \| state:Done$'
+expect "the first line of each row is its state" "$(js "() => [...document.querySelectorAll('.run')].map((r) => r.firstElementChild.className + ':' + r.firstElementChild.textContent).join(' | ')")" '^state:Waits for you \| state:Working \| state:Done$'
 expect "the state is as far left on one row as on the next" "$(js "() => new Set([...document.querySelectorAll('.run .state')].map((s) => Math.round(s.getBoundingClientRect().left))).size")" '^1$'
-expect "a row does not say its state twice" "$(js "() => [...document.querySelectorAll('.run')].map((r) => r.querySelector('.sentence')?.textContent ?? '').join(' | ')")" '^Review: .* \| Ship it waits for your approval before it runs\. \| $'
+expect "a row does not say its state twice" "$(js "() => [...document.querySelectorAll('.run')].map((r) => r.querySelector('.sentence')?.textContent ?? '').join(' | ')")" '^Ship it waits for your approval before it runs\. \| Review: .* \| $'
 expect "a page says it with the same word and mark" "$(js "() => document.querySelector('.rundetail .state').outerHTML === document.querySelector('.run .state').outerHTML")" '^true$'
 expect "the list says how its rows move, in the Floor's way of writing keys" "$(js "() => document.querySelector('.runlist .keyhint')?.textContent.trim() ?? 'no hint'")" '^↑ ↓ move between runs, Enter opens$'
 expect "the keys are written as keys" "$(js "() => [...document.querySelectorAll('.runlist .keyhint kbd')].map((k) => k.textContent).join(' ')")" '^↑ ↓ Enter$'

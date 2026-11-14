@@ -86,12 +86,13 @@ start_ui 0
 pw open "$address" || fail "the browser did not open"
 pw resize 1440 900
 section Runs
-wait_for "the list shows the three runs, newest first" "$tasks" '^Slow task \| Fix the date format \| Add an export button$'
+wait_for "the list shows the three runs: the one that waits, then the one that works, then the done" "$tasks" '^Add an export button \| Slow task \| Fix the date format$'
 back_to '^Skip to the list$'
 pw press Enter
 pw press Home
 
 # ---- 1. a run that stopped on a gate opens on its failure
+pw press ArrowDown
 pw press ArrowDown
 wait_for "the page follows" "() => document.querySelector('.rundetail h2').textContent" '^Fix the date format$'
 pw press Enter
@@ -115,8 +116,7 @@ expect "nothing on the page or in the list row says failed" "$(js "() => { const
 shot run-person-stopped-light-1440
 
 # ---- 3. a run that waits says once that it needs a person, where the eye lands first
-pw press ArrowDown
-pw press ArrowDown
+pw press ArrowUp
 wait_for "the page follows" "() => document.querySelector('.rundetail h2').textContent" '^Add an export button$'
 shot run-waits-light-1440
 expect "the sentences say once that a person is needed" "$(js "() => (document.querySelector('.rundetail').innerText.match(/needs you|waiting for a decision|waits for your approval|asks:/gi) ?? []).length")" '^1$'
