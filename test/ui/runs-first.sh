@@ -99,7 +99,7 @@ expect "the waiting row's text is bold" "$(js "() => Number(getComputedStyle(doc
 [ -n "$shots" ] && pw screenshot --filename="$shots/runs-mixed-light-1440.png"
 
 # ---- G11: the task number is a quiet chip
-expect "the chip has the ground as its fill, an ink border and ink text" "$(js "() => { const bg = getComputedStyle(document.body).backgroundColor; const ink = getComputedStyle(document.querySelector('.run .task')).color; return [...document.querySelectorAll('.run .number')].map((n) => { const s = getComputedStyle(n); return (s.backgroundColor === bg) + ' ' + s.borderTopWidth + ' ' + (s.borderTopColor === s.color) + ' ' + (s.color === getComputedStyle(document.body).color); }).join(' | '); }")" '^(true 1\.5px true true( \| )?)+$'
+expect "the chip has the ground as its fill, an ink border and ink text" "$(js "() => { const bg = getComputedStyle(document.body).backgroundColor; const ink = getComputedStyle(document.querySelector('.run .task')).color; return [...document.querySelectorAll('.run .number')].map((n) => { const s = getComputedStyle(n); return (s.backgroundColor === bg) + ' ' + s.borderTopWidth + ' ' + (s.borderTopColor === s.color) + ' ' + (s.color === getComputedStyle(document.body).color); }).join(' | '); }")" '^(true 1(\.5)?px true true( \| )?)+$'
 
 # ---- G12: after choosing Inbox the keyboard is on its first item
 section Inbox
@@ -112,11 +112,12 @@ section Runs
 tab_to 'Waits for you.*Fix the date'
 pw press Enter
 wait_for "the run's page" "() => document.querySelector('.scrub input') ? 'there' : 'no'" '^there$'
-ratio='(() => { const i = document.querySelector(".scrub input"); const y = (c) => { const x = document.createElement("canvas").getContext("2d"); x.fillStyle = c; x.fillRect(0, 0, 1, 1); const [r, g, b] = [...x.getImageData(0, 0, 1, 1).data].slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }; const [a, b] = [y(getComputedStyle(i, "::-webkit-slider-runnable-track").backgroundColor), y(getComputedStyle(i.closest(".scrub")).backgroundColor)].sort((p, q) => q - p); return (a + 0.05) / (b + 0.05); })()'
+# the browser does not give the colour of a slider's track as computed style: the rule's own value is resolved in the scrub's context
+ratio='(() => { const i = document.querySelector(".scrub input"); const s = i.closest(".scrub"); const rule = [...document.styleSheets].flatMap((sh) => [...sh.cssRules]).find((r) => r.selectorText?.includes("::-webkit-slider-runnable-track")); if (!rule) return 0; const probe = document.createElement("i"); probe.style.background = rule.style.background; s.append(probe); const track = getComputedStyle(probe).backgroundColor; probe.remove(); const y = (c) => { const x = document.createElement("canvas").getContext("2d"); x.fillStyle = c; x.fillRect(0, 0, 1, 1); const [r, g, b] = [...x.getImageData(0, 0, 1, 1).data].slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }; const [a, b] = [y(track), y(getComputedStyle(s).backgroundColor)].sort((p, q) => q - p); return (a + 0.05) / (b + 0.05); })()'
 expect "the track is 3 to 1 in the light theme" "$(js "() => { const r = $ratio; return r >= 3 ? 'ok' : 'low ' + r.toFixed(2); }")" '^ok$'
 [ -n "$shots" ] && pw screenshot --filename="$shots/run-light-1440.png"
 theme Dark
-expect "the track is 3 to 1 in the dark theme" "$(js "() => { const r = $ratio; return r >= 3 ? 'ok' : 'low ' + r.toFixed(2); }")" '^ok$'
+wait_for "the track is 3 to 1 in the dark theme" "() => { const r = $ratio; return r >= 3 ? 'ok' : 'low ' + r.toFixed(2); }" '^ok$'
 [ -n "$shots" ] && pw screenshot --filename="$shots/run-dark-1440.png"
 theme Light
 

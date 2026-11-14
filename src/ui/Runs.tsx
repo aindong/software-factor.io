@@ -15,12 +15,14 @@ import { Offline } from "./Offline.tsx";
 import { RunView } from "./RunDetail.tsx";
 import { RunFilter } from "./RunFilter.tsx";
 import { go, openIn, usePath, useSearch } from "./route.ts";
+import { inOrder } from "./run-order.ts";
 import { State } from "./State.tsx";
 import { Strip } from "./Strip.tsx";
 import { pageSays } from "./says.ts";
 import { Coded } from "./Words.tsx";
 import { ago, cost, standing, tokens } from "./words.ts";
 import "./runs.css";
+import "./runs-quiet.css";
 
 /** Each workflow the runs name, as far as it can be drawn. Read once for each name. */
 export function useWorkflows(runs: RunRow[] | undefined): Record<string, Workflow | undefined> {
@@ -52,7 +54,14 @@ export function Runs() {
   const rows = useRef(new Map<string, HTMLDivElement>());
   const head = useRef<HTMLHeadingElement>(null);
   const current = runs?.find((r) => r.id === chosen);
-  const list = useMemo(() => shownRuns(runs ?? [], show), [runs, show]);
+  const list = useMemo(() => inOrder(shownRuns(runs ?? [], show)), [runs, show]);
+  // arriving from the rail: the keyboard goes to the selected row once the list is there, so the arrow keys work
+  const arrived = useRef(opened === undefined);
+  useEffect(() => {
+    if (!arrived.current || list.length === 0) return;
+    arrived.current = false;
+    if (!document.activeElement?.closest("main")) rows.current.get(picked ?? list[0]?.id ?? "")?.focus();
+  }, [list, picked]);
   // the run that is shown stays the one shown: a run that starts must not take its place. A run
   // that is only picked follows the filter; one that was entered stays, even if it no longer matches.
   useEffect(() => {

@@ -1,0 +1,60 @@
+/* Runs, round three: only what needs a person is loud. */
+
+/* a run that waits for a person: a 3 px signal bar on the row's left edge, its text already in bold */
+.run[data-mark="asked"] {
+  position: relative;
+}
+.run[data-mark="asked"]::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--signal);
+}
+
+/* the replay slider: a track that shows against its ground (the edge colour on the panel, 3 to 1 or more) */
+.scrub input[type="range"] {
+  appearance: none;
+  background: transparent;
+}
+.scrub input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--edge);
+}
+.scrub input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--edge);
+}
+.scrub input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.scrub input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+/* at phone width the filter stays on one row and scrolls sideways inside its own strip */
+@media (max-width: 760px) {
+  .runfilter {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+    contain: inline-size; /* its width is the bar's, not its buttons': they do not widen the page */
+    flex: 1 1 100%;
+  }
+  .runfilter button {
+    flex: none;
+    white-space: nowrap;
+  }
+}

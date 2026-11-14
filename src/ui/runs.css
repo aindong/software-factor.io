@@ -43,10 +43,11 @@
   display: inline-block;
   min-width: 1.4em;
   margin-right: 2px;
-  padding: 0 4px;
+  padding: 0 3px;
+  border: 1.5px solid var(--ink);
   border-radius: 8px;
-  background: var(--ink);
-  color: var(--ground);
+  background: var(--ground);
+  color: var(--ink);
   font-weight: var(--w-strong);
   text-align: center;
 }
