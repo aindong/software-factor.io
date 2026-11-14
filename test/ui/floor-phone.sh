@@ -83,11 +83,11 @@ expect "every station is at least 44 px square to touch" "$(js "() => { const s 
 shot floor-phone-folded
 expect "the line that says what needs the person is on the top bar, not behind Tools" "$(js "() => { const n = document.querySelector('.topbar .needs'); return n && n.getClientRects().length > 0 && !n.closest('#floor-tools') ? n.textContent : 'not shown'; }")" '^2 wait for you · 1 stopped$'
 reach "with the controls folded" "2 wait for you" "1 stopped"
-# task badges: with the runs that wait shown on the map, each has a hit area of 44 by 44 at phone width
+# task badges: with two runs waiting at one lane, a stack, each has a hit area of 56 by 28 at least at phone width (a single badge keeps 44 by 44, see maps.sh)
 tab_to '^Workflow$'
 pw type "gate"
 wait_for "the workflow with two runs waiting shows two task badges" "() => document.querySelectorAll('g.train').length" '^2$'
-expect "each task badge has a hit area of at least 44 by 44 px" "$(hits 'g.train .hit' 44 44)" '^ok$'
+expect "each stacked task badge has a hit area of at least 56 by 28 px" "$(hits 'g.train .hit' 56 28)" '^ok$'
 unpainted "the Floor at phone width"
 centres_free "the Floor with two task badges at phone width"
 pw type "full"
